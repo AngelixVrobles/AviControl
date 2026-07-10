@@ -1,0 +1,98 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="phone"><rect x="736" y="70" width="360" height="640" rx="44"/></clipPath>
+  </defs>
+
+  <rect width="1200" height="630" fill="#F6F4EE"/>
+  <rect x="0.5" y="0.5" width="1199" height="629" stroke="#E3DFD3"/>
+
+  <!-- marca -->
+  <g transform="translate(84, 96)">
+    <rect width="96" height="96" rx="22" fill="#1D5730"/>
+    <path d="M48 20c-11 0-22 17.5-22 31.5C26 64 35.8 73.5 48 73.5S70 64 70 51.5C70 37.5 59 20 48 20Z" fill="#F6F4EE"/>
+    <path d="M48 28c-1.1 8-5.6 12.4-13.5 14.6C38.2 51 45.3 54.8 52.5 53.2 48.7 44.5 48 35.9 48 28Z" fill="#4FA968"/>
+    <circle cx="56.3" cy="41.2" r="3" fill="#E9A93C"/>
+  </g>
+
+  <text x="84" y="290" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="76" fill="#1B2B22">AviControl</text>
+  <text x="84" y="342" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" fill="#3E4E44">Gestión avícola de bolsillo: engorde y ponedoras,</text>
+  <text x="84" y="378" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" fill="#3E4E44">local-first y sin internet.</text>
+
+  <!-- chips -->
+  <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="600">
+    <rect x="84" y="420" width="118" height="40" rx="20" fill="#EAF4EC"/>
+    <text x="143" y="446" text-anchor="middle" fill="#1D5730">FCA · lb</text>
+    <rect x="214" y="420" width="146" height="40" rx="20" fill="#EAF4EC"/>
+    <text x="287" y="446" text-anchor="middle" fill="#1D5730">% de postura</text>
+    <rect x="372" y="420" width="200" height="40" rx="20" fill="#EAF4EC"/>
+    <text x="472" y="446" text-anchor="middle" fill="#1D5730">Curvas vs. estándar</text>
+    <rect x="84" y="472" width="120" height="40" rx="20" fill="rgba(233,169,60,0.18)"/>
+    <text x="144" y="498" text-anchor="middle" fill="#8A5510">Alertas</text>
+    <rect x="216" y="472" width="216" height="40" rx="20" fill="rgba(233,169,60,0.18)"/>
+    <text x="324" y="498" text-anchor="middle" fill="#8A5510">Proyección de venta</text>
+    <rect x="444" y="472" width="208" height="40" rx="20" fill="#EEEBE2"/>
+    <text x="548" y="498" text-anchor="middle" fill="#3E4E44">Reporte compartible</text>
+  </g>
+
+  <text x="84" y="565" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="19" fill="#5C6A61">React · TypeScript · Dexie (IndexedDB) · PWA offline</text>
+
+  <!-- teléfono -->
+  <rect x="728" y="62" width="376" height="656" rx="52" fill="#1B2B22"/>
+  <g clip-path="url(#phone)">
+    <rect x="736" y="70" width="360" height="640" fill="#F6F4EE"/>
+
+    <text x="768" y="130" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" fill="#5C6A61">Mi granja</text>
+    <text x="768" y="164" font-family="Georgia, serif" font-weight="700" font-size="30" fill="#1B2B22">AviControl</text>
+    <g transform="translate(1022, 128) scale(0.44)">
+      <rect width="96" height="96" rx="22" fill="#1D5730"/>
+      <path d="M48 20c-11 0-22 17.5-22 31.5C26 64 35.8 73.5 48 73.5S70 64 70 51.5C70 37.5 59 20 48 20Z" fill="#F6F4EE"/>
+      <path d="M48 28c-1.1 8-5.6 12.4-13.5 14.6C38.2 51 45.3 54.8 52.5 53.2 48.7 44.5 48 35.9 48 28Z" fill="#4FA968"/>
+      <circle cx="56.3" cy="41.2" r="3" fill="#E9A93C"/>
+    </g>
+
+    <!-- hero card -->
+    <rect x="768" y="192" width="296" height="150" rx="20" fill="#1D5730"/>
+    <text x="792" y="230" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#CDE6D3">Ganancia neta · todos los lotes</text>
+    <text x="792" y="278" font-family="Georgia, serif" font-weight="700" font-size="40" fill="#FCFBF7">RD$63,800</text>
+    <line x1="792" y1="300" x2="1040" y2="300" stroke="#FCFBF7" stroke-opacity="0.15"/>
+    <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+      <text x="792" y="326" font-size="16" font-weight="700" fill="#FCFBF7">2</text>
+      <text x="812" y="326" font-size="12" fill="#CDE6D3">lotes</text>
+      <text x="872" y="326" font-size="16" font-weight="700" fill="#FCFBF7">783</text>
+      <text x="906" y="326" font-size="12" fill="#CDE6D3">aves</text>
+      <text x="962" y="326" font-size="16" font-weight="700" fill="#FCFBF7">23.5%</text>
+      <text x="1012" y="326" font-size="12" fill="#CDE6D3">margen</text>
+    </g>
+
+    <!-- alerta -->
+    <rect x="768" y="360" width="296" height="44" rx="14" fill="rgba(233,169,60,0.12)" stroke="rgba(217,142,34,0.3)"/>
+    <path d="M789 388.5 796 376l7 12.5Z" stroke="#8A5510" stroke-width="1.7" stroke-linejoin="round" fill="none"/>
+    <text x="806" y="387" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#8A5510">Día 14: vacuna Gumboro</text>
+
+    <!-- kpis -->
+    <g font-family="Georgia, serif" font-weight="700" font-size="24" fill="#1B2B22">
+      <rect x="768" y="424" width="142" height="82" rx="16" fill="#FCFBF7" stroke="#E3DFD3"/>
+      <text x="790" y="462">3.50 lb</text>
+      <rect x="922" y="424" width="142" height="82" rx="16" fill="#FCFBF7" stroke="#E3DFD3"/>
+      <text x="944" y="462">1.72</text>
+      <rect x="768" y="518" width="142" height="82" rx="16" fill="#FCFBF7" stroke="#E3DFD3"/>
+      <text x="790" y="556">86%</text>
+      <rect x="922" y="518" width="142" height="82" rx="16" fill="#FCFBF7" stroke="#E3DFD3"/>
+      <text x="944" y="556" fill="#256F3D">RD$65</text>
+    </g>
+    <g font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#5C6A61">
+      <text x="790" y="486">Peso promedio</text>
+      <text x="944" y="486">Conv. alimenticia</text>
+      <text x="790" y="580">Postura</text>
+      <text x="944" y="580">Costo / lb</text>
+    </g>
+
+    <!-- curva -->
+    <rect x="768" y="614" width="296" height="96" rx="16" fill="#FCFBF7" stroke="#E3DFD3"/>
+    <path d="M790 690 C 850 686, 900 660, 1040 636" stroke="#5C6A61" stroke-width="1.6" stroke-dasharray="5 4" fill="none"/>
+    <path d="M790 692 C 855 688, 910 664, 1040 630" stroke="#2F8A4C" stroke-width="2.6" fill="none"/>
+    <circle cx="871" cy="681" r="3.4" fill="#2F8A4C"/>
+    <circle cx="953" cy="658" r="3.4" fill="#2F8A4C"/>
+    <circle cx="1040" cy="630" r="3.4" fill="#2F8A4C"/>
+  </g>
+</svg>
