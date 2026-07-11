@@ -50,6 +50,18 @@
     font-size: 16px;
   }
 
+  /* iOS: el input de fecha trae ancho intrínseco y desborda las columnas del grid */
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    height: 3.125rem;
+  }
+
+  input[type='date']::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
   ::selection {
     background: theme('colors.forest.100');
   }
