@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { db, type TipoLote } from '../db/schema'
-import { Button, Field, Input } from '../components/ui'
-import { IconBack, IconEgg, IconScale } from '../components/icons'
+import { db, type Raza, type Socio, type TipoLote } from '../db/schema'
+import { Button, Field, Input, Select } from '../components/ui'
+import { IconBack, IconClose, IconEgg, IconScale } from '../components/icons'
 import { hoyISO } from '../lib/format'
 import { useSettings } from '../lib/hooks'
-import { EDAD_INICIAL_DEFAULT } from '../lib/standards'
+import { RAZAS } from '../lib/labels'
+import { EDAD_INICIAL_DEFAULT, RAZA_DEFAULT } from '../lib/standards'
 
 export function NuevoLote() {
   const nav = useNavigate()
@@ -16,11 +17,24 @@ export function NuevoLote() {
   const [fechaInicio, setFechaInicio] = useState(hoyISO())
   const [cantidad, setCantidad] = useState('')
   const [costoAve, setCostoAve] = useState('')
+  const [raza, setRaza] = useState<Raza>(RAZA_DEFAULT)
+  const [precioLb, setPrecioLb] = useState('')
   const [edadSemanas, setEdadSemanas] = useState(String(EDAD_INICIAL_DEFAULT))
+  const [enSociedad, setEnSociedad] = useState(false)
+  const [socios, setSocios] = useState<Socio[]>([
+    { nombre: 'Yo', pct: 50 },
+    { nombre: 'Socio', pct: 50 },
+  ])
+  const [pagoAves, setPagoAves] = useState('')
   const [notas, setNotas] = useState('')
 
   const cantidadNum = Number(cantidad) || 0
   const valido = cantidadNum > 0 && fechaInicio
+  const sumaPct = socios.reduce((a, s) => a + (Number(s.pct) || 0), 0)
+
+  function setSocio(i: number, patch: Partial<Socio>) {
+    setSocios((prev) => prev.map((s, j) => (j === i ? { ...s, ...patch } : s)))
+  }
 
   async function crear() {
     const costoInicial = (Number(costoAve) || 0) * cantidadNum
@@ -31,7 +45,11 @@ export function NuevoLote() {
       cantidadInicial: cantidadNum,
       costoInicial,
       estado: 'activo',
+      raza: tipo === 'engorde' ? raza : undefined,
+      precioVentaLb: tipo === 'engorde' && Number(precioLb) > 0 ? Number(precioLb) : undefined,
       edadInicialSemanas: tipo === 'ponedora' ? Number(edadSemanas) || EDAD_INICIAL_DEFAULT : undefined,
+      socios: enSociedad ? socios.filter((s) => s.nombre.trim()) : undefined,
+      costoInicialPagadoPor: enSociedad && pagoAves !== '' ? Number(pagoAves) : undefined,
       notas: notas.trim() || undefined,
       creado: Date.now(),
     })
@@ -71,6 +89,25 @@ export function NuevoLote() {
       </div>
 
       <div className="mt-6 space-y-5">
+        {tipo === 'engorde' && (
+          <Field label="Raza" hint="Define las curvas de peso y consumo de referencia.">
+            <div className="flex gap-1 rounded-full bg-paper-sunken p-1">
+              {RAZAS.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setRaza(r.id)}
+                  className={clsx(
+                    'flex-1 rounded-full py-2.5 text-sm font-semibold transition',
+                    raza === r.id ? 'bg-paper-raised text-ink shadow-card' : 'text-ink-faint',
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
+
         <Field label="Nombre del lote" hint="Opcional. Si lo dejas vacío se genera solo.">
           <Input
             value={nombre}
@@ -108,18 +145,117 @@ export function NuevoLote() {
           </Field>
         )}
 
-        <Field label="Costo por ave" hint={`En ${settings.moneda}. El costo total se calcula solo.`}>
-          <Input
-            type="number"
-            inputMode="decimal"
-            value={costoAve}
-            onChange={(e) => setCostoAve(e.target.value)}
-            placeholder="0"
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Costo por ave" hint={`En ${settings.moneda}.`}>
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={costoAve}
+              onChange={(e) => setCostoAve(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
+          {tipo === 'engorde' && (
+            <Field label="Precio venta / lb" hint="Opcional, para proyectar.">
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={precioLb}
+                onChange={(e) => setPrecioLb(e.target.value)}
+                placeholder="0"
+              />
+            </Field>
+          )}
+        </div>
+
+        <div className="rounded-xl2 border border-line bg-paper-raised p-4">
+          <button
+            onClick={() => setEnSociedad((v) => !v)}
+            className="flex w-full items-center justify-between"
+          >
+            <div className="text-left">
+              <div className="font-display text-base font-semibold">Llevar en sociedad</div>
+              <div className="text-xs text-ink-faint">Reparte gastos y ganancias entre socios.</div>
+            </div>
+            <span
+              className={clsx(
+                'relative h-6 w-10 rounded-full transition',
+                enSociedad ? 'bg-forest-500' : 'bg-line',
+              )}
+            >
+              <span
+                className={clsx(
+                  'absolute top-0.5 h-5 w-5 rounded-full bg-paper-raised shadow-card transition-all',
+                  enSociedad ? 'left-[18px]' : 'left-0.5',
+                )}
+              />
+            </span>
+          </button>
+
+          {enSociedad && (
+            <div className="mt-4 space-y-3">
+              {socios.map((s, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    value={s.nombre}
+                    onChange={(e) => setSocio(i, { nombre: e.target.value })}
+                    placeholder="Nombre"
+                    className="flex-1"
+                  />
+                  <div className="relative w-24">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={String(s.pct)}
+                      onChange={(e) => setSocio(i, { pct: Number(e.target.value) || 0 })}
+                      className="pr-7 text-center"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
+                      %
+                    </span>
+                  </div>
+                  {socios.length > 2 && (
+                    <button
+                      onClick={() => setSocios((p) => p.filter((_, j) => j !== i))}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-faint active:bg-paper-sunken"
+                      aria-label="Quitar socio"
+                    >
+                      <IconClose width={18} height={18} />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setSocios((p) => [...p, { nombre: '', pct: 0 }])}
+                  className="text-sm font-medium text-forest-600"
+                >
+                  + Agregar socio
+                </button>
+                <span className={clsx('text-xs tnum', sumaPct === 100 ? 'text-ink-faint' : 'text-clay-deep')}>
+                  Suma {sumaPct}%
+                </span>
+              </div>
+
+              {Number(costoAve) > 0 && (
+                <Field label="¿Quién pagó las aves?">
+                  <Select value={pagoAves} onChange={(e) => setPagoAves(e.target.value)}>
+                    <option value="">Común (según %)</option>
+                    {socios.map((s, i) => (
+                      <option key={i} value={i}>
+                        {s.nombre || `Socio ${i + 1}`}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+            </div>
+          )}
+        </div>
 
         <Field label="Notas">
-          <Input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Raza, proveedor, galpón…" />
+          <Input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Proveedor, galpón…" />
         </Field>
       </div>
 
