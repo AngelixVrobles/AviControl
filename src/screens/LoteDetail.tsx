@@ -6,11 +6,15 @@ import { db, type Gasto, type Ingreso, type Lote, type Registro } from '../db/sc
 import { useLoteData, useSettings } from '../lib/hooks'
 import { agruparGastos, resumenSemanal, type LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
+import { computeGuiaDia } from '../lib/guia'
+import { computePlanAlimento } from '../lib/plan'
+import { computeLiquidacion } from '../lib/sociedad'
 import { compartirReporte } from '../lib/reporte'
 import { diasEntre, fecha, hoyISO, money, num, pct } from '../lib/format'
-import { categoriaLabel, tipoIngresoLabel } from '../lib/labels'
+import { categoriaLabel, razaLabel, tipoIngresoLabel } from '../lib/labels'
 import { EDAD_INICIAL_DEFAULT, pesoEstandarLb, posturaEstandarPct } from '../lib/standards'
 import { reduceMotion } from '../lib/motion'
+import type { Settings } from '../lib/settings'
 import { AlertaChip } from '../components/AlertaChip'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { Button, Card, Pill } from '../components/ui'
@@ -106,6 +110,7 @@ export function LoteDetail() {
           <div className="mt-1 flex items-center gap-2">
             <Pill tone={engorde ? 'engorde' : 'ponedora'}>{engorde ? 'Engorde' : 'Ponedora'}</Pill>
             <span className="text-xs text-ink-faint tnum">Día {metrics.dias}</span>
+            {engorde && <span className="text-xs text-ink-faint">{razaLabel(lote.raza)}</span>}
             {lote.estado === 'cerrado' && <Pill tone="neutral">Cerrado</Pill>}
           </div>
         </div>
@@ -175,6 +180,8 @@ export function LoteDetail() {
         />
       </div>
 
+      <GuiaDelDia lote={lote} metrics={metrics} />
+
       <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Indicadores</h2>
       <div className="grid grid-cols-2 gap-3">
         {kpis.map((k) => (
@@ -185,7 +192,13 @@ export function LoteDetail() {
         ))}
       </div>
 
-      {engorde && <ProyeccionVenta lote={lote} registros={registros} metrics={metrics} />}
+      <Sociedad lote={lote} gastos={gastos} ingresos={ingresos} metrics={metrics} settings={settings} />
+
+      {engorde && (
+        <ProyeccionVenta lote={lote} registros={registros} gastos={gastos} metrics={metrics} />
+      )}
+
+      <PlanAlimento lote={lote} metrics={metrics} />
 
       <CurvaEstandar lote={lote} registros={registros} ingresos={ingresos} />
 
@@ -358,17 +371,19 @@ function movimientos(gastos: Gasto[], ingresos: Ingreso[], limite: number): Movi
 function ProyeccionVenta({
   lote,
   registros,
+  gastos,
   metrics,
 }: {
   lote: Lote
   registros: Registro[]
+  gastos: Gasto[]
   metrics: LoteMetrics
 }) {
   const [objetivo, setObjetivo] = useState(String(lote.pesoObjetivoLb ?? 5.5))
   if (lote.estado !== 'activo' || !registros.some((r) => r.pesoPromedio != null)) return null
 
   const target = Number(objetivo) || 0
-  const p = target > 0 ? proyectarVenta(lote, registros, metrics, target) : null
+  const p = target > 0 ? proyectarVenta(lote, registros, gastos, metrics, target) : null
 
   return (
     <>
@@ -393,39 +408,262 @@ function ProyeccionVenta({
             ? `Con el ritmo actual el lote no alcanza ${num(target, 1)} lb antes del día 90. Revisa el alimento o ajusta el objetivo.`
             : 'Ingresa un peso objetivo para ver la proyección.'}
         </Card>
-      ) : p.listo ? (
-        <Card className="border-forest-400/40 bg-forest-50 p-4">
-          <div className="font-display text-lg font-semibold text-forest-700">
-            El lote ya está en peso de venta
-          </div>
-          <div className="mt-1 text-sm text-forest-600 tnum">
-            ~{num(p.lbEnPie)} lb en pie listas para vender
-          </div>
-        </Card>
       ) : (
         <Card className="divide-y divide-line">
-          <FilaProyeccion
-            label="Fecha estimada"
-            value={
-              p.diasRestantes > 0
-                ? `${fecha(p.fechaEstimada)} · en ${p.diasRestantes} días`
-                : 'Ya debería estar en peso; pésalo'
-            }
-          />
-          <FilaProyeccion label="Alimento restante aprox." value={`${num(p.alimentoRestanteLb)} lb`} />
+          {p.listo ? (
+            <FilaProyeccion label="Estado" value="Ya está en peso de venta" valueClass="text-forest-600" />
+          ) : (
+            <FilaProyeccion
+              label="Fecha estimada"
+              value={
+                p.diasRestantes > 0
+                  ? `${fecha(p.fechaEstimada)} · en ${p.diasRestantes} días`
+                  : 'Ya debería estar en peso'
+              }
+            />
+          )}
+          {!p.listo && (
+            <FilaProyeccion
+              label="Alimento restante aprox."
+              value={`${num(p.alimentoRestanteQuintales, 1)} qq · ${num(p.alimentoRestanteLb)} lb`}
+            />
+          )}
           <FilaProyeccion label="Peso total a vender" value={`~${num(p.lbEnPie)} lb en pie`} />
+          <FilaProyeccion label="Costo proyectado al cierre" value={money(p.costoProyectado)} />
+          {p.ingresoProyectado != null ? (
+            <>
+              <FilaProyeccion label="Ingreso proyectado" value={money(p.ingresoProyectado)} />
+              <FilaProyeccion
+                label="Ganancia proyectada"
+                value={`${money(p.gananciaProyectada!)} · ${pct(p.margenProyectadoPct ?? 0)}`}
+                valueClass={p.gananciaProyectada! >= 0 ? 'text-forest-600' : 'text-clay-deep'}
+              />
+            </>
+          ) : (
+            <div className="px-4 py-3 text-xs text-ink-faint">
+              Agrega el precio de venta por libra para proyectar el ingreso y la ganancia.
+            </div>
+          )}
+          <FilaProyeccion
+            label="Precio de equilibrio"
+            value={`${money(p.precioEquilibrioLb)} / lb`}
+          />
         </Card>
       )}
     </>
   )
 }
 
-function FilaProyeccion({ label, value }: { label: string; value: string }) {
+function FilaProyeccion({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string
+  value: string
+  valueClass?: string
+}) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 text-sm">
+    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
       <span className="text-ink-faint">{label}</span>
-      <span className="font-display font-semibold tnum">{value}</span>
+      <span className={'text-right font-display font-semibold tnum ' + (valueClass ?? '')}>{value}</span>
     </div>
+  )
+}
+
+function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
+  const g = computeGuiaDia(lote, metrics)
+  if (!g) return null
+  const desv = g.desviacionPct
+  const stats = [
+    { label: 'Alimento hoy', value: `${num(g.alimentoDiaLb)} lb` },
+    { label: 'Alimento acum.', value: `${num(g.alimentoAcumLb)} lb` },
+    { label: 'FCA esperado', value: num(g.fcaEsperado, 2) },
+    { label: 'Temperatura', value: `${g.tempC} °C` },
+    { label: 'Agua hoy', value: `~${num(g.aguaLitrosDia)} L` },
+    { label: 'Mort. esperada', value: pct(g.mortalidadEsperadaPct, 1) },
+  ]
+  return (
+    <>
+      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Guía del día {g.dia}</h2>
+      <Card className="p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <div className="text-xs text-ink-faint">Peso ideal hoy</div>
+            <div className="font-display text-[26px] font-semibold tnum leading-none">
+              {num(g.pesoObjetivoLb, 2)} lb
+            </div>
+          </div>
+          {desv != null && g.pesoRealLb != null && (
+            <div className="text-right">
+              <div className="text-xs text-ink-faint">Tu lote</div>
+              <div
+                className={
+                  'font-display text-lg font-semibold tnum leading-none ' +
+                  (desv >= -3 ? 'text-forest-600' : 'text-clay-deep')
+                }
+              >
+                {num(g.pesoRealLb, 2)} lb
+              </div>
+              <div className={'text-xs tnum ' + (desv >= -3 ? 'text-forest-600' : 'text-clay-deep')}>
+                {desv >= 0 ? '+' : ''}
+                {pct(desv, 0)}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3 border-t border-line pt-4">
+          {stats.map((s) => (
+            <div key={s.label}>
+              <div className="font-display text-[15px] font-semibold tnum leading-none">{s.value}</div>
+              <div className="mt-1 text-[11px] text-ink-faint">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </>
+  )
+}
+
+function PlanAlimento({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
+  const plan = computePlanAlimento(lote, metrics)
+  if (!plan || plan.fases.length === 0) return null
+  return (
+    <>
+      <div className="mb-3 mt-7 flex items-center justify-between">
+        <h2 className="font-display text-lg font-semibold">Plan de alimento</h2>
+        <span className="text-xs text-ink-faint tnum">{num(plan.totalQuintales, 1)} qq total</span>
+      </div>
+      <Card className="divide-y divide-line">
+        {plan.fases.map((f) => (
+          <div
+            key={f.nombre}
+            className={'flex items-center justify-between px-4 py-3 ' + (f.activa ? 'bg-forest-50' : '')}
+          >
+            <div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {f.nombre}
+                {f.activa && (
+                  <span className="rounded-full bg-forest-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-forest-700">
+                    En curso
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-ink-faint tnum">
+                Días {f.desde}–{f.hasta}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-display font-semibold tnum">{num(f.quintales, 1)} qq</div>
+              <div className="text-xs text-ink-faint tnum">{num(f.lb)} lb</div>
+            </div>
+          </div>
+        ))}
+        <div className="flex items-center justify-between px-4 py-3 text-sm">
+          <span className="text-ink-faint">Llevas consumido</span>
+          <span className="tnum">
+            <span className="font-display font-semibold">{num(plan.consumidoQuintales, 1)} qq</span>
+            <span className="text-ink-faint"> / {num(plan.esperadoHoyLb / 100, 1)} qq esperados</span>
+          </span>
+        </div>
+      </Card>
+      {plan.proximoCambio && (
+        <p className="mt-2 text-xs text-ink-faint">
+          Cambia a <span className="font-medium text-ink-soft">{plan.proximoCambio.nombre}</span> en{' '}
+          {plan.proximoCambio.enDias} días.
+        </p>
+      )}
+    </>
+  )
+}
+
+function Sociedad({
+  lote,
+  gastos,
+  ingresos,
+  metrics,
+  settings,
+}: {
+  lote: Lote
+  gastos: Gasto[]
+  ingresos: Ingreso[]
+  metrics: LoteMetrics
+  settings: Settings
+}) {
+  const liq = computeLiquidacion(lote, gastos, ingresos, metrics)
+  if (!liq) return null
+  const hayGanancia = metrics.ingresos > 0
+
+  function compartir() {
+    const L = [`${settings.granja} — Liquidación`, lote.nombre, '']
+    for (const s of liq!.socios) {
+      L.push(`${s.nombre} (${pct(s.pct, 0)})`)
+      L.push(`  Aportó: ${money(s.aporte)}`)
+      if (hayGanancia) L.push(`  Le corresponde: ${money(s.corresponde)}`)
+    }
+    L.push('', `Ganancia total: ${money(liq!.ganancia)}`)
+    for (const t of liq!.traspasos) L.push(`${t.de} le paga ${money(t.monto)} a ${t.a}`)
+    const text = L.join('\n')
+    if (navigator.share) navigator.share({ title: `Liquidación ${lote.nombre}`, text }).catch(() => {})
+    else {
+      navigator.clipboard?.writeText(text)
+      alert('Liquidación copiada.')
+    }
+  }
+
+  return (
+    <>
+      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Sociedad</h2>
+      <Card className="divide-y divide-line">
+        {liq.socios.map((s, i) => (
+          <div key={i} className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">{s.nombre}</span>
+              <Pill tone="neutral">{pct(s.pct, 0)}</Pill>
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-sm">
+              <span className="text-ink-faint">Aportó</span>
+              <span className="font-display font-semibold tnum">{money(s.aporte)}</span>
+            </div>
+            {hayGanancia && (
+              <div className="mt-0.5 flex items-center justify-between text-sm">
+                <span className="text-ink-faint">Le corresponde</span>
+                <span
+                  className={
+                    'font-display font-semibold tnum ' +
+                    (s.corresponde >= 0 ? 'text-forest-600' : 'text-clay-deep')
+                  }
+                >
+                  {money(s.corresponde)}
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </Card>
+      {liq.traspasos.length > 0 && (
+        <>
+          <div className="mb-2 mt-3 text-xs font-medium text-ink-faint">
+            {lote.estado === 'cerrado' ? 'Liquidación final' : 'Para igualar aportes'}
+          </div>
+          <div className="space-y-1.5">
+            {liq.traspasos.map((t, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-forest-400/30 bg-forest-50 px-3.5 py-2.5 text-[13px] font-medium text-forest-700"
+              >
+                <span className="font-semibold">{t.de}</span> le paga{' '}
+                <span className="font-semibold tnum">{money(t.monto)}</span> a{' '}
+                <span className="font-semibold">{t.a}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <Button block variant="soft" className="mt-3" onClick={compartir}>
+        Compartir liquidación
+      </Button>
+    </>
   )
 }
 
@@ -495,8 +733,8 @@ function CurvaEstandar({
     for (let d = 0; d <= maxDia; d += 7) dias.add(d)
     puntos = [...dias]
       .sort((a, b) => a - b)
-      .map((d) => ({ x: d, real: reales.get(d), std: Number(pesoEstandarLb(d).toFixed(2)) }))
-    titulo = 'Curva de peso vs. estándar Ross 308 (lb)'
+      .map((d) => ({ x: d, real: reales.get(d), std: Number(pesoEstandarLb(d, lote.raza).toFixed(2)) }))
+    titulo = `Curva de peso vs. ${razaLabel(lote.raza)} (lb)`
     unidadX = 'día'
   } else {
     const conHuevos = registros.filter((r) => (r.huevos ?? 0) > 0)
