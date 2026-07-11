@@ -24,13 +24,16 @@ Sin cuentas, sin servidor, sin internet: los datos se guardan en el dispositivo 
 
 ## Funcionalidades
 
-- **Lotes de engorde y ponedoras** con su ciclo completo: crear, registrar, vender, cerrar y comparar.
+- **Lotes de engorde y ponedoras** con su ciclo completo: crear, registrar, vender, cerrar y comparar. Razas **Ross 308** y **Cobb 500** con sus tablas de referencia.
 - **Registro diario en segundos**: mortalidad, descarte, alimento (lb), peso promedio o huevos recogidos.
+- **Guía del día** (engorde): peso ideal para la edad actual vs. el real, alimento del día y acumulado, FCA esperado, agua, temperatura de galpón y mortalidad esperada.
+- **Plan de alimento por etapas** en quintales: cuántos sacos necesita cada fase (pre-iniciador, iniciador, finalizador), lo consumido vs. lo esperado y el día de cambio de alimento.
 - **Indicadores calculados solos**: FCA, costo/lb, costo/ave, % de postura, costo/huevo, margen y ganancia por lote.
-- **Curvas contra el estándar de la raza**: peso vs. Ross 308 (engorde) y % de postura vs. ponedora comercial, alineada a la edad de entrada de las gallinas.
+- **Curvas contra el estándar de la raza**: peso vs. Ross 308 / Cobb 500 (engorde) y % de postura vs. ponedora comercial.
+- **Proyección de venta financiera**: fecha estimada al peso objetivo, alimento restante en quintales, costo e ingreso proyectados, ganancia esperada y **precio de equilibrio** por libra.
+- **Sociedad**: reparte gastos y ganancias entre socios con % configurables, lleva cuánto ha aportado cada uno y calcula la **liquidación** (quién le debe a quién), compartible.
 - **Alertas**: días sin registrar, mortalidad alta, FCA desviado, postura baja y días de vacuna del plan típico de engorde.
-- **Proyección de venta**: fecha estimada para llegar al peso objetivo, alimento restante y libras totales en pie, escalando la curva estándar al rendimiento real del lote.
-- **Comparación entre camadas**: tabla de lotes con el mejor valor de cada indicador resaltado — ¿cuál camada dejó mejor margen y por qué?
+- **Comparación entre camadas**: tabla de lotes con el mejor valor de cada indicador resaltado.
 - **Reporte compartible**: genera una imagen del lote (finanzas + indicadores) lista para enviar por WhatsApp.
 - **Ventas parciales y de descarte**, movimientos y registros editables, resumen semanal por lote.
 - **Respaldo**: exportar/importar todos los datos en `.json`, con migración automática de respaldos antiguos.
