@@ -1,4 +1,11 @@
-import type { CategoriaGasto, TipoIngreso, TipoLote } from '../db/schema'
+import type { CategoriaGasto, Raza, TipoIngreso, TipoLote } from '../db/schema'
+
+export const RAZAS: { id: Raza; label: string }[] = [
+  { id: 'ross308', label: 'Ross 308' },
+  { id: 'cobb500', label: 'Cobb 500' },
+]
+
+export const razaLabel = (r?: Raza) => RAZAS.find((x) => x.id === r)?.label ?? 'Ross 308'
 
 export const CATEGORIAS: { id: CategoriaGasto; label: string }[] = [
   { id: 'alimento', label: 'Alimento' },
