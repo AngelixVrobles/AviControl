@@ -141,6 +141,7 @@ export function GastoSheet({
   const [monto, setMonto] = useState('')
   const [fecha, setFecha] = useState(hoyISO())
   const [descripcion, setDescripcion] = useState('')
+  const [pagadoPor, setPagadoPor] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -148,6 +149,7 @@ export function GastoSheet({
     setMonto(editar ? String(editar.monto) : '')
     setFecha(editar?.fecha ?? hoyISO())
     setDescripcion(editar?.descripcion ?? '')
+    setPagadoPor(editar?.pagadoPor != null ? String(editar.pagadoPor) : '')
   }, [open, editar])
 
   async function guardar() {
@@ -157,6 +159,7 @@ export function GastoSheet({
       monto: Number(monto) || 0,
       fecha,
       descripcion: descripcion.trim() || undefined,
+      pagadoPor: pagadoPor !== '' ? Number(pagadoPor) : undefined,
     }
     if (editar) await db.gastos.update(editar.id, datos)
     else await db.gastos.add({ ...datos, creado: Date.now() })
@@ -202,6 +205,18 @@ export function GastoSheet({
             placeholder="Opcional"
           />
         </Field>
+        {lote.socios && lote.socios.length >= 2 && (
+          <Field label="¿Quién pagó?">
+            <Select value={pagadoPor} onChange={(e) => setPagadoPor(e.target.value)}>
+              <option value="">Común (según %)</option>
+              {lote.socios.map((s, i) => (
+                <option key={i} value={i}>
+                  {s.nombre || `Socio ${i + 1}`}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Button block disabled={!(Number(monto) > 0)} onClick={guardar}>
           {editar ? 'Guardar cambios' : 'Guardar gasto'}
         </Button>
@@ -228,6 +243,7 @@ export function IngresoSheet({
   const [pesoLb, setPesoLb] = useState('')
   const [monto, setMonto] = useState('')
   const [fecha, setFecha] = useState(hoyISO())
+  const [recibidoPor, setRecibidoPor] = useState('')
 
   const tipo = engorde ? 'aves' : tipoVenta
 
@@ -238,6 +254,7 @@ export function IngresoSheet({
     setPesoLb(editar?.pesoLb != null ? String(editar.pesoLb) : '')
     setMonto(editar ? String(editar.monto) : '')
     setFecha(editar?.fecha ?? hoyISO())
+    setRecibidoPor(editar?.recibidoPor != null ? String(editar.recibidoPor) : '')
   }, [open, editar])
 
   async function guardar() {
@@ -248,6 +265,7 @@ export function IngresoSheet({
       pesoLb: engorde && pesoLb ? Number(pesoLb) : undefined,
       monto: Number(monto) || 0,
       fecha,
+      recibidoPor: recibidoPor !== '' ? Number(recibidoPor) : undefined,
     }
     if (editar) await db.ingresos.update(editar.id, datos)
     else await db.ingresos.add({ ...datos, creado: Date.now() })
@@ -317,6 +335,18 @@ export function IngresoSheet({
             <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
           </Field>
         </div>
+        {lote.socios && lote.socios.length >= 2 && (
+          <Field label="¿Quién recibió el dinero?">
+            <Select value={recibidoPor} onChange={(e) => setRecibidoPor(e.target.value)}>
+              <option value="">Común (según %)</option>
+              {lote.socios.map((s, i) => (
+                <option key={i} value={i}>
+                  {s.nombre || `Socio ${i + 1}`}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Button block disabled={!(Number(monto) > 0)} onClick={guardar}>
           {editar ? 'Guardar cambios' : 'Guardar venta'}
         </Button>
