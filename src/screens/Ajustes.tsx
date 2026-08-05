@@ -1,8 +1,9 @@
 import { useRef } from 'react'
-import { db, type Gasto, type Ingreso, type Lote, type Registro } from '../db/schema'
+import { db, type Gasto, type Ingreso, type Lote, type Pesaje, type Registro } from '../db/schema'
 import { saveSettings, type Settings } from '../lib/settings'
 import { useSettings } from '../lib/hooks'
 import { Button, Card, DangerButton, Field, Input } from '../components/ui'
+import { confirmar } from '../components/confirm'
 
 const KG_A_LB = 2.20462
 
@@ -13,6 +14,7 @@ interface Respaldo {
   registros?: Registro[]
   gastos?: Gasto[]
   ingresos?: Ingreso[]
+  pesajes?: Pesaje[]
 }
 
 // Los respaldos anteriores a la migración a libras traen alimentoKg/pesoKg.
@@ -40,14 +42,15 @@ export function Ajustes() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function exportar() {
-    const [lotes, registros, gastos, ingresos] = await Promise.all([
+    const [lotes, registros, gastos, ingresos, pesajes] = await Promise.all([
       db.lotes.toArray(),
       db.registros.toArray(),
       db.gastos.toArray(),
       db.ingresos.toArray(),
+      db.pesajes.toArray(),
     ])
     const blob = new Blob(
-      [JSON.stringify({ version: 1, settings: s, lotes, registros, gastos, ingresos }, null, 2)],
+      [JSON.stringify({ version: 2, settings: s, lotes, registros, gastos, ingresos, pesajes }, null, 2)],
       { type: 'application/json' },
     )
     const url = URL.createObjectURL(blob)
@@ -71,15 +74,22 @@ export function Ajustes() {
       alert('El archivo no tiene el formato de un respaldo de AviControl.')
       return
     }
-    if (!confirm('Esto reemplazará todos los datos actuales por los del respaldo. ¿Continuar?')) return
+    if (!(await confirmar({ titulo: 'Restaurar respaldo', mensaje: 'Esto reemplazará todos los datos actuales por los del respaldo.', confirmar: 'Restaurar' }))) return
     migrarUnidades(data)
     try {
-      await db.transaction('rw', db.lotes, db.registros, db.gastos, db.ingresos, async () => {
-        await Promise.all([db.lotes.clear(), db.registros.clear(), db.gastos.clear(), db.ingresos.clear()])
+      await db.transaction('rw', db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, async () => {
+        await Promise.all([
+          db.lotes.clear(),
+          db.registros.clear(),
+          db.gastos.clear(),
+          db.ingresos.clear(),
+          db.pesajes.clear(),
+        ])
         await db.lotes.bulkAdd(data.lotes!)
         await db.registros.bulkAdd(data.registros!)
         await db.gastos.bulkAdd(data.gastos!)
         await db.ingresos.bulkAdd(data.ingresos!)
+        await db.pesajes.bulkAdd(data.pesajes ?? [])
       })
     } catch {
       alert('No se pudo restaurar el respaldo. Tus datos actuales no cambiaron.')
@@ -90,9 +100,15 @@ export function Ajustes() {
   }
 
   async function borrarTodo() {
-    if (!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) return
-    await db.transaction('rw', db.lotes, db.registros, db.gastos, db.ingresos, async () => {
-      await Promise.all([db.lotes.clear(), db.registros.clear(), db.gastos.clear(), db.ingresos.clear()])
+    if (!(await confirmar({ titulo: 'Borrar todos los datos', mensaje: 'Se borrarán todos tus ciclos y registros. Esta acción no se puede deshacer.', confirmar: 'Borrar todo', peligro: true }))) return
+    await db.transaction('rw', db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, async () => {
+      await Promise.all([
+        db.lotes.clear(),
+        db.registros.clear(),
+        db.gastos.clear(),
+        db.ingresos.clear(),
+        db.pesajes.clear(),
+      ])
     })
     alert('Datos borrados.')
   }
@@ -109,6 +125,26 @@ export function Ajustes() {
         <Field label="Moneda" hint="Símbolo que verás en los montos (ej. RD$, $, Q, S/).">
           <Input defaultValue={s.moneda} onBlur={(e) => saveSettings({ moneda: e.target.value.trim() || 'RD$' })} />
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Largo del galpón" hint="En metros.">
+            <Input
+              type="number"
+              inputMode="decimal"
+              defaultValue={s.galponLargoM ?? ''}
+              onBlur={(e) => saveSettings({ galponLargoM: Number(e.target.value) || undefined })}
+              placeholder="0"
+            />
+          </Field>
+          <Field label="Ancho del galpón" hint="Para calcular el equipo.">
+            <Input
+              type="number"
+              inputMode="decimal"
+              defaultValue={s.galponAnchoM ?? ''}
+              onBlur={(e) => saveSettings({ galponAnchoM: Number(e.target.value) || undefined })}
+              placeholder="0"
+            />
+          </Field>
+        </div>
       </Card>
 
       <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Datos</h2>

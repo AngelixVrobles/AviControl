@@ -3,6 +3,8 @@ const KEY = 'avicontrol.settings'
 export interface Settings {
   moneda: string
   granja: string
+  galponLargoM?: number
+  galponAnchoM?: number
 }
 
 const defaults: Settings = { moneda: 'RD$', granja: 'Mi granja' }

@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
+import { ConfirmHost } from './confirm'
 
 export function Shell() {
   const { pathname } = useLocation()
@@ -12,6 +13,7 @@ export function Shell() {
         <Outlet />
       </main>
       <BottomNav />
+      <ConfirmHost />
     </div>
   )
 }

@@ -23,20 +23,23 @@ export function useLoteData(id: number | undefined) {
     if (!id || Number.isNaN(id)) return null
     const lote = await db.lotes.get(id)
     if (!lote) return null
-    const [registros, gastos, ingresos] = await Promise.all([
+    const [registros, gastos, ingresos, pesajes] = await Promise.all([
       db.registros.where('loteId').equals(id).toArray(),
       db.gastos.where('loteId').equals(id).toArray(),
       db.ingresos.where('loteId').equals(id).toArray(),
+      db.pesajes.where('loteId').equals(id).toArray(),
     ])
     registros.sort((a, b) => a.fecha.localeCompare(b.fecha))
+    pesajes.sort((a, b) => a.fecha.localeCompare(b.fecha))
     const metrics = computeMetrics(lote, registros, gastos, ingresos)
     return {
       lote,
       registros,
       gastos,
       ingresos,
+      pesajes,
       metrics,
-      alertas: computeAlertas(lote, registros, metrics),
+      alertas: computeAlertas(lote, registros, gastos, metrics),
     }
   }, [id])
 }
@@ -53,7 +56,7 @@ export function useResumen() {
       ])
       registros.sort((a, b) => a.fecha.localeCompare(b.fecha))
       const metrics = computeMetrics(lote, registros, gastos, ingresos)
-      out.push({ lote, metrics, alertas: computeAlertas(lote, registros, metrics) })
+      out.push({ lote, metrics, alertas: computeAlertas(lote, registros, gastos, metrics) })
     }
     return out
   }, [])

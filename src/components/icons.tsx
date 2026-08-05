@@ -63,9 +63,10 @@ export const IconScale = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-export const IconEgg = (p: SVGProps<SVGSVGElement>) => (
+export const IconPesa = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
-    <path d="M12 3c-3.3 0-6 5-6 9a6 6 0 0 0 12 0c0-4-2.7-9-6-9Z" />
+    <path d="M6.5 8h11l2.2 11.5a1 1 0 0 1-1 1.2H5.3a1 1 0 0 1-1-1.2L6.5 8Z" />
+    <path d="M9.2 8a2.8 2.8 0 0 1 5.6 0" />
   </svg>
 )
 
@@ -80,6 +81,19 @@ export const IconTrend = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
     <path d="M3 17 9 11l4 4 8-8" />
     <path d="M21 12V7h-5" />
+  </svg>
+)
+
+export const IconPulso = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base({ strokeWidth: 2, ...p })}>
+    <path d="M3 12h4l3-7 4 14 3-7h4" />
+  </svg>
+)
+
+export const IconLapiz = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base({ strokeWidth: 2, ...p })}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
   </svg>
 )
 
