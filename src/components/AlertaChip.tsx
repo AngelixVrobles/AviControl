@@ -4,9 +4,9 @@ import type { Alerta } from '../lib/alerts'
 import { IconAlerta, IconVacuna } from './icons'
 
 const tonos = {
-  bad: 'border-clay/30 bg-clay/10 text-clay-deep',
-  warn: 'border-amber-500/30 bg-amber-400/10 text-amber-700',
-  info: 'border-forest-400/30 bg-forest-50 text-forest-700',
+  bad: 'border-clay-line border-l-4 border-l-clay bg-clay-tint text-clay-text',
+  warn: 'border-amber-line border-l-4 border-l-amber bg-amber-tint text-amber-text',
+  info: 'border-green-tint-line border-l-4 border-l-green-action bg-green-tint text-forest-darkest',
 }
 
 export function AlertaChip({

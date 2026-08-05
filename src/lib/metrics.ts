@@ -1,5 +1,6 @@
 import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
-import { diasDesde, diasEntre } from './format'
+import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
+import { PESO_OBJETIVO_DEFAULT, diaParaPeso, pesoEstandarLb } from './standards'
 
 export interface LoteMetrics {
   dias: number
@@ -21,11 +22,13 @@ export interface LoteMetrics {
   fca?: number
   costoPorLb?: number
   gananciaPorLb?: number
+  factorCurva: number
 
-  huevosTotal?: number
-  huevosHoy?: number
-  posturaPct?: number
-  costoPorHuevo?: number
+  diaObjetivo: number
+  diaVentaEstimado?: number
+  fechaVentaEstimada?: string
+
+  registroHoy?: { pesoPromedio?: number; alimentoLb: number; mortalidad: number }
 }
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
@@ -52,8 +55,13 @@ export function computeMetrics(
   const margenPct = ingresosTot > 0 ? (ganancia / ingresosTot) * 100 : 0
   const costoPorAve = lote.cantidadInicial > 0 ? costos / lote.cantidadInicial : 0
 
-  const base: LoteMetrics = {
+  const rHoy = registros.find((r) => r.fecha === hoyISO())
+
+  const base = {
     dias,
+    registroHoy: rHoy
+      ? { pesoPromedio: rHoy.pesoPromedio, alimentoLb: rHoy.alimentoLb, mortalidad: rHoy.mortalidad + rHoy.descarte }
+      : undefined,
     ultimaFecha: registros.length ? registros[registros.length - 1].fecha : undefined,
     cantidadInicial: lote.cantidadInicial,
     bajas: bajas + descartes,
@@ -68,28 +76,54 @@ export function computeMetrics(
     costoPorAve,
   }
 
-  if (lote.tipo === 'engorde') {
-    const conPeso = registros.filter((r) => typeof r.pesoPromedio === 'number')
-    const pesoPromedioLb = conPeso.length
-      ? conPeso[conPeso.length - 1].pesoPromedio!
-      : undefined
-    const pesoVendidoLb = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.pesoLb ?? 0))
-    const biomasaViva = pesoPromedioLb ? avesVivas * pesoPromedioLb : 0
-    const biomasaLb = biomasaViva + pesoVendidoLb
-    const fca = biomasaLb > 0 ? alimentoTotalLb / biomasaLb : undefined
-    const costoPorLb = biomasaLb > 0 ? costos / biomasaLb : undefined
-    const gananciaPorLb = biomasaLb > 0 ? ganancia / biomasaLb : undefined
-    return { ...base, pesoPromedioLb, biomasaLb, fca, costoPorLb, gananciaPorLb }
+  const pesoObjetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
+
+  const conPeso = registros.filter((r) => typeof r.pesoPromedio === 'number')
+  const ultimoPeso = conPeso.length ? conPeso[conPeso.length - 1] : undefined
+  const pesoPromedioLb = ultimoPeso?.pesoPromedio
+
+  // Todo lo que se proyecta se apoya en la curva Cobb escalada al rendimiento
+  // real del lote, no en la curva cruda: un lote al 90 % del estándar tarda más
+  // en llegar al peso de venta y hay que decirlo desde el primer pesaje.
+  const factorCurva =
+    pesoPromedioLb != null && ultimoPeso
+      ? pesoPromedioLb / pesoEstandarLb(diasEntre(lote.fechaInicio, ultimoPeso.fecha))
+      : 1
+  const diaObjetivo = diaParaPeso(pesoObjetivo, factorCurva)
+  const pesoVendidoLb = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.pesoLb ?? 0))
+  const biomasaViva = pesoPromedioLb ? avesVivas * pesoPromedioLb : 0
+  const biomasaLb = biomasaViva + pesoVendidoLb
+  const fca = biomasaLb > 0 ? alimentoTotalLb / biomasaLb : undefined
+  const costoPorLb = biomasaLb > 0 ? costos / biomasaLb : undefined
+  const gananciaPorLb = biomasaLb > 0 ? ganancia / biomasaLb : undefined
+
+  let diaVentaEstimado: number | undefined
+  let fechaVentaEstimada: string | undefined
+  if (pesoPromedioLb != null && avesVivas > 0) {
+    if (pesoPromedioLb >= pesoObjetivo) {
+      diaVentaEstimado = dias
+      fechaVentaEstimada = hoyISO()
+    } else {
+      const d = diaParaPeso(pesoObjetivo, factorCurva)
+      if (pesoEstandarLb(d) * factorCurva >= pesoObjetivo) {
+        diaVentaEstimado = d
+        fechaVentaEstimada = sumarDias(lote.fechaInicio, d)
+      }
+    }
   }
 
-  const huevosTotal = sum(registros.map((r) => r.huevos ?? 0))
-  const ultimoDia = registros.length
-    ? [...registros].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
-    : undefined
-  const huevosHoy = ultimoDia?.huevos ?? 0
-  const posturaPct = avesVivas > 0 ? (huevosHoy / avesVivas) * 100 : 0
-  const costoPorHuevo = huevosTotal > 0 ? costos / huevosTotal : undefined
-  return { ...base, huevosTotal, huevosHoy, posturaPct, costoPorHuevo }
+  return {
+    ...base,
+    pesoPromedioLb,
+    biomasaLb,
+    fca,
+    costoPorLb,
+    gananciaPorLb,
+    factorCurva,
+    diaObjetivo,
+    diaVentaEstimado,
+    fechaVentaEstimada,
+  }
 }
 
 export interface SemanaResumen {
@@ -97,17 +131,15 @@ export interface SemanaResumen {
   mortalidad: number
   alimentoLb: number
   pesoFinal?: number
-  huevos: number
 }
 
 export function resumenSemanal(lote: Lote, registros: Registro[]): SemanaResumen[] {
   const semanas = new Map<number, SemanaResumen>()
   for (const r of registros) {
     const n = Math.floor(diasEntre(lote.fechaInicio, r.fecha) / 7) + 1
-    const s = semanas.get(n) ?? { semana: n, mortalidad: 0, alimentoLb: 0, huevos: 0 }
+    const s = semanas.get(n) ?? { semana: n, mortalidad: 0, alimentoLb: 0 }
     s.mortalidad += r.mortalidad + r.descarte
     s.alimentoLb += r.alimentoLb
-    s.huevos += r.huevos ?? 0
     if (r.pesoPromedio != null) s.pesoFinal = r.pesoPromedio
     semanas.set(n, s)
   }

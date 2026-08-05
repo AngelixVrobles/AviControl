@@ -1,25 +1,22 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { db, type Raza, type Socio, type TipoLote } from '../db/schema'
+import { db, type Socio } from '../db/schema'
 import { Button, Field, Input, Select } from '../components/ui'
-import { IconBack, IconClose, IconEgg, IconScale } from '../components/icons'
+import { IconBack, IconClose } from '../components/icons'
 import { hoyISO } from '../lib/format'
 import { useSettings } from '../lib/hooks'
-import { RAZAS } from '../lib/labels'
-import { EDAD_INICIAL_DEFAULT, RAZA_DEFAULT } from '../lib/standards'
+import { RAZA } from '../lib/labels'
 
 export function NuevoLote() {
   const nav = useNavigate()
   const settings = useSettings()
-  const [tipo, setTipo] = useState<TipoLote>('engorde')
   const [nombre, setNombre] = useState('')
   const [fechaInicio, setFechaInicio] = useState(hoyISO())
   const [cantidad, setCantidad] = useState('')
   const [costoAve, setCostoAve] = useState('')
-  const [raza, setRaza] = useState<Raza>(RAZA_DEFAULT)
+  const [precioQuintal, setPrecioQuintal] = useState('')
   const [precioLb, setPrecioLb] = useState('')
-  const [edadSemanas, setEdadSemanas] = useState(String(EDAD_INICIAL_DEFAULT))
   const [enSociedad, setEnSociedad] = useState(false)
   const [socios, setSocios] = useState<Socio[]>([
     { nombre: 'Yo', pct: 50 },
@@ -39,15 +36,14 @@ export function NuevoLote() {
   async function crear() {
     const costoInicial = (Number(costoAve) || 0) * cantidadNum
     const id = await db.lotes.add({
-      tipo,
+      tipo: 'engorde',
       nombre: nombre.trim() || autoNombre(fechaInicio),
       fechaInicio,
       cantidadInicial: cantidadNum,
       costoInicial,
       estado: 'activo',
-      raza: tipo === 'engorde' ? raza : undefined,
-      precioVentaLb: tipo === 'engorde' && Number(precioLb) > 0 ? Number(precioLb) : undefined,
-      edadInicialSemanas: tipo === 'ponedora' ? Number(edadSemanas) || EDAD_INICIAL_DEFAULT : undefined,
+      precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
+      precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
       socios: enSociedad ? socios.filter((s) => s.nombre.trim()) : undefined,
       costoInicialPagadoPor: enSociedad && pagoAves !== '' ? Number(pagoAves) : undefined,
       notas: notas.trim() || undefined,
@@ -66,49 +62,14 @@ export function NuevoLote() {
         >
           <IconBack width={22} height={22} />
         </button>
-        <h1 className="font-display text-xl font-semibold">Nuevo lote</h1>
+        <div>
+          <h1 className="font-display text-xl font-semibold leading-tight">Nuevo ciclo</h1>
+          <p className="text-[13px] text-ink-faint">Pollo de engorde {RAZA}</p>
+        </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3">
-        <TipoBtn
-          active={tipo === 'engorde'}
-          onClick={() => setTipo('engorde')}
-          icon={<IconScale width={24} height={24} />}
-          title="Engorde"
-          sub="Pollos de carne"
-          tone="engorde"
-        />
-        <TipoBtn
-          active={tipo === 'ponedora'}
-          onClick={() => setTipo('ponedora')}
-          icon={<IconEgg width={24} height={24} />}
-          title="Ponedoras"
-          sub="Gallinas de huevo"
-          tone="ponedora"
-        />
-      </div>
-
-      <div className="mt-6 space-y-5">
-        {tipo === 'engorde' && (
-          <Field label="Raza" hint="Define las curvas de peso y consumo de referencia.">
-            <div className="flex gap-1 rounded-full bg-paper-sunken p-1">
-              {RAZAS.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => setRaza(r.id)}
-                  className={clsx(
-                    'flex-1 rounded-full py-2.5 text-sm font-semibold transition',
-                    raza === r.id ? 'bg-paper-raised text-ink shadow-card' : 'text-ink-faint',
-                  )}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-        )}
-
-        <Field label="Nombre del lote" hint="Opcional. Si lo dejas vacío se genera solo.">
+      <div className="space-y-5">
+        <Field label="Nombre del ciclo" hint="Opcional. Si lo dejas vacío se genera solo.">
           <Input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -120,7 +81,7 @@ export function NuevoLote() {
           <Field label="Fecha de inicio">
             <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
           </Field>
-          <Field label={tipo === 'engorde' ? 'Nº de pollitos' : 'Nº de gallinas'}>
+          <Field label="Nº de pollitos">
             <Input
               type="number"
               inputMode="numeric"
@@ -130,20 +91,6 @@ export function NuevoLote() {
             />
           </Field>
         </div>
-
-        {tipo === 'ponedora' && (
-          <Field
-            label="Edad al inicio (semanas)"
-            hint="Edad de las gallinas cuando llegan. Se usa para comparar tu postura con el estándar."
-          >
-            <Input
-              type="number"
-              inputMode="numeric"
-              value={edadSemanas}
-              onChange={(e) => setEdadSemanas(e.target.value)}
-            />
-          </Field>
-        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Costo por ave" hint={`En ${settings.moneda}.`}>
@@ -155,18 +102,26 @@ export function NuevoLote() {
               placeholder="0"
             />
           </Field>
-          {tipo === 'engorde' && (
-            <Field label="Precio venta / lb" hint="Opcional, para proyectar.">
-              <Input
-                type="number"
-                inputMode="decimal"
-                value={precioLb}
-                onChange={(e) => setPrecioLb(e.target.value)}
-                placeholder="0"
-              />
-            </Field>
-          )}
+          <Field label="Precio del quintal" hint="Alimento, 100 lb.">
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={precioQuintal}
+              onChange={(e) => setPrecioQuintal(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
         </div>
+
+        <Field label="Precio de venta por libra" hint="Opcional. Con esto se proyecta la ganancia.">
+          <Input
+            type="number"
+            inputMode="decimal"
+            value={precioLb}
+            onChange={(e) => setPrecioLb(e.target.value)}
+            placeholder="0"
+          />
+        </Field>
 
         <div className="rounded-xl2 border border-line bg-paper-raised p-4">
           <button
@@ -261,7 +216,7 @@ export function NuevoLote() {
 
       <div className="mt-8">
         <Button block disabled={!valido} onClick={crear}>
-          Crear lote
+          Crear ciclo
         </Button>
       </div>
     </div>
@@ -270,45 +225,4 @@ export function NuevoLote() {
 
 function autoNombre(fecha: string) {
   return `Lote ${fecha}`
-}
-
-function TipoBtn({
-  active,
-  onClick,
-  icon,
-  title,
-  sub,
-  tone,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  title: string
-  sub: string
-  tone: 'engorde' | 'ponedora'
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={clsx(
-        'rounded-xl2 border-2 p-4 text-left transition',
-        active
-          ? tone === 'engorde'
-            ? 'border-forest-500 bg-forest-50'
-            : 'border-amber-600 bg-amber-400/10'
-          : 'border-line bg-paper-raised',
-      )}
-    >
-      <div
-        className={clsx(
-          'mb-2 grid h-11 w-11 place-items-center rounded-full',
-          tone === 'engorde' ? 'bg-forest-100 text-forest-700' : 'bg-amber-400/20 text-amber-700',
-        )}
-      >
-        {icon}
-      </div>
-      <div className="font-display text-base font-semibold">{title}</div>
-      <div className="text-xs text-ink-faint">{sub}</div>
-    </button>
-  )
 }

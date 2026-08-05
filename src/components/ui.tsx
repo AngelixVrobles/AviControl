@@ -91,14 +91,13 @@ export function Pill({
   tone = 'neutral',
 }: {
   children: ReactNode
-  tone?: 'engorde' | 'ponedora' | 'neutral' | 'ok' | 'bad'
+  tone?: 'engorde' | 'neutral' | 'ok' | 'bad'
 }) {
   return (
     <span
       className={clsx(
         'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
         tone === 'engorde' && 'bg-forest-50 text-forest-700',
-        tone === 'ponedora' && 'bg-amber-400/15 text-amber-700',
         tone === 'ok' && 'bg-forest-50 text-forest-600',
         tone === 'bad' && 'bg-clay/10 text-clay-deep',
         tone === 'neutral' && 'bg-paper-sunken text-ink-soft',

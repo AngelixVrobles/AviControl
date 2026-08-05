@@ -1,11 +1,6 @@
-import type { CategoriaGasto, Raza, TipoIngreso, TipoLote } from '../db/schema'
+import type { CategoriaGasto, TipoIngreso, TipoLote } from '../db/schema'
 
-export const RAZAS: { id: Raza; label: string }[] = [
-  { id: 'ross308', label: 'Ross 308' },
-  { id: 'cobb500', label: 'Cobb 500' },
-]
-
-export const razaLabel = (r?: Raza) => RAZAS.find((x) => x.id === r)?.label ?? 'Ross 308'
+export const RAZA = 'Cobb 500'
 
 export const CATEGORIAS: { id: CategoriaGasto; label: string }[] = [
   { id: 'alimento', label: 'Alimento' },
@@ -22,14 +17,12 @@ export const categoriaLabel = (id: string) =>
 
 export const TIPOS_INGRESO: { id: TipoIngreso; label: string }[] = [
   { id: 'aves', label: 'Venta de aves' },
-  { id: 'huevos', label: 'Venta de huevos' },
   { id: 'otros', label: 'Otros ingresos' },
 ]
 
 export const tipoIngresoLabel = (id: string) =>
   TIPOS_INGRESO.find((t) => t.id === id)?.label ?? id
 
-export const tipoLoteLabel = (t: TipoLote) =>
-  t === 'engorde' ? 'Pollos de engorde' : 'Gallinas ponedoras'
+export const tipoLoteLabel = (_t: TipoLote) => 'Pollos de engorde'
 
 export const CHART_COLORS = ['#2F8A4C', '#E9A93C', '#C4622D', '#4FA968', '#5C6A61', '#256F3D', '#B4711A']

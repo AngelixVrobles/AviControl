@@ -1,15 +1,27 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
 import type { LoteMetrics } from './metrics'
 import { diasEntre, hoyISO, sumarDias } from './format'
-import { LB_POR_QUINTAL, RAZA_DEFAULT, pesoEstandarLb } from './standards'
+import { precioAlimentoLb } from './precios'
+import {
+  LB_POR_QUINTAL,
+  alimentoAcumEstandarLb,
+  diaParaPeso,
+  fcaEstandar,
+  mortalidadEsperadaPct,
+  pesoEstandarLb,
+} from './standards'
 
 export interface Proyeccion {
   listo: boolean
   fechaEstimada: string
+  diaVenta: number
   diasRestantes: number
   alimentoRestanteLb: number
   alimentoRestanteQuintales: number
+  avesAlVender: number
+  pesoVentaLb: number
   lbEnPie: number
+  costoRestante: number
   costoProyectado: number
   ingresoProyectado?: number
   gananciaProyectada?: number
@@ -17,8 +29,8 @@ export interface Proyeccion {
   precioEquilibrioLb: number
 }
 
-// Proyecta escalando la curva estándar al rendimiento real del lote
-// (peso actual / peso estándar del mismo día).
+// Proyecta escalando la curva Cobb al rendimiento real del lote y descontando la
+// mortalidad que todavía falta por ocurrir hasta el día de venta.
 export function proyectarVenta(
   lote: Lote,
   registros: Registro[],
@@ -29,33 +41,48 @@ export function proyectarVenta(
   const conPeso = registros.filter((r) => r.pesoPromedio != null)
   if (!conPeso.length || m.avesVivas <= 0) return null
 
-  const raza = lote.raza ?? RAZA_DEFAULT
   const ultimo = conPeso[conPeso.length - 1]
+  const diaUltimo = diasEntre(lote.fechaInicio, ultimo.fecha)
   const pesoActual = ultimo.pesoPromedio!
   const listo = pesoActual >= objetivoLb
 
-  let fechaEstimada = hoyISO()
+  const diaVenta = listo ? m.dias : diaParaPeso(objetivoLb, m.factorCurva)
+  if (!listo && pesoEstandarLb(diaVenta) * m.factorCurva < objetivoLb) return null
+
+  const fechaEstimada = listo ? hoyISO() : sumarDias(lote.fechaInicio, diaVenta)
+  const diasRestantes = diasEntre(hoyISO(), fechaEstimada)
+
+  const bajasEsperadas = listo
+    ? 0
+    : Math.round(
+        (lote.cantidadInicial *
+          Math.max(0, mortalidadEsperadaPct(diaVenta) - mortalidadEsperadaPct(m.dias))) /
+          100,
+      )
+  const avesAlVender = Math.max(0, m.avesVivas - bajasEsperadas)
+
+  // El alimento que falta sale de la curva de consumo (que se dispara al final
+  // del ciclo) escalada por lo ineficiente que va el lote: los días extra cuestan
+  // proporcionalmente más de lo que engordan.
   let alimentoRestanteLb = 0
   if (!listo) {
-    const diaUltimo = diasEntre(lote.fechaInicio, ultimo.fecha)
-    const ratio = pesoActual / Math.max(0.05, pesoEstandarLb(diaUltimo, raza))
-    let dia = diaUltimo + 1
-    while (dia <= 90 && pesoEstandarLb(dia, raza) * ratio < objetivoLb) dia++
-    if (dia > 90) return null
-    fechaEstimada = sumarDias(lote.fechaInicio, dia)
-    const fca = m.fca && m.fca > 0.5 ? m.fca : 1.8
-    alimentoRestanteLb = Math.round(fca * m.avesVivas * (objetivoLb - pesoActual))
+    const factorEf = m.fca && m.fca > 0.5 ? m.fca / fcaEstandar(diaUltimo) : 1
+    const consumoStd = Math.max(
+      0,
+      alimentoAcumEstandarLb(diaVenta) - alimentoAcumEstandarLb(Math.max(diaUltimo, m.dias)),
+    )
+    const avesPromedio = (m.avesVivas + avesAlVender) / 2
+    alimentoRestanteLb = Math.round(avesPromedio * consumoStd * factorEf)
   }
 
-  const pesoVenta = listo ? pesoActual : objetivoLb
-  const lbEnPie = Math.round(m.avesVivas * pesoVenta)
+  const pesoVentaLb = listo ? pesoActual : objetivoLb
+  const lbEnPie = Math.round(avesAlVender * pesoVentaLb)
 
-  const feedGasto = gastos.filter((g) => g.categoria === 'alimento').reduce((a, g) => a + g.monto, 0)
-  const precioAlimentoLb = m.alimentoTotalLb > 0 && feedGasto > 0 ? feedGasto / m.alimentoTotalLb : 0
-  const costoRestante = precioAlimentoLb
-    ? alimentoRestanteLb * precioAlimentoLb
+  const precioLb = precioAlimentoLb(lote, gastos, m)
+  const costoRestante = precioLb
+    ? alimentoRestanteLb * precioLb
     : m.dias > 0
-      ? (m.costos / m.dias) * diasEntre(hoyISO(), fechaEstimada)
+      ? (m.costos / m.dias) * diasRestantes
       : 0
   const costoProyectado = m.costos + costoRestante
 
@@ -63,15 +90,21 @@ export function proyectarVenta(
   const ingresoProyectado = precio ? m.ingresos + lbEnPie * precio : undefined
   const gananciaProyectada = ingresoProyectado != null ? ingresoProyectado - costoProyectado : undefined
   const margenProyectadoPct =
-    ingresoProyectado && ingresoProyectado > 0 ? (gananciaProyectada! / ingresoProyectado) * 100 : undefined
+    ingresoProyectado && ingresoProyectado > 0
+      ? (gananciaProyectada! / ingresoProyectado) * 100
+      : undefined
 
   return {
     listo,
     fechaEstimada,
-    diasRestantes: diasEntre(hoyISO(), fechaEstimada),
+    diaVenta,
+    diasRestantes,
     alimentoRestanteLb,
     alimentoRestanteQuintales: alimentoRestanteLb / LB_POR_QUINTAL,
+    avesAlVender,
+    pesoVentaLb,
     lbEnPie,
+    costoRestante,
     costoProyectado,
     ingresoProyectado,
     gananciaProyectada,

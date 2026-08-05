@@ -1,8 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 
-export type TipoLote = 'engorde' | 'ponedora'
+export type TipoLote = 'engorde'
 export type EstadoLote = 'activo' | 'cerrado'
-export type Raza = 'ross308' | 'cobb500'
 
 export interface Socio {
   nombre: string
@@ -17,10 +16,9 @@ export interface Lote {
   cantidadInicial: number
   costoInicial: number
   estado: EstadoLote
-  raza?: Raza
-  edadInicialSemanas?: number
   pesoObjetivoLb?: number
   precioVentaLb?: number
+  precioQuintal?: number
   socios?: Socio[]
   costoInicialPagadoPor?: number
   fechaCierre?: string
@@ -36,9 +34,15 @@ export interface Registro {
   descarte: number
   alimentoLb: number
   pesoPromedio?: number
-  huevos?: number
-  huevosRotos?: number
   nota?: string
+  creado: number
+}
+
+export interface Pesaje {
+  id: number
+  loteId: number
+  fecha: string
+  pesos: number[]
   creado: number
 }
 
@@ -58,11 +62,12 @@ export interface Gasto {
   monto: number
   fecha: string
   descripcion?: string
+  cantidadQq?: number
   pagadoPor?: number
   creado: number
 }
 
-export type TipoIngreso = 'aves' | 'huevos' | 'otros'
+export type TipoIngreso = 'aves' | 'otros'
 
 export interface Ingreso {
   id: number
@@ -82,6 +87,7 @@ export const db = new Dexie('avicontrol') as Dexie & {
   registros: EntityTable<Registro, 'id'>
   gastos: EntityTable<Gasto, 'id'>
   ingresos: EntityTable<Ingreso, 'id'>
+  pesajes: EntityTable<Pesaje, 'id'>
 }
 
 db.version(1).stores({
@@ -89,4 +95,8 @@ db.version(1).stores({
   registros: '++id, loteId, fecha',
   gastos: '++id, loteId, categoria, fecha',
   ingresos: '++id, loteId, tipo, fecha',
+})
+
+db.version(2).stores({
+  pesajes: '++id, loteId, fecha',
 })

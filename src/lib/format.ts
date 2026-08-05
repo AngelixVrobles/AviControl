@@ -17,6 +17,13 @@ export function money(value: number, opts: { compact?: boolean } = {}): string {
   return `${value < 0 ? '−' : ''}${moneda}${body}`
 }
 
+// es-DO alterna «8 K» y «16 k» según la magnitud; en un mismo eje se ve mal.
+export function numCompacto(value: number): string {
+  return new Intl.NumberFormat('es-DO', { notation: 'compact', maximumFractionDigits: 1 })
+    .format(value)
+    .replace('K', 'k')
+}
+
 export function num(value: number, decimals = 0): string {
   return new Intl.NumberFormat('es-DO', {
     minimumFractionDigits: decimals,

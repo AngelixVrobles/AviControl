@@ -1,13 +1,21 @@
 import { Link } from 'react-router-dom'
+import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
-import { money, num, pct } from '../lib/format'
-import { Pill } from './ui'
-import { IconChevron, IconEgg, IconScale } from './icons'
+import { fecha, money, num } from '../lib/format'
+import { RAZA } from '../lib/labels'
+import { desviaciones } from '../lib/desviaciones'
+import { hitosEngorde } from '../lib/standards'
+import { IconChevron } from './icons'
 
 export function LoteCard({ data }: { data: LoteConMetrics }) {
   const { lote, metrics } = data
-  const engorde = lote.tipo === 'engorde'
-  const gananciaPos = metrics.ganancia >= 0
+  const total = metrics.diaObjetivo
+  const dia = Math.min(metrics.dias, total)
+  const pos = (d: number) => `${Math.max(0, Math.min(100, (d / total) * 100))}%`
+  const hitos = hitosEngorde(total)
+  const proximo = hitos.find((h) => h.dia > metrics.dias)
+  const tieneDatos = metrics.pesoPromedioLb != null
+  const dev = desviaciones(metrics)
 
   return (
     <Link
@@ -15,65 +23,100 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
       className="block rounded-xl2 border border-line bg-paper-raised p-4 shadow-card transition active:scale-[0.985]"
     >
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className={
-              'grid h-11 w-11 place-items-center rounded-full ' +
-              (engorde ? 'bg-forest-50 text-forest-600' : 'bg-amber-400/15 text-amber-600')
-            }
-          >
-            {engorde ? <IconScale width={22} height={22} /> : <IconEgg width={22} height={22} />}
-          </div>
-          <div>
-            <div className="font-display text-[17px] font-semibold leading-tight">{lote.nombre}</div>
-            <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-faint">
-              <Pill tone={engorde ? 'engorde' : 'ponedora'}>
-                {engorde ? 'Engorde' : 'Ponedora'}
-              </Pill>
-              <span>Día {metrics.dias}</span>
-            </div>
+        <div className="min-w-0">
+          <div className="truncate font-display text-[19px] font-semibold leading-tight">{lote.nombre}</div>
+          <div className="mt-0.5 text-[13px] text-ink-soft tnum">
+            {num(metrics.avesVivas)} aves · {RAZA}
           </div>
         </div>
-        <IconChevron width={20} height={20} className="mt-1 text-ink-faint" />
+        <div className="shrink-0 pl-3 text-right">
+          <div className="font-display text-[26px] font-semibold leading-none tnum">{metrics.dias}</div>
+          <div className="mt-0.5 text-[12px] text-ink-faint tnum">de {total} días</div>
+        </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        <Mini label="Aves vivas" value={num(metrics.avesVivas)} />
-        {engorde ? (
-          <Mini label="FCA" value={metrics.fca != null ? num(metrics.fca, 2) : '—'} />
-        ) : (
-          <Mini label="Postura" value={metrics.posturaPct != null ? pct(metrics.posturaPct, 0) : '—'} />
-        )}
-        <Mini
-          label={gananciaPos ? 'Ganancia' : 'Pérdida'}
-          value={money(metrics.ganancia, { compact: true })}
-          tone={gananciaPos ? 'ok' : 'bad'}
-        />
+      <div className="mb-1 mt-5">
+        <div className="relative h-2.5 rounded-full bg-sunken">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-green-action"
+            style={{ width: pos(dia) }}
+          />
+          {hitos.slice(1, -1).map((h) => (
+            <span
+              key={h.dia}
+              className="absolute top-[-3px] h-4 w-0.5 rounded bg-paper"
+              style={{ left: pos(h.dia) }}
+            />
+          ))}
+          {dia < total && (
+            <span
+              className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-darkest"
+              style={{ left: pos(dia), marginLeft: -12 }}
+            />
+          )}
+        </div>
+        <div className="mt-2 flex justify-between text-[11px] font-semibold text-forest-600">
+          <span>día 1 · recibo</span>
+          <span>{total} · venta</span>
+        </div>
       </div>
+
+      {tieneDatos ? (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3">
+            <Estado dev={dev.peso} />
+            <Estado dev={dev.fca} />
+            <Estado dev={dev.mortalidad} />
+          </div>
+          {metrics.fechaVentaEstimada && metrics.diaVentaEstimado != null && (
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-green-tint px-3.5 py-2.5">
+              <span className="text-[13px] font-medium text-forest-darkest">Venta estimada</span>
+              <span className="text-[13px] font-bold text-forest-darkest tnum">
+                {metrics.diaVentaEstimado <= metrics.dias
+                  ? 'lista para vender'
+                  : `${fecha(metrics.fechaVentaEstimada)} · ${enDias(metrics.diaVentaEstimado - metrics.dias)}`}
+              </span>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+          <span className="text-[13px] text-ink-soft">
+            {gananciaLabel(metrics.ganancia)} {money(metrics.ganancia, { compact: true })}
+          </span>
+          {proximo && (
+            <span className="rounded-full bg-amber-tint px-3 py-1 text-[12px] font-semibold text-amber-text">
+              {proximo.etiqueta} {enDias(proximo.dia - metrics.dias)}
+            </span>
+          )}
+          <IconChevron width={18} height={18} className="text-ink-faint" />
+        </div>
+      )}
     </Link>
   )
 }
 
-function Mini({
-  label,
-  value,
-  tone = 'neutral',
-}: {
-  label: string
-  value: string
-  tone?: 'neutral' | 'ok' | 'bad'
-}) {
+function gananciaLabel(g: number) {
+  return g >= 0 ? 'Ganancia' : 'Pérdida'
+}
+
+function enDias(n: number) {
+  if (n <= 0) return 'hoy'
+  return `en ${n} ${n === 1 ? 'día' : 'días'}`
+}
+
+function Estado({ dev }: { dev: ReturnType<typeof desviaciones>['peso'] }) {
   return (
     <div>
+      <div className="font-display text-[20px] font-semibold leading-none tnum">{dev.valor}</div>
       <div
-        className={
-          'font-display text-[19px] font-semibold tnum leading-none ' +
-          (tone === 'ok' ? 'text-forest-600' : tone === 'bad' ? 'text-clay-deep' : 'text-ink')
-        }
+        className={clsx(
+          'mt-1 text-[12px] font-semibold tnum',
+          dev.estado === 'mal' ? 'text-clay-text' : 'text-green-text',
+        )}
       >
-        {value}
+        {dev.detalle}
       </div>
-      <div className="mt-1 text-[11px] text-ink-faint">{label}</div>
     </div>
   )
 }
