@@ -10,12 +10,11 @@ import { fechaLarga, hoyISO, money, num } from '../lib/format'
 import { useResumen, useSettings } from '../lib/hooks'
 
 export function Dashboard() {
-  const resumen = useResumen()
+  const activos = useResumen('activo')
   const settings = useSettings()
 
-  if (!resumen) return <SkeletonHeader />
+  if (!activos) return <SkeletonHeader />
 
-  const activos = resumen.filter((r) => r.lote.estado === 'activo')
   const hoy = capitalizar(fechaLarga(hoyISO()))
 
   return (

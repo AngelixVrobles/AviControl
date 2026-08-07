@@ -11,11 +11,7 @@ type Filtro = 'activo' | 'cerrado' | 'todos'
 
 export function Lotes() {
   const [filtro, setFiltro] = useState<Filtro>('activo')
-  const resumen = useResumen()
-
-  const lista = (resumen ?? []).filter((r) =>
-    filtro === 'todos' ? true : r.lote.estado === filtro,
-  )
+  const lista = useResumen(filtro) ?? []
 
   return (
     <div className="animate-rise pt-3">
@@ -59,7 +55,7 @@ export function Lotes() {
             text="Cambia el filtro o crea un ciclo nuevo para empezar."
             action={
               <Link to="/lotes/nuevo">
-                <Button>Nuevo lote</Button>
+                <Button>Nuevo ciclo</Button>
               </Link>
             }
           />
