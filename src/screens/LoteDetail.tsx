@@ -1057,17 +1057,12 @@ function MedidaGalpon({
 
 function GridCrecimiento({ metrics: m }: { metrics: LoteMetrics }) {
   const gananciaDiaria = m.pesoPromedioLb != null && m.dias > 0 ? m.pesoPromedioLb / m.dias : undefined
-  // Índice de eficiencia productiva europeo (EPEF): rango típico 250–400.
-  const iep =
-    m.pesoPromedioLb != null && m.fca != null && m.dias > 0
-      ? (((100 - m.mortalidadPct) * (m.pesoPromedioLb / 2.2046)) / (m.dias * m.fca)) * 100
-      : undefined
 
   const celdas = [
     { label: 'Ganancia diaria', value: gananciaDiaria != null ? `${num(gananciaDiaria, 3)} lb` : '—' },
     { label: 'Alimento total', value: `${num(m.alimentoTotalLb)} lb` },
     { label: 'Mortalidad acum.', value: pct(m.mortalidadPct) },
-    { label: 'Índice de eficiencia', value: iep != null ? num(iep, 0) : '—' },
+    { label: 'Índice de eficiencia', value: m.iep != null ? num(m.iep, 0) : '—' },
   ]
   return (
     <div className="mt-4 grid grid-cols-2 gap-3">

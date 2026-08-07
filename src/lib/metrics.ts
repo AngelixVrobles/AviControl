@@ -1,6 +1,6 @@
 import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
 import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
-import { PESO_OBJETIVO_DEFAULT, diaParaPeso, pesoEstandarLb } from './standards'
+import { KG_POR_LB, PESO_OBJETIVO_DEFAULT, diaParaPeso, pesoEstandarLb } from './standards'
 
 export interface LoteMetrics {
   dias: number
@@ -22,6 +22,7 @@ export interface LoteMetrics {
   fca?: number
   costoPorLb?: number
   gananciaPorLb?: number
+  iep?: number
   factorCurva: number
 
   diaObjetivo: number
@@ -97,6 +98,12 @@ export function computeMetrics(
   const costoPorLb = biomasaLb > 0 ? costos / biomasaLb : undefined
   const gananciaPorLb = biomasaLb > 0 ? ganancia / biomasaLb : undefined
 
+  // Índice de eficiencia productiva europeo (EPEF/IEP), rango típico 250–400.
+  const iep =
+    pesoPromedioLb != null && fca != null && fca > 0 && dias > 0
+      ? (((100 - mortalidadPct) * (pesoPromedioLb * KG_POR_LB)) / (dias * fca)) * 100
+      : undefined
+
   let diaVentaEstimado: number | undefined
   let fechaVentaEstimada: string | undefined
   if (pesoPromedioLb != null && avesVivas > 0) {
@@ -119,6 +126,7 @@ export function computeMetrics(
     fca,
     costoPorLb,
     gananciaPorLb,
+    iep,
     factorCurva,
     diaObjetivo,
     diaVentaEstimado,

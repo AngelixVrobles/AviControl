@@ -44,9 +44,10 @@ export function useLoteData(id: number | undefined) {
   }, [id])
 }
 
-export function useResumen() {
+export function useResumen(estado: 'cerrado' | 'activo' | 'todos' = 'todos') {
   return useLiveQuery(async () => {
-    const lotes = await db.lotes.toArray()
+    const todos = await db.lotes.toArray()
+    const lotes = estado === 'todos' ? todos : todos.filter((l) => l.estado === estado)
     const out: LoteConMetrics[] = []
     for (const lote of lotes) {
       const [registros, gastos, ingresos] = await Promise.all([
@@ -59,7 +60,7 @@ export function useResumen() {
       out.push({ lote, metrics, alertas: computeAlertas(lote, registros, gastos, metrics) })
     }
     return out
-  }, [])
+  }, [estado])
 }
 
 export function useSettings(): Settings {
