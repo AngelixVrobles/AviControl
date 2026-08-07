@@ -4,15 +4,18 @@ import type { LoteConMetrics } from '../lib/hooks'
 import { fecha, money, num } from '../lib/format'
 import { RAZA } from '../lib/labels'
 import { desviaciones } from '../lib/desviaciones'
-import { hitosEngorde } from '../lib/standards'
+import { agruparHitos, hitosEngorde } from '../lib/standards'
+import { useSettings } from '../lib/hooks'
 import { IconChevron } from './icons'
 
 export function LoteCard({ data }: { data: LoteConMetrics }) {
   const { lote, metrics } = data
+  const settings = useSettings()
   const total = metrics.diaObjetivo
   const dia = Math.min(metrics.dias, total)
   const pos = (d: number) => `${Math.max(0, Math.min(100, (d / total) * 100))}%`
-  const hitos = hitosEngorde(total)
+  const hitos = hitosEngorde(total, settings.planSanitario)
+  const marcas = agruparHitos(hitos, total)
   const proximo = hitos.find((h) => h.dia > metrics.dias)
   const tieneDatos = metrics.pesoPromedioLb != null
   const dev = desviaciones(metrics)
@@ -41,7 +44,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             className="absolute inset-y-0 left-0 rounded-full bg-green-action"
             style={{ width: pos(dia) }}
           />
-          {hitos.slice(1, -1).map((h) => (
+          {marcas.slice(1, -1).map((h) => (
             <span
               key={h.dia}
               className="absolute top-[-3px] h-4 w-0.5 rounded bg-paper"

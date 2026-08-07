@@ -95,17 +95,47 @@ export interface Hito {
   tipo: 'recibo' | 'sanitario' | 'alimento' | 'venta'
 }
 
-export function hitosEngorde(diaObjetivo: number): Hito[] {
+// Plan sanitario editable por el productor: día 7 Newcastle y día 14 Gumboro no
+// son universales, dependen del veterinario. Es el default de granja.
+export interface HitoSanitario {
+  nombre: string
+  dia: number
+}
+
+export const PLAN_SANITARIO_DEFAULT: HitoSanitario[] = [
+  { nombre: 'Newcastle', dia: 7 },
+  { nombre: 'Gumboro', dia: 14 },
+  { nombre: 'Refuerzo Newcastle', dia: 21 },
+]
+
+export function hitosEngorde(
+  diaObjetivo: number,
+  sanitarios: HitoSanitario[] = PLAN_SANITARIO_DEFAULT,
+): Hito[] {
+  const cambiosAlimento: Hito[] = FASES_ALIMENTO.filter(
+    (f) => f.desde > 1 && Number.isFinite(f.desde),
+  ).map((f) => ({ dia: f.desde, etiqueta: f.nombre, tipo: 'alimento' }))
+
   const hitos: Hito[] = [
     { dia: 1, etiqueta: 'Recibo', tipo: 'recibo' },
-    { dia: 7, etiqueta: 'Newcastle', tipo: 'sanitario' },
-    { dia: 11, etiqueta: 'Iniciador', tipo: 'alimento' },
-    { dia: 14, etiqueta: 'Gumboro', tipo: 'sanitario' },
-    { dia: 21, etiqueta: 'Refuerzo', tipo: 'sanitario' },
-    { dia: 25, etiqueta: 'Crecimiento', tipo: 'alimento' },
-    { dia: 36, etiqueta: 'Engorde', tipo: 'alimento' },
+    ...sanitarios.map((s): Hito => ({ dia: s.dia, etiqueta: s.nombre, tipo: 'sanitario' })),
+    ...cambiosAlimento,
     { dia: diaObjetivo - DIAS_RETIRO, etiqueta: 'Retiro', tipo: 'sanitario' },
     { dia: diaObjetivo, etiqueta: 'Venta', tipo: 'venta' },
   ]
   return hitos.filter((h) => h.dia > 0 && h.dia <= diaObjetivo).sort((a, b) => a.dia - b.dia)
 }
+
+// Agrupa las marcas que caen a menos de ~12 % del ciclo entre sí, para que no se
+// pisen (día 21 «Refuerzo» y 22 «Finalizador» en un ciclo de 41 días caen a 2.4 %).
+export function agruparHitos<T extends { dia: number }>(hitos: T[], total: number): T[] {
+  const minSep = total * 0.12
+  const out: T[] = []
+  for (const h of hitos) {
+    if (out.length && h.dia - out[out.length - 1].dia < minSep) continue
+    out.push(h)
+  }
+  return out
+}
+
+export const AVES_POR_M2 = 11
