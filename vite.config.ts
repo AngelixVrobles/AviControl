@@ -1,8 +1,14 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const version = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   plugins: [
     react(),
     VitePWA({
@@ -29,7 +35,7 @@ export default defineConfig({
       manifest: {
         name: 'AviControl',
         short_name: 'AviControl',
-        description: 'Gestión de lotes avícolas: engorde y ponedoras',
+        description: 'Gestión de pollos de engorde Cobb 500: ciclo, peso, alimento y ventas.',
         theme_color: '#F6F4EE',
         background_color: '#F6F4EE',
         display: 'standalone',
