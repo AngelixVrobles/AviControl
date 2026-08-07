@@ -11,9 +11,13 @@ interface Metrica {
   value: (m: LoteMetrics) => number | undefined
   format: (v: number) => string
   mejor?: 'mayor' | 'menor'
+  // En un ciclo activo estas cifras no son finales: el peso es el de hoy y los
+  // días son los transcurridos, no la duración del ciclo. Se marca la celda.
+  parcialEnActivo?: boolean
 }
 
 const METRICAS: Metrica[] = [
+  { label: 'IEP', value: (m) => m.iep, format: (v) => num(v, 0), mejor: 'mayor' },
   { label: 'Ganancia', value: (m) => m.ganancia, format: (v) => money(v, { compact: true }), mejor: 'mayor' },
   { label: 'Margen', value: (m) => m.margenPct, format: (v) => pct(v), mejor: 'mayor' },
   {
@@ -24,15 +28,17 @@ const METRICAS: Metrica[] = [
   },
   { label: 'FCA', value: (m) => m.fca, format: (v) => num(v, 2), mejor: 'menor' },
   { label: 'Costo / lb', value: (m) => m.costoPorLb, format: (v) => money(v), mejor: 'menor' },
-  { label: 'Peso final', value: (m) => m.pesoPromedioLb, format: (v) => `${num(v, 2)} lb`, mejor: 'mayor' },
+  { label: 'Peso final', value: (m) => m.pesoPromedioLb, format: (v) => `${num(v, 2)} lb`, mejor: 'mayor', parcialEnActivo: true },
   { label: 'Mortalidad', value: (m) => m.mortalidadPct, format: (v) => pct(v), mejor: 'menor' },
-  { label: 'Días', value: (m) => m.dias, format: (v) => num(v) },
+  { label: 'Días', value: (m) => m.dias, format: (v) => num(v), parcialEnActivo: true },
   { label: 'Aves', value: (m) => m.cantidadInicial, format: (v) => num(v) },
 ]
 
 export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
   if (resumen.length < 2) return null
-  const lotes = [...resumen].sort((a, b) => b.metrics.ganancia - a.metrics.ganancia)
+  const lotes = [...resumen].sort(
+    (a, b) => (b.metrics.iep ?? -Infinity) - (a.metrics.iep ?? -Infinity),
+  )
 
   return (
     <>
@@ -53,15 +59,15 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                           width={14}
                           height={14}
                           strokeWidth={2}
-                          className="shrink-0 text-amber-500"
-                          aria-label="Mejor lote"
+                          className="shrink-0 text-green-text"
+                          aria-label="Mejor ciclo"
                         />
                       )}
                       <span className="max-w-[13ch] truncate">{l.lote.nombre}</span>
                     </div>
-                    <div className="mt-0.5 text-[11px] font-normal text-ink-faint">
+                    <div className="mt-0.5 text-[13px] font-normal text-ink-soft">
                       {fecha(l.lote.fechaInicio)}
-                      {l.lote.estado === 'cerrado' ? ' · cerrado' : ''}
+                      {l.lote.estado === 'cerrado' ? ' · cerrado' : ' · en curso'}
                     </div>
                   </Link>
                 </th>
@@ -86,27 +92,31 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                   >
                     {met.label}
                   </th>
-                  {valores.map((v, i) => (
-                    <td
-                      key={i}
-                      className={clsx(
-                        'px-3 py-2.5 text-right',
-                        v != null && v === best
-                          ? 'font-semibold text-forest-600'
-                          : 'text-ink-soft',
-                      )}
-                    >
-                      {v != null ? met.format(v) : '—'}
-                    </td>
-                  ))}
+                  {valores.map((v, i) => {
+                    const parcial = met.parcialEnActivo && lotes[i].lote.estado === 'activo'
+                    return (
+                      <td
+                        key={i}
+                        className={clsx(
+                          'px-3 py-2.5 text-right',
+                          v != null && v === best ? 'font-semibold text-green-text' : 'text-ink-soft',
+                        )}
+                      >
+                        {v != null ? met.format(v) : '—'}
+                        {parcial && v != null && (
+                          <span className="ml-1 text-[11px] font-normal text-ink-soft">hoy</span>
+                        )}
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}
           </tbody>
         </table>
       </Card>
-      <p className="mt-2 text-xs text-ink-faint">
-        En verde, el mejor valor de cada indicador. Toca un ciclo para abrirlo.
+      <p className="mt-2 text-[13px] text-ink-soft">
+        En verde, el mejor valor de cada indicador. «hoy» marca lo que aún no es final. Toca un ciclo para abrirlo.
       </p>
     </>
   )
