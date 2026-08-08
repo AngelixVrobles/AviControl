@@ -13,7 +13,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'favicon.svg', 'apple-touch-icon.png'],
       workbox: {
         runtimeCaching: [
           {
@@ -36,14 +36,16 @@ export default defineConfig({
         name: 'AviControl',
         short_name: 'AviControl',
         description: 'Gestión de pollos de engorde Cobb 500: ciclo, peso, alimento y ventas.',
-        theme_color: '#F6F4EE',
-        background_color: '#F6F4EE',
+        theme_color: '#F7F5EF',
+        background_color: '#F7F5EF',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
         icons: [
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
     }),
