@@ -24,7 +24,7 @@ export function Dashboard() {
           <p className="text-sm text-ink-soft">{settings.granja}</p>
           <h1 className="font-display text-[26px] font-semibold leading-[1.15]">{hoy}</h1>
         </div>
-        <LogoAviControl width={40} height={40} className="shrink-0 rounded-[9px] shadow-card" />
+        <LogoAviControl size={40} tile className="shrink-0 rounded-[9px] shadow-card" />
       </header>
 
       {activos.length === 0 ? (
