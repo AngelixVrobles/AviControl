@@ -24,7 +24,7 @@ import { computeGuiaDia } from '../lib/guia'
 import { computeInventarioAlimento, computePlanAlimento, type InventarioAlimento } from '../lib/plan'
 import { computeLiquidacion } from '../lib/sociedad'
 import { compartirReporte } from '../lib/reporte'
-import { diasEntre, fecha, hoyISO, money, num, numCompacto, pct } from '../lib/format'
+import { diasEntre, fecha, hoyISO, money, num, numCompacto, pct, porLb } from '../lib/format'
 import { categoriaLabel, RAZA, tipoIngresoLabel } from '../lib/labels'
 import { LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT, fcaEstandar, pesoEstandarLb } from '../lib/standards'
 import { reduceMotion } from '../lib/motion'
@@ -121,7 +121,7 @@ export function LoteDetail() {
     { label: 'Conv. alim. (FCA)', value: metrics.fca != null ? num(metrics.fca, 2) : '—' },
     { label: 'Mortalidad', value: pct(metrics.mortalidadPct) },
     { label: 'Alimento total', value: `${num(metrics.alimentoTotalLb)} lb` },
-    { label: 'Costo / lb', value: metrics.costoPorLb != null ? money(metrics.costoPorLb) : '—' },
+    { label: 'Costo / lb', value: metrics.costoPorLb != null ? porLb(metrics.costoPorLb) : '—' },
     { label: 'Aves vendidas', value: num(metrics.vendidas) },
   ]
 
@@ -717,7 +717,7 @@ function PrecioMinimo({
         <div className="text-xs text-ink-faint">Precio mínimo para no perder</div>
         <div className="flex items-baseline gap-2">
           <span className="font-display text-[32px] font-semibold leading-none tnum">
-            {money(a.precioEquilibrioLb)}
+            {porLb(a.precioEquilibrioLb)}
           </span>
           <span className="text-sm text-ink-soft">/ lb</span>
         </div>
@@ -725,9 +725,9 @@ function PrecioMinimo({
           = {money(a.precioEquilibrioAve)} por pollo de {num(lbPorAve, 2)} lb
         </div>
         <div className="mt-3 border-t border-line pt-3 text-[12px] leading-relaxed text-ink-faint">
-          De cada libra que vendas, {money(a.costoAlimento / a.lbEnPie)} son alimento (
-          {pct(a.alimentoPctDelCosto, 0)} del costo), {money(a.costoAves / a.lbEnPie)} el pollito y{' '}
-          {money(a.costoOtros / a.lbEnPie)} lo demás. Cada {money(1)} de más por libra son{' '}
+          De cada libra que vendas, {porLb(a.costoAlimento / a.lbEnPie)} son alimento (
+          {pct(a.alimentoPctDelCosto, 0)} del costo), {porLb(a.costoAves / a.lbEnPie)} el pollito y{' '}
+          {porLb(a.costoOtros / a.lbEnPie)} lo demás. Cada {money(1)} de más por libra son{' '}
           <span className="font-semibold text-ink-soft">{money(a.gananciaPorPesoDeMas)}</span> de
           ganancia.
         </div>
@@ -752,7 +752,7 @@ function PrecioMinimo({
               </div>
               <div className="flex items-center gap-4 text-right">
                 <span className="font-display text-[15px] font-semibold tnum">
-                  {money(e.precioLb)}
+                  {porLb(e.precioLb)}
                   <span className="text-[11px] font-normal text-ink-faint">/lb</span>
                 </span>
                 <span
@@ -770,8 +770,8 @@ function PrecioMinimo({
       {a.actual && (
         <p className="mt-2 text-xs text-ink-faint">
           {a.actual.ganancia >= 0
-            ? `A ${money(a.actual.precioLb)}/lb vendes ${pct(a.actual.sobreEquilibrioPct, 0)} por encima del equilibrio: ${money(a.actual.gananciaPorAve)} por pollo.`
-            : `A ${money(a.actual.precioLb)}/lb estás vendiendo por debajo del costo: pierdes ${money(-a.actual.gananciaPorAve)} por pollo.`}
+            ? `A ${porLb(a.actual.precioLb)}/lb vendes ${pct(a.actual.sobreEquilibrioPct, 0)} por encima del equilibrio: ${money(a.actual.gananciaPorAve)} por pollo.`
+            : `A ${porLb(a.actual.precioLb)}/lb estás vendiendo por debajo del costo: pierdes ${money(-a.actual.gananciaPorAve)} por pollo.`}
         </p>
       )}
     </>
@@ -883,7 +883,7 @@ function PuntoOptimo({
         />
         <FilaProyeccion
           label="La próxima libra te cuesta"
-          value={`${money(marginalHoy)} de ${money(a.precioVentaLb)}`}
+          value={`${porLb(marginalHoy)} de ${porLb(a.precioVentaLb)}`}
           valueClass={marginalHoy > a.precioVentaLb ? 'text-clay-deep' : 'text-forest-600'}
         />
         {a.diaCruce != null && (
@@ -1201,7 +1201,7 @@ function ProyeccionVenta({
           )}
           <FilaProyeccion
             label="Precio de equilibrio"
-            value={`${money(p.precioEquilibrioLb)} / lb`}
+            value={`${porLb(p.precioEquilibrioLb)} / lb`}
           />
         </Card>
       )}

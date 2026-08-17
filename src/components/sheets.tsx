@@ -12,7 +12,7 @@ import {
 import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
 import { confirmar } from './confirm'
 import { CATEGORIAS } from '../lib/labels'
-import { diasEntre, hoyISO, money, num, pct } from '../lib/format'
+import { diasEntre, hoyISO, money, num, pct, porLb } from '../lib/format'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
 import { LB_POR_QUINTAL, pesoEstandarLb } from '../lib/standards'
 import { IconClose } from './icons'
@@ -556,7 +556,7 @@ export function GastoSheet({
             label="Quintales comprados"
             hint={
               precioQq > 0
-                ? `Te sale a ${money(precioQq)} el quintal · ${money(precioQq / LB_POR_QUINTAL)} la libra`
+                ? `Te sale a ${money(precioQq)} el quintal · ${porLb(precioQq / LB_POR_QUINTAL)} la libra`
                 : 'Con esto la app lleva la existencia y el precio real de tu alimento.'
             }
           >

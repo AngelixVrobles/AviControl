@@ -1,6 +1,6 @@
 import { getSettings } from './settings'
 
-export function money(value: number, opts: { compact?: boolean } = {}): string {
+export function money(value: number, opts: { compact?: boolean; decimales?: number } = {}): string {
   const { moneda } = getSettings()
   const abs = Math.abs(value)
   let body: string
@@ -11,11 +11,19 @@ export function money(value: number, opts: { compact?: boolean } = {}): string {
     }).format(abs)
   } else {
     body = new Intl.NumberFormat('es-DO', {
-      maximumFractionDigits: 0,
+      minimumFractionDigits: opts.decimales ?? 0,
+      maximumFractionDigits: opts.decimales ?? 0,
     }).format(abs)
   }
-  return `${value < 0 ? '−' : ''}${moneda}${body}`
+  // Un valor negativo que redondea a cero no lleva signo: «−RD$0» no existe.
+  const negativo = value < 0 && Number(body.replace(/[^0-9]/g, '')) > 0
+  return `${negativo ? '−' : ''}${moneda}${body}`
 }
+
+// Los precios por libra se comparan entre sí y deciden la venta: redondear
+// RD$46.52 a RD$47 son más de mil pesos en un galpón de 2.500 lb, y hace que
+// dos escalones distintos de la tabla se vean con el mismo precio.
+export const porLb = (value: number) => money(value, { decimales: 2 })
 
 // es-DO alterna «8 K» y «16 k» según la magnitud; en un mismo eje se ve mal.
 export function numCompacto(value: number): string {

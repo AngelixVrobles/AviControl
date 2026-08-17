@@ -2,7 +2,7 @@ import { clsx } from 'clsx'
 import { Link } from 'react-router-dom'
 import type { LoteConMetrics } from '../lib/hooks'
 import type { LoteMetrics } from '../lib/metrics'
-import { fecha, money, num, pct } from '../lib/format'
+import { fecha, money, num, pct, porLb } from '../lib/format'
 import { Card } from './ui'
 import { IconTrofeo } from './icons'
 
@@ -27,7 +27,7 @@ const METRICAS: Metrica[] = [
     mejor: 'mayor',
   },
   { label: 'FCA', value: (m) => m.fca, format: (v) => num(v, 2), mejor: 'menor' },
-  { label: 'Costo / lb', value: (m) => m.costoPorLb, format: (v) => money(v), mejor: 'menor' },
+  { label: 'Costo / lb', value: (m) => m.costoPorLb, format: (v) => porLb(v), mejor: 'menor' },
   { label: 'Peso final', value: (m) => m.pesoPromedioLb, format: (v) => `${num(v, 2)} lb`, mejor: 'mayor', parcialEnActivo: true },
   { label: 'Mortalidad', value: (m) => m.mortalidadPct, format: (v) => pct(v), mejor: 'menor' },
   { label: 'Días', value: (m) => m.dias, format: (v) => num(v), parcialEnActivo: true },
