@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import {
   db,
@@ -55,20 +55,44 @@ export function RegistroSheet({
     return [...new Set(raw)].slice(0, 3)
   }, [previos, ayer])
 
+  const cargar = useCallback(
+    (r?: Registro) => {
+      setMortalidad(r?.mortalidad ?? 0)
+      setDescarte(r?.descarte ?? 0)
+      setAlimentoLb(r?.alimentoLb ? String(r.alimentoLb) : '')
+      setFeedOtro(!!r?.alimentoLb && !chips.includes(r.alimentoLb))
+      setPeso(r?.pesoPromedio != null ? String(r.pesoPromedio) : '')
+      setSinPesar(!!r && r.pesoPromedio == null)
+      setNota(r?.nota ?? '')
+      setMasOpciones(!!r?.descarte || !!r?.nota)
+    },
+    [chips],
+  )
+
+  // Por referencia: la lista cambia con cada escritura en la base y no debe
+  // recargar el formulario mientras la hoja está abierta.
+  const registrosRef = useRef(registros)
+  useEffect(() => {
+    registrosRef.current = registros
+  })
+
+  // Un día no puede tener dos registros: si ya está anotado, la hoja lo trae y
+  // lo corrige. Duplicarlo sumaba el alimento dos veces, y de ahí salían mal el
+  // FCA, el costo por libra y la existencia del galpón.
   useEffect(() => {
     if (!open) return
-    setFecha(editar?.fecha ?? hoyISO())
-    setMortalidad(editar?.mortalidad ?? 0)
-    setDescarte(editar?.descarte ?? 0)
-    setAlimentoLb(editar?.alimentoLb ? String(editar.alimentoLb) : '')
-    setFeedOtro(!!editar && !!editar.alimentoLb && !chips.includes(editar.alimentoLb))
-    setPeso(editar?.pesoPromedio != null ? String(editar.pesoPromedio) : '')
-    setSinPesar(!!editar && editar.pesoPromedio == null)
-    setNota(editar?.nota ?? '')
-    setMasOpciones(!!editar?.descarte || !!editar?.nota)
-  }, [open, editar, chips])
+    const f = editar?.fecha ?? hoyISO()
+    setFecha(f)
+    cargar(editar ?? registrosRef.current.find((r) => r.fecha === f))
+  }, [open, editar, cargar])
+
+  function cambiarFecha(f: string) {
+    setFecha(f)
+    cargar(registros.find((r) => r.fecha === f))
+  }
 
   const dia = diasEntre(lote.fechaInicio, fecha)
+  const existente = editar ?? registros.find((r) => r.fecha === fecha)
 
   async function guardar() {
     const datos = {
@@ -80,7 +104,7 @@ export function RegistroSheet({
       pesoPromedio: !sinPesar && peso ? Number(peso) : undefined,
       nota: nota.trim() || undefined,
     }
-    if (editar) await db.registros.update(editar.id, datos)
+    if (existente) await db.registros.update(existente.id, datos)
     else await db.registros.add({ ...datos, creado: Date.now() })
     onClose()
   }
@@ -94,8 +118,11 @@ export function RegistroSheet({
   return (
     <Sheet open={open} onClose={onClose} title={editar ? 'Editar registro' : 'Registro del día'}>
       <div className="space-y-5">
-        <Field label="Fecha">
-          <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        <Field
+          label="Fecha"
+          hint={existente && !editar ? 'Este día ya estaba anotado: lo estás corrigiendo.' : undefined}
+        >
+          <Input type="date" value={fecha} onChange={(e) => cambiarFecha(e.target.value)} />
         </Field>
 
         <div>
