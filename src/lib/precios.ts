@@ -64,7 +64,7 @@ export function analizarPrecio(
   m: LoteMetrics,
   p: Proyeccion | null,
 ): AnalisisPrecio | null {
-  const lbEnPie = p?.lbEnPie ?? (m.pesoPromedioLb != null ? Math.round(m.avesVivas * m.pesoPromedioLb) : 0)
+  const lbEnPie = p?.lbEnPie ?? (m.pesoEstimadoLb != null ? Math.round(m.avesVivas * m.pesoEstimadoLb) : 0)
   if (lbEnPie <= 0) return null
 
   const aves = p?.avesAlVender ?? m.avesVivas

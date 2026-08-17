@@ -14,6 +14,8 @@ export interface GuiaDia {
   dia: number
   pesoObjetivoLb: number
   pesoRealLb?: number
+  pesoEstimado: boolean
+  diasDesdePeso?: number
   desviacionPct?: number
   alimentoAcumLb: number
   alimentoDiaLb: number
@@ -31,7 +33,7 @@ export function computeGuiaDia(lote: Lote, m: LoteMetrics): GuiaDia | null {
   const aves = m.avesVivas > 0 ? m.avesVivas : lote.cantidadInicial
 
   const pesoObjetivoLb = pesoEstandarLb(dia)
-  const pesoRealLb = m.pesoPromedioLb
+  const pesoRealLb = m.pesoEstimadoLb
   const desviacionPct =
     pesoRealLb != null && pesoObjetivoLb > 0
       ? ((pesoRealLb - pesoObjetivoLb) / pesoObjetivoLb) * 100
@@ -43,6 +45,8 @@ export function computeGuiaDia(lote: Lote, m: LoteMetrics): GuiaDia | null {
     dia,
     pesoObjetivoLb,
     pesoRealLb,
+    pesoEstimado: (m.diasDesdePeso ?? 0) >= 2,
+    diasDesdePeso: m.diasDesdePeso,
     desviacionPct,
     alimentoAcumLb: alimentoAcumEstandarLb(dia) * aves,
     alimentoDiaLb,

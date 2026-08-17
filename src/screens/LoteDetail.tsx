@@ -114,7 +114,10 @@ export function LoteDetail() {
   }
 
   const kpis = [
-    { label: 'Peso prom.', value: metrics.pesoPromedioLb != null ? `${num(metrics.pesoPromedioLb, 2)} lb` : '—' },
+    {
+      label: (metrics.diasDesdePeso ?? 0) >= 2 ? 'Peso estimado hoy' : 'Peso prom.',
+      value: metrics.pesoEstimadoLb != null ? `${num(metrics.pesoEstimadoLb, 2)} lb` : '—',
+    },
     { label: 'Conv. alim. (FCA)', value: metrics.fca != null ? num(metrics.fca, 2) : '—' },
     { label: 'Mortalidad', value: pct(metrics.mortalidadPct) },
     { label: 'Alimento total', value: `${num(metrics.alimentoTotalLb)} lb` },
@@ -445,7 +448,7 @@ function SiVendes({
   gastos: Gasto[]
   metrics: LoteMetrics
 }) {
-  const pesoActual = metrics.pesoPromedioLb
+  const pesoActual = metrics.pesoEstimadoLb
   if (pesoActual == null || metrics.avesVivas <= 0) return null
   const objetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
 
@@ -1056,7 +1059,7 @@ function MedidaGalpon({
 }
 
 function GridCrecimiento({ metrics: m }: { metrics: LoteMetrics }) {
-  const gananciaDiaria = m.pesoPromedioLb != null && m.dias > 0 ? m.pesoPromedioLb / m.dias : undefined
+  const gananciaDiaria = m.pesoEstimadoLb != null && m.dias > 0 ? m.pesoEstimadoLb / m.dias : undefined
 
   const celdas = [
     { label: 'Ganancia diaria', value: gananciaDiaria != null ? `${num(gananciaDiaria, 3)} lb` : '—' },
@@ -1248,7 +1251,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
           </div>
           {desv != null && g.pesoRealLb != null && (
             <div className="text-right">
-              <div className="text-xs text-ink-faint">Tu lote</div>
+              <div className="text-xs text-ink-faint">{g.pesoEstimado ? 'Tu lote (est.)' : 'Tu lote'}</div>
               <div
                 className={
                   'font-display text-lg font-semibold tnum leading-none ' +
@@ -1261,6 +1264,9 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
                 {desv >= 0 ? '+' : ''}
                 {pct(desv, 0)}
               </div>
+              {g.pesoEstimado && (
+                <div className="text-[11px] text-ink-faint tnum">pesado hace {g.diasDesdePeso} días</div>
+              )}
             </div>
           )}
         </div>
