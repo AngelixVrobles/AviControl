@@ -20,9 +20,9 @@ export function desviaciones(m: LoteMetrics): {
   const pesoStd = pesoEstandarLb(dia)
 
   const peso = ((): Desviacion => {
-    if (m.pesoPromedioLb == null) return { valor: '—', detalle: 'sin pesar', estado: 'bien' }
-    const dif = ((m.pesoPromedioLb - pesoStd) / pesoStd) * 100
-    const valor = `${num(m.pesoPromedioLb, 2)} lb`
+    if (m.pesoEstimadoLb == null) return { valor: '—', detalle: 'sin pesar', estado: 'bien' }
+    const dif = ((m.pesoEstimadoLb - pesoStd) / pesoStd) * 100
+    const valor = `${num(m.pesoEstimadoLb, 2)} lb`
     if (dif < -5) return { valor, detalle: `▼ ${num(-dif, 0)}% peso`, estado: 'mal' }
     if (dif > 5) return { valor, detalle: `▲ ${num(dif, 0)}% peso`, estado: 'bien' }
     return { valor, detalle: '✓ en peso', estado: 'bien' }
@@ -45,4 +45,4 @@ export function desviaciones(m: LoteMetrics): {
 }
 
 export const pctDelEstandar = (m: LoteMetrics) =>
-  m.pesoPromedioLb != null ? (m.pesoPromedioLb / pesoEstandarLb(m.dias)) * 100 : undefined
+  m.pesoEstimadoLb != null ? (m.pesoEstimadoLb / pesoEstandarLb(m.dias)) * 100 : undefined

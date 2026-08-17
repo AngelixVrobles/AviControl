@@ -18,6 +18,9 @@ export interface LoteMetrics {
   costoPorAve: number
 
   pesoPromedioLb?: number
+  fechaPeso?: string
+  diasDesdePeso?: number
+  pesoEstimadoLb?: number
   biomasaLb?: number
   fca?: number
   costoPorLb?: number
@@ -91,8 +94,20 @@ export function computeMetrics(
       ? pesoPromedioLb / pesoEstandarLb(diasEntre(lote.fechaInicio, ultimoPeso.fecha))
       : 1
   const diaObjetivo = diaParaPeso(pesoObjetivo, factorCurva)
+
+  // Un peso medido envejece: a los tres días ya no es el del galpón. Se proyecta
+  // a hoy con la misma curva escalada, porque si no el alimento de esos días se
+  // divide entre la biomasa de entonces y el FCA, el costo por libra y el IEP
+  // salen disparados sin que nada haya pasado.
+  const fechaCorte = lote.fechaCierre ?? hoyISO()
+  const diasDesdePeso = ultimoPeso ? diasEntre(ultimoPeso.fecha, fechaCorte) : undefined
+  const pesoEstimadoLb =
+    pesoPromedioLb != null
+      ? Math.max(pesoPromedioLb, pesoEstandarLb(dias) * factorCurva)
+      : undefined
+
   const pesoVendidoLb = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.pesoLb ?? 0))
-  const biomasaViva = pesoPromedioLb ? avesVivas * pesoPromedioLb : 0
+  const biomasaViva = pesoEstimadoLb ? avesVivas * pesoEstimadoLb : 0
   const biomasaLb = biomasaViva + pesoVendidoLb
   const fca = biomasaLb > 0 ? alimentoTotalLb / biomasaLb : undefined
   const costoPorLb = biomasaLb > 0 ? costos / biomasaLb : undefined
@@ -100,14 +115,14 @@ export function computeMetrics(
 
   // Índice de eficiencia productiva europeo (EPEF/IEP), rango típico 250–400.
   const iep =
-    pesoPromedioLb != null && fca != null && fca > 0 && dias > 0
-      ? (((100 - mortalidadPct) * (pesoPromedioLb * KG_POR_LB)) / (dias * fca)) * 100
+    pesoEstimadoLb != null && fca != null && fca > 0 && dias > 0
+      ? (((100 - mortalidadPct) * (pesoEstimadoLb * KG_POR_LB)) / (dias * fca)) * 100
       : undefined
 
   let diaVentaEstimado: number | undefined
   let fechaVentaEstimada: string | undefined
-  if (pesoPromedioLb != null && avesVivas > 0) {
-    if (pesoPromedioLb >= pesoObjetivo) {
+  if (pesoEstimadoLb != null && avesVivas > 0) {
+    if (pesoEstimadoLb >= pesoObjetivo) {
       diaVentaEstimado = dias
       fechaVentaEstimada = hoyISO()
     } else {
@@ -122,6 +137,9 @@ export function computeMetrics(
   return {
     ...base,
     pesoPromedioLb,
+    fechaPeso: ultimoPeso?.fecha,
+    diasDesdePeso,
+    pesoEstimadoLb,
     biomasaLb,
     fca,
     costoPorLb,
