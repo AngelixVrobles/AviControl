@@ -6,7 +6,7 @@ import { LoteCard } from '../components/LoteCard'
 import type { LoteConMetrics } from '../lib/hooks'
 import { Button, EmptyState } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
-import { fechaLarga, hoyISO, money, num } from '../lib/format'
+import { fechaLarga, hoyISO, money, num, porLb } from '../lib/format'
 import { useResumen, useSettings } from '../lib/hooks'
 
 export function Dashboard() {
@@ -179,7 +179,7 @@ function BloqueFinanciero({ activos }: { activos: LoteConMetrics[] }) {
         Costo por libra · promedio de {activos.length} {activos.length === 1 ? 'ciclo' : 'ciclos'} activos
       </div>
       <div className="mt-2 font-display text-[40px] font-semibold leading-none tracking-tight tnum">
-        {costoLbProm != null ? <AnimatedNumber value={costoLbProm} format={(n) => money(n)} /> : '—'}
+        {costoLbProm != null ? <AnimatedNumber value={costoLbProm} format={porLb} /> : '—'}
         <span className="ml-1 align-baseline text-lg font-medium text-green-pale">/ lb</span>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
