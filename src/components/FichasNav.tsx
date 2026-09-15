@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { clsx } from 'clsx'
 import type { Aplicacion, Lote } from '../db/schema'
 import type { LoteMetrics } from '../lib/metrics'
 import { money, num, pct } from '../lib/format'
@@ -14,7 +15,7 @@ export function FichasNav({
   aplicaciones: Aplicacion[]
 }) {
   const fichas = [
-    { tipo: 'aves', titulo: 'Aves', valor: pct(metrics.mortalidadPct, 1), pie: 'de baja' },
+    { tipo: 'aves', titulo: 'Aves', valor: pct(metrics.mortalidadPct, 1), pie: 'de baja', ancho: false },
     {
       tipo: 'alimento',
       titulo: 'Alimento',
@@ -33,6 +34,13 @@ export function FichasNav({
       valor: money(metrics.costos, { compact: true }),
       pie: 'en el ciclo',
     },
+    {
+      tipo: 'galpon',
+      titulo: 'Galpón',
+      valor: `${num(metrics.avesVivas)} aves`,
+      pie: 'espacio y equipo',
+      ancho: true,
+    },
   ]
 
   return (
@@ -41,7 +49,10 @@ export function FichasNav({
         <Link
           key={f.tipo}
           to={`/lotes/${lote.id}/ficha/${f.tipo}`}
-          className="rounded-xl2 border border-line bg-paper-raised p-3.5 shadow-card transition active:scale-[0.98]"
+          className={clsx(
+            'rounded-xl2 border border-line bg-paper-raised p-3.5 shadow-card transition active:scale-[0.98]',
+            f.ancho && 'col-span-2',
+          )}
         >
           <div className="flex items-baseline justify-between">
             <span className="text-[13px] font-medium text-ink-soft">{f.titulo}</span>

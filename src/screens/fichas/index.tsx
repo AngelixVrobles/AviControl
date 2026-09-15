@@ -1,8 +1,9 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { useLoteData } from '../../lib/hooks'
+import { useLoteData, useSettings } from '../../lib/hooks'
 import { Button } from '../../components/ui'
 import { IconBack } from '../../components/icons'
 import { FichaAlimento } from './Alimento'
+import { FichaGalpon } from './Galpon'
 import { FichaGastos } from './Gastos'
 import { FichaMortalidad } from './Mortalidad'
 import { FichaSanidad } from './Sanidad'
@@ -12,6 +13,7 @@ export const FICHAS = {
   alimento: { titulo: 'Alimento', sub: 'Lo que diste contra lo que tocaba' },
   sanidad: { titulo: 'Sanidad', sub: 'Plan de vacunas y lo que aplicaste' },
   gastos: { titulo: 'Gastos', sub: 'Cada peso, por categoría' },
+  galpon: { titulo: 'Galpón', sub: 'Espacio, comederos y bebederos' },
 } as const
 
 export type TipoFicha = keyof typeof FICHAS
@@ -20,6 +22,7 @@ export function Ficha() {
   const { id, tipo } = useParams()
   const nav = useNavigate()
   const data = useLoteData(id ? Number(id) : undefined)
+  const settings = useSettings()
   const ficha = FICHAS[tipo as TipoFicha]
 
   if (!ficha)
@@ -73,6 +76,7 @@ export function Ficha() {
         <FichaSanidad lote={lote} metrics={metrics} gastos={gastos} aplicaciones={aplicaciones} />
       )}
       {tipo === 'gastos' && <FichaGastos lote={lote} gastos={gastos} metrics={metrics} />}
+      {tipo === 'galpon' && <FichaGalpon lote={lote} metrics={metrics} settings={settings} />}
     </div>
   )
 }
