@@ -1019,7 +1019,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
     { label: 'Alimento acum.', value: `${num(g.alimentoAcumLb)} lb` },
     { label: 'FCA esperado', value: num(g.fcaEsperado, 2) },
     { label: 'Temperatura', value: `${g.tempC} °C` },
-    { label: 'Agua hoy', value: `~${num(g.aguaLitrosDia)} L` },
+    { label: 'Agua hoy', value: g.aguaRealL != null ? `${num(g.aguaRealL)} L` : `~${num(g.aguaLitrosDia)} L` },
     { label: 'Mort. esperada', value: pct(g.mortalidadEsperadaPct, 1) },
   ]
   return (

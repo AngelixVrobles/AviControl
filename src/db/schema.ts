@@ -47,6 +47,7 @@ export interface Registro {
   mortalidad: number
   descarte: number
   alimentoLb: number
+  aguaL?: number
   pesoPromedio?: number
   nota?: string
   creado: number

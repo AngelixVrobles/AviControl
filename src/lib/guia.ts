@@ -1,5 +1,6 @@
 import type { Lote } from '../db/schema'
 import type { LoteMetrics } from './metrics'
+import { aguaEsperadaL } from './agua'
 import {
   alimentoAcumEstandarLb,
   alimentoDiaEstandarLb,
@@ -21,6 +22,7 @@ export interface GuiaDia {
   alimentoDiaLb: number
   fcaEsperado: number
   aguaLitrosDia: number
+  aguaRealL?: number
   areaM2: number
   tempC: number
   mortalidadEsperadaPct: number
@@ -50,8 +52,8 @@ export function computeGuiaDia(lote: Lote, m: LoteMetrics): GuiaDia | null {
     desviacionPct,
     alimentoAcumLb: alimentoAcumEstandarLb(dia) * aves,
     alimentoDiaLb,
-    // Un pollo bebe cerca del doble de lo que come; en el calor dominicano sube más.
-    aguaLitrosDia: alimentoDiaLb * 0.82,
+    aguaLitrosDia: aguaEsperadaL(alimentoDiaLb),
+    aguaRealL: m.registroHoy?.aguaL,
     areaM2: aves / avesPorM2(pesoRealLb ?? pesoObjetivoLb),
     tempC: tempRecomendadaC(dia),
     mortalidadEsperadaPct: mortalidadEsperadaPct(dia),
