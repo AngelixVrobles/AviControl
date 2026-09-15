@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { motion } from 'motion/react'
 import {
@@ -31,6 +31,7 @@ import { LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT, fcaEstandar, pesoEstandarLb } fr
 import { reduceMotion } from '../lib/motion'
 import { saveSettings, type Settings } from '../lib/settings'
 import { AlertaChip } from '../components/AlertaChip'
+import { FichasNav } from '../components/FichasNav'
 import { confirmar } from '../components/confirm'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { Button, Card, Pill } from '../components/ui'
@@ -100,7 +101,7 @@ export function LoteDetail() {
       </div>
     )
 
-  const { lote, registros, gastos, ingresos, pesajes, metrics, alertas } = data
+  const { lote, registros, gastos, ingresos, pesajes, aplicaciones, metrics, alertas } = data
   const cerrado = lote.estado === 'cerrado' && ingresos.some((i) => i.tipo === 'aves')
   const gastosCat = agruparGastos(gastos)
   const maxCat = Math.max(1, ...gastosCat.map((g) => g.total))
@@ -207,6 +208,7 @@ export function LoteDetail() {
 
       {tab === 'hoy' && (
         <div className="animate-rise">
+          <FichasNav lote={lote} metrics={metrics} aplicaciones={aplicaciones} />
           <GuiaDelDia lote={lote} metrics={metrics} />
           <PlanAlimento lote={lote} gastos={gastos} metrics={metrics} />
           <Equipo lote={lote} metrics={metrics} settings={settings} />
@@ -330,7 +332,15 @@ export function LoteDetail() {
 
           {gastosCat.length > 0 && (
             <>
-              <h2 className="mb-3 mt-7 font-display text-lg font-semibold">A dónde se fue el dinero</h2>
+              <div className="mb-3 mt-7 flex items-baseline justify-between">
+                <h2 className="font-display text-lg font-semibold">A dónde se fue el dinero</h2>
+                <Link
+                  to={`/lotes/${lote.id}/ficha/gastos`}
+                  className="text-[13px] font-semibold text-forest-600"
+                >
+                  Ver detalle →
+                </Link>
+              </div>
               <Card className="divide-y divide-line">
                 {gastosCat.map((g) => (
                   <div key={g.categoria} className="px-4 py-3">
@@ -1424,7 +1434,15 @@ function PlanAlimento({
   return (
     <>
       <div className="mb-3 mt-7 flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold">Plan de alimento</h2>
+        <h2 className="font-display text-lg font-semibold">
+          Plan de alimento
+          <Link
+            to={`/lotes/${lote.id}/ficha/alimento`}
+            className="ml-2 align-middle text-[13px] font-semibold text-forest-600"
+          >
+            ver detalle
+          </Link>
+        </h2>
         {precioReal ? (
           <span className="text-right text-xs text-ink-faint tnum">
             {money(precioReal)} el quintal

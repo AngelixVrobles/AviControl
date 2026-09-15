@@ -1,6 +1,6 @@
-import type { Gasto, Lote } from '../db/schema'
+import type { Gasto, Lote, Registro } from '../db/schema'
 import type { LoteMetrics } from './metrics'
-import { hoyISO, sumarDias } from './format'
+import { diasEntre, hoyISO, sumarDias } from './format'
 import { comprasAlimento, precioQuintalReal } from './precios'
 import {
   FASES_ALIMENTO,
@@ -92,6 +92,45 @@ export function computeInventarioAlimento(
     faltaComprarQq,
     costoFaltante: precioQuintal ? faltaComprarQq * precioQuintal : undefined,
   }
+}
+
+export interface ConsumoFase {
+  nombre: string
+  desde: number
+  hasta: number
+  planALaFechaLb: number
+  planTotalLb: number
+  realLb: number
+  diasRegistrados: number
+  enCurso: boolean
+}
+
+// Lo que de verdad se dio en cada fase, contra lo que tocaba. El plan completo
+// no sirve para juzgar una fase a medias, así que se compara contra lo que
+// correspondía hasta hoy.
+export function consumoPorFase(lote: Lote, registros: Registro[], m: LoteMetrics): ConsumoFase[] {
+  const aves = lote.cantidadInicial
+  const diaFinal = m.diaObjetivo
+
+  return FASES_ALIMENTO.map((f) => {
+    const hasta = Math.min(f.hasta, diaFinal)
+    const hastaHoy = Math.min(hasta, m.dias)
+    const delaFase = registros.filter((r) => {
+      const d = diasEntre(lote.fechaInicio, r.fecha)
+      return d >= f.desde && d <= hasta
+    })
+    const base = alimentoAcumEstandarLb(f.desde - 1)
+    return {
+      nombre: f.nombre,
+      desde: f.desde,
+      hasta,
+      planALaFechaLb: Math.max(0, (alimentoAcumEstandarLb(hastaHoy) - base) * aves),
+      planTotalLb: Math.max(0, (alimentoAcumEstandarLb(hasta) - base) * aves),
+      realLb: delaFase.reduce((a, r) => a + (r.alimentoLb ?? 0), 0),
+      diasRegistrados: delaFase.length,
+      enCurso: m.dias >= f.desde && m.dias <= hasta,
+    }
+  }).filter((f) => f.hasta >= f.desde && f.planTotalLb > 0)
 }
 
 // El plan se dimensiona con las aves recibidas, no con las vivas: el alimento se

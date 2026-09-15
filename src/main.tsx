@@ -7,6 +7,7 @@ import { Shell } from './components/Shell'
 import { Dashboard } from './screens/Dashboard'
 import { Lotes } from './screens/Lotes'
 import { LoteDetail } from './screens/LoteDetail'
+import { Ficha } from './screens/fichas'
 import { NuevoLote } from './screens/NuevoLote'
 import { Reportes } from './screens/Reportes'
 import { Ajustes } from './screens/Ajustes'
@@ -18,6 +19,7 @@ const router = createBrowserRouter([
       { path: '/', element: <Dashboard /> },
       { path: '/lotes', element: <Lotes /> },
       { path: '/lotes/:id', element: <LoteDetail /> },
+      { path: '/lotes/:id/ficha/:tipo', element: <Ficha /> },
       { path: '/reportes', element: <Reportes /> },
       { path: '/ajustes', element: <Ajustes /> },
     ],
