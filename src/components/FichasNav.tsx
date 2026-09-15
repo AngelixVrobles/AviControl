@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { Aplicacion, Lote } from '../db/schema'
 import type { LoteMetrics } from '../lib/metrics'
-import { money, num, pct } from '../lib/format'
+import { money, num, pct, plural } from '../lib/format'
 import { LB_POR_QUINTAL } from '../lib/standards'
 
 export function FichasNav({
@@ -26,7 +26,7 @@ export function FichasNav({
       tipo: 'sanidad',
       titulo: 'Sanidad',
       valor: num(aplicaciones.length),
-      pie: aplicaciones.length === 1 ? 'aplicación' : 'aplicaciones',
+      pie: plural(aplicaciones.length, 'aplicación', 'aplicaciones'),
     },
     {
       tipo: 'gastos',
@@ -34,13 +34,19 @@ export function FichasNav({
       valor: money(metrics.costos, { compact: true }),
       pie: 'en el ciclo',
     },
-    {
-      tipo: 'galpon',
-      titulo: 'Galpón',
-      valor: `${num(metrics.avesVivas)} aves`,
-      pie: 'espacio y equipo',
-      ancho: true,
-    },
+    // El espacio y el equipo son para manejar aves vivas: en un ciclo terminado
+    // no hay nada que dimensionar.
+    ...(lote.estado === 'activo'
+      ? [
+          {
+            tipo: 'galpon',
+            titulo: 'Galpón',
+            valor: `${num(metrics.avesVivas)} ${plural(metrics.avesVivas, 'ave', 'aves')}`,
+            pie: 'espacio y equipo',
+            ancho: true,
+          },
+        ]
+      : []),
   ]
 
   return (

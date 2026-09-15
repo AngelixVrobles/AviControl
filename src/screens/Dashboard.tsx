@@ -6,7 +6,7 @@ import { LoteCard } from '../components/LoteCard'
 import type { LoteConMetrics } from '../lib/hooks'
 import { Button, EmptyState } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
-import { fechaLarga, hoyISO, money, num, porLb } from '../lib/format'
+import { fechaLarga, hoyISO, money, num, plural, porLb } from '../lib/format'
 import { useResumen, useSettings } from '../lib/hooks'
 
 export function Dashboard() {
@@ -20,7 +20,7 @@ export function Dashboard() {
 
   return (
     <div className="animate-rise">
-      <header className="flex items-center justify-between pt-3">
+      <header className="flex items-center justify-between gap-4 pt-3">
         <div className="min-w-0">
           <p className="text-sm text-ink-soft">{settings.granja}</p>
           <h1 className="font-display text-[26px] font-semibold leading-[1.15]">{hoy}</h1>
@@ -72,7 +72,7 @@ export function Dashboard() {
             ))}
           </div>
 
-          <BloqueFinanciero activos={activos} />
+          <BloqueFinanciero activos={activos} precioMercado={settings.precioMercadoLb} />
         </>
       )}
     </div>
@@ -101,7 +101,7 @@ function Alertas({ activos }: { activos: LoteConMetrics[] }) {
           onClick={() => setTodas(true)}
           className="mt-2 w-full rounded-xl border border-dashed border-line py-2.5 text-center text-[13px] font-medium text-ink-soft"
         >
-          Ver {items.length - 2} avisos más
+          Ver {items.length - 2} {plural(items.length - 2, 'aviso', 'avisos')} más
         </button>
       )}
     </section>
@@ -117,7 +117,7 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
       <div className="mb-2 flex items-center justify-between px-1">
         <h2 className="font-display text-[17px] font-semibold">Registro de hoy</h2>
         <span className="text-[13px] font-medium text-ink-soft tnum">
-          {listos} de {activos.length} listo
+          {listos} de {activos.length} {plural(activos.length, 'listo', 'listos')}
         </span>
       </div>
       <div className="space-y-2">
@@ -177,26 +177,48 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
   )
 }
 
-function BloqueFinanciero({ activos }: { activos: LoteConMetrics[] }) {
+function BloqueFinanciero({
+  activos,
+  precioMercado,
+}: {
+  activos: LoteConMetrics[]
+  precioMercado?: number
+}) {
   const conCosto = activos.filter((r) => r.metrics.costoPorLb != null)
   const costoLbProm = conCosto.length
     ? conCosto.reduce((a, r) => a + r.metrics.costoPorLb!, 0) / conCosto.length
     : undefined
   const avesVivas = activos.reduce((a, r) => a + r.metrics.avesVivas, 0)
-  const ganancia = activos.reduce((a, r) => a + r.metrics.ganancia, 0)
+  const invertido = activos.reduce((a, r) => a + r.metrics.costos, 0)
+
+  // Durante el ciclo no hay ganancia que mostrar: los costos entran desde el
+  // día 1 y el ingreso llega al vender. Lo que sí se puede decir es cuánto se
+  // lleva puesto y cuánto vale hoy lo que está en el galpón.
+  const valorEnPie = activos.reduce((a, r) => {
+    const precio = r.lote.precioVentaLb ?? precioMercado
+    if (!precio || r.metrics.pesoEstimadoLb == null) return a
+    return a + r.metrics.avesVivas * r.metrics.pesoEstimadoLb * precio
+  }, 0)
 
   return (
     <section className="mt-7 overflow-hidden rounded-xl2 bg-forest-deep p-5 text-paper-raised shadow-card">
       <div className="text-[13px] font-medium text-green-pale">
-        Costo por libra · promedio de {activos.length} {activos.length === 1 ? 'ciclo' : 'ciclos'} activos
+        Costo por libra ·{' '}
+        {conCosto.length === activos.length
+          ? `promedio de ${conCosto.length} ${plural(conCosto.length, 'ciclo activo', 'ciclos activos')}`
+          : `${conCosto.length} de ${activos.length} ciclos, los que ya tienen pesaje`}
       </div>
       <div className="mt-2 font-display text-[40px] font-semibold leading-none tracking-tight tnum">
         {costoLbProm != null ? <AnimatedNumber value={costoLbProm} format={porLb} /> : '—'}
         <span className="ml-1 align-baseline text-lg font-medium text-green-pale">/ lb</span>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
+      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
         <HeroStat label="Aves vivas" value={num(avesVivas)} />
-        <HeroStat label={ganancia >= 0 ? 'Ganancia acumulada' : 'Pérdida acumulada'} value={money(ganancia, { compact: true })} />
+        <HeroStat label="Invertido" value={money(invertido, { compact: true })} />
+        <HeroStat
+          label="Valor en pie"
+          value={valorEnPie > 0 ? money(valorEnPie, { compact: true }) : '—'}
+        />
       </div>
     </section>
   )

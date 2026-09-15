@@ -2,7 +2,7 @@ import type { Gasto, Lote, Registro } from '../db/schema'
 import type { LoteMetrics } from './metrics'
 import { resumenAgua } from './agua'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
-import { diasEntre, hoyISO, num, pct } from './format'
+import { diasEntre, hoyISO, num, pct, plural } from './format'
 import { DIAS_RETIRO, FASES_ALIMENTO, fcaEstandar, mortalidadEsperadaPct } from './standards'
 
 export interface Alerta {
@@ -28,7 +28,7 @@ export function computeAlertas(
   const ultimo = registros.length ? registros[registros.length - 1] : undefined
   const diasSinRegistro = ultimo ? diasEntre(ultimo.fecha, hoyISO()) : m.dias
   if (diasSinRegistro >= 2 && m.dias >= 2) {
-    alertas.push({ nivel: 'warn', texto: `Sin registro desde hace ${diasSinRegistro} días` })
+    alertas.push({ nivel: 'warn', texto: `Sin registro desde hace ${diasSinRegistro} ${plural(diasSinRegistro, 'día', 'días')}` })
   }
 
   if (m.mortalidadPct > mortalidadEsperadaPct(m.dias) + 2) {
@@ -57,7 +57,7 @@ export function computeAlertas(
     alertas.push({
       nivel: 'warn',
       texto: ultimoPesaje
-        ? `Hace ${diasSinPesar} días que no pesas: sin peso no hay proyección`
+        ? `Hace ${diasSinPesar} ${plural(diasSinPesar, 'día', 'días')} que no pesas: sin peso no hay proyección`
         : 'Aún no has pesado ninguna ave de este lote',
     })
   }

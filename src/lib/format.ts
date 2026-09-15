@@ -32,6 +32,9 @@ export function numCompacto(value: number): string {
     .replace('K', 'k')
 }
 
+export const plural = (n: number, singular: string, plural: string) =>
+  Math.abs(n) === 1 ? singular : plural
+
 export function num(value: number, decimals = 0): string {
   return new Intl.NumberFormat('es-DO', {
     minimumFractionDigits: decimals,

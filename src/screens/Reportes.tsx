@@ -3,7 +3,7 @@ import { clsx } from 'clsx'
 import { Bar, BarChart, LabelList, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import type { LoteConMetrics } from '../lib/hooks'
 import { useResumen } from '../lib/hooks'
-import { diasEntre, fecha, hoyISO, money, num } from '../lib/format'
+import { diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { CHART_INK } from '../lib/labels'
 import { Card } from '../components/ui'
 import { ComparacionLotes } from '../components/Comparacion'
@@ -58,6 +58,7 @@ export function Reportes() {
       ) : (
         <>
           <Totales lista={lista} />
+          {lista.length === 1 && <FichaDelCiclo r={lista[0]} />}
           <VasMejorando lista={lista} />
           <ComparacionLotes resumen={lista} />
         </>
@@ -77,10 +78,45 @@ function alcance(lista: LoteConMetrics[], seg: Segmento): string {
       : n === 1
         ? 'ciclo en curso'
         : 'ciclos en curso'
-  const fechas = lista.map((r) => r.lote.fechaInicio).sort()
+  const fechas = lista.map((r) => r.lote.fechaCierre ?? r.lote.fechaInicio).sort()
   const rango =
     n > 1 ? ` · ${mesAnio(fechas[0])} – ${mesAnio(fechas[n - 1])}` : ` · ${mesAnio(fechas[0])}`
   return `${num(n)} ${noun}${rango}`
+}
+
+function FichaDelCiclo({ r }: { r: LoteConMetrics }) {
+  const { lote, metrics: m } = r
+  const filas = [
+    { label: 'Peso por ave', valor: m.pesoEstimadoLb != null ? `${num(m.pesoEstimadoLb, 2)} lb` : '—' },
+    { label: 'Conversión (FCA)', valor: m.fca != null ? num(m.fca, 2) : '—' },
+    { label: 'Mortalidad', valor: pct(m.mortalidadPct, 1) },
+    { label: 'Costo por libra', valor: m.costoPorLb != null ? porLb(m.costoPorLb) : '—' },
+    { label: 'Índice de eficiencia', valor: m.iep != null ? num(m.iep, 0) : '—' },
+    { label: 'Días de ciclo', valor: `${num(m.dias)} ${plural(m.dias, 'día', 'días')}` },
+  ]
+
+  return (
+    <>
+      <h2 className="mb-1 mt-7 font-display text-lg font-semibold">{lote.nombre}</h2>
+      <p className="mb-3 text-xs text-ink-faint">
+        Cuando cierres el siguiente, aquí aparece la comparación entre los dos.
+      </p>
+      <Card className="divide-y divide-line">
+        {filas.map((f) => (
+          <div key={f.label} className="flex items-center justify-between px-4 py-3">
+            <span className="text-[13px] text-ink-soft">{f.label}</span>
+            <span className="font-display font-semibold tnum">{f.valor}</span>
+          </div>
+        ))}
+      </Card>
+      <Link
+        to={`/lotes/${lote.id}?t=dinero`}
+        className="mt-3 block w-full rounded-full bg-forest-50 py-3 text-center text-[15px] font-semibold text-forest-700"
+      >
+        Ver el ciclo completo
+      </Link>
+    </>
+  )
 }
 
 function Totales({ lista }: { lista: LoteConMetrics[] }) {

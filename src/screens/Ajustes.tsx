@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Gasto, type Ingreso, type Lote, type Pesaje, type Registro } from '../db/schema'
 import { saveSettings, type Settings } from '../lib/settings'
 import { useSettings } from '../lib/hooks'
-import { diasEntre, fecha, hoyISO, num } from '../lib/format'
+import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
 import { Card, DangerButton, Field, Input } from '../components/ui'
@@ -149,9 +149,15 @@ export function Ajustes() {
     if (
       !(await confirmar({
         titulo: 'Borrar todos los datos',
-        mensaje: `Borra ${num(c?.ciclos ?? 0)} ciclos, ${num(c?.registros ?? 0)} registros diarios, ${num(
+        mensaje: `Borra ${num(c?.ciclos ?? 0)} ${plural(c?.ciclos ?? 0, 'ciclo', 'ciclos')}, ${num(
+          c?.registros ?? 0,
+        )} ${plural(c?.registros ?? 0, 'registro diario', 'registros diarios')}, ${num(
           c?.gastos ?? 0,
-        )} gastos y ${num(c?.ventas ?? 0)} ventas. No se puede deshacer y no hay copia en internet.`,
+        )} ${plural(c?.gastos ?? 0, 'gasto', 'gastos')} y ${num(c?.ventas ?? 0)} ${plural(
+          c?.ventas ?? 0,
+          'venta',
+          'ventas',
+        )}. No se puede deshacer y no hay copia en internet.`,
         confirmar: 'Borrar todo',
         peligro: true,
       }))
