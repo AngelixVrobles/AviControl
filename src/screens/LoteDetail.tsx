@@ -14,22 +14,21 @@ import {
 } from 'recharts'
 import { db, type Gasto, type Ingreso, type Lote, type Pesaje, type Registro } from '../db/schema'
 import { useLoteData, useSettings } from '../lib/hooks'
-import { agruparGastos, resumenSemanal, type LoteMetrics } from '../lib/metrics'
+import { agruparGastos, type LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
-import { analizarPrecio, precioAlimentoLb, precioQuintalReal } from '../lib/precios'
+import { analizarPrecio } from '../lib/precios'
 import { resultadoCiclo, type Contraste } from '../lib/cierre'
 import { analizarPuntoOptimo } from '../lib/optimo'
 import { analizarMuestra, tamanoMuestra } from '../lib/muestreo'
-import { computeEquipo, enPies, enPies2, type Distribucion } from '../lib/equipo'
 import { computeGuiaDia } from '../lib/guia'
-import { computeInventarioAlimento, computePlanAlimento, type InventarioAlimento } from '../lib/plan'
+import { computeInventarioAlimento, computePlanAlimento } from '../lib/plan'
 import { computeLiquidacion } from '../lib/sociedad'
 import { compartirReporte } from '../lib/reporte'
 import { diasEntre, fecha, money, num, numCompacto, pct, porLb } from '../lib/format'
 import { categoriaLabel, RAZA, tipoIngresoLabel } from '../lib/labels'
-import { LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT, fcaEstandar, pesoEstandarLb } from '../lib/standards'
+import { PESO_OBJETIVO_DEFAULT, fcaEstandar, pesoEstandarLb } from '../lib/standards'
 import { reduceMotion } from '../lib/motion'
-import { saveSettings, type Settings } from '../lib/settings'
+import type { Settings } from '../lib/settings'
 import { AlertaChip } from '../components/AlertaChip'
 import { FichasNav } from '../components/FichasNav'
 import { confirmar } from '../components/confirm'
@@ -63,7 +62,6 @@ export function LoteDetail() {
   const [editGasto, setEditGasto] = useState<Gasto>()
   const [editIngreso, setEditIngreso] = useState<Ingreso>()
   const [editPesaje, setEditPesaje] = useState<Pesaje>()
-  const [todosMovs, setTodosMovs] = useState(false)
   const [todoHistorial, setTodoHistorial] = useState(false)
 
   function abrir(kind: SheetKind) {
@@ -104,7 +102,6 @@ export function LoteDetail() {
   const { lote, registros, gastos, ingresos, pesajes, aplicaciones, metrics, alertas } = data
   const cerrado = lote.estado === 'cerrado' && ingresos.some((i) => i.tipo === 'aves')
   const gastosCat = agruparGastos(gastos)
-  const maxCat = Math.max(1, ...gastosCat.map((g) => g.total))
   const positivo = metrics.ganancia >= 0
 
   async function reabrir() {
@@ -210,18 +207,7 @@ export function LoteDetail() {
         <div className="animate-rise">
           <FichasNav lote={lote} metrics={metrics} aplicaciones={aplicaciones} />
           <GuiaDelDia lote={lote} metrics={metrics} />
-          <PlanAlimento lote={lote} gastos={gastos} metrics={metrics} />
-          <Equipo lote={lote} metrics={metrics} settings={settings} />
-
-          <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Indicadores</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {kpis.map((k) => (
-              <Card key={k.label} className="p-3.5">
-                <div className="font-display text-[22px] font-semibold tnum leading-none">{k.value}</div>
-                <div className="mt-1.5 text-[13px] text-ink-soft">{k.label}</div>
-              </Card>
-            ))}
-          </div>
+          <FaseActual lote={lote} gastos={gastos} metrics={metrics} />
 
           <h2 className="mb-1 mt-7 font-display text-lg font-semibold">Historial</h2>
           {registros.length === 0 ? (
@@ -232,7 +218,7 @@ export function LoteDetail() {
             <>
               <p className="mb-3 text-xs text-ink-faint">Toca un día para corregirlo.</p>
               <Card className="divide-y divide-line">
-                {[...registros].reverse().slice(0, todoHistorial ? undefined : 8).map((r) => (
+                {[...registros].reverse().slice(0, todoHistorial ? undefined : 5).map((r) => (
                   <button
                     key={r.id}
                     onClick={() => {
@@ -252,7 +238,7 @@ export function LoteDetail() {
                   </button>
                 ))}
               </Card>
-              {!todoHistorial && registros.length > 8 && (
+              {!todoHistorial && registros.length > 5 && (
                 <button
                   onClick={() => setTodoHistorial(true)}
                   className="mt-2 w-full py-2 text-center text-[13px] font-medium text-forest-600"
@@ -282,7 +268,6 @@ export function LoteDetail() {
               setSheet('pesaje')
             }}
           />
-          <TablaSemanal lote={lote} registros={registros} />
           <Diagnostico metrics={metrics} />
         </div>
       )}
@@ -327,89 +312,65 @@ export function LoteDetail() {
 
           <PrecioMinimo lote={lote} registros={registros} gastos={gastos} metrics={metrics} />
           <PuntoOptimo lote={lote} registros={registros} gastos={gastos} metrics={metrics} />
-          <SiVendes lote={lote} registros={registros} gastos={gastos} metrics={metrics} />
-          <ProyeccionVenta lote={lote} registros={registros} gastos={gastos} metrics={metrics} />
 
-          {gastosCat.length > 0 && (
-            <>
-              <div className="mb-3 mt-7 flex items-baseline justify-between">
-                <h2 className="font-display text-lg font-semibold">A dónde se fue el dinero</h2>
-                <Link
-                  to={`/lotes/${lote.id}/ficha/gastos`}
-                  className="text-[13px] font-semibold text-forest-600"
-                >
-                  Ver detalle →
-                </Link>
+          <Link
+            to={`/lotes/${lote.id}/ficha/gastos`}
+            className="mt-7 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 shadow-card transition active:scale-[0.99]"
+          >
+            <div>
+              <div className="font-display text-[17px] font-semibold leading-tight">
+                A dónde se fue el dinero
               </div>
-              <Card className="divide-y divide-line">
-                {gastosCat.map((g) => (
-                  <div key={g.categoria} className="px-4 py-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-ink-soft">
-                        {categoriaLabel(g.categoria)}
-                        <span className="ml-2 text-xs text-ink-faint tnum">
-                          {pct((g.total / Math.max(1, metrics.costos)) * 100, 0)}
-                        </span>
-                      </span>
-                      <span className="font-display font-semibold tnum">{money(g.total)}</span>
-                    </div>
-                    <div className="relative mt-2.5 h-[3px]">
-                      <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-line" />
-                      <motion.div
-                        className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-green-action"
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: g.total / maxCat }}
-                        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </Card>
-            </>
-          )}
+              <div className="text-[13px] text-ink-soft">
+                {gastosCat.length > 0
+                  ? `${categoriaLabel(gastosCat[0].categoria)} se lleva ${pct((gastosCat[0].total / Math.max(1, metrics.costos)) * 100, 0)}`
+                  : 'Cada categoría, con su detalle'}
+              </div>
+            </div>
+            <span className="shrink-0 text-right">
+              <span className="block font-display text-[17px] font-semibold tnum">
+                {money(metrics.costos, { compact: true })}
+              </span>
+              <span className="text-[11px] text-ink-faint">ver desglose ›</span>
+            </span>
+          </Link>
 
           <Sociedad lote={lote} gastos={gastos} ingresos={ingresos} metrics={metrics} settings={settings} />
 
-          {(gastos.length > 0 || ingresos.length > 0) && (
+          {ingresos.length > 0 && (
             <>
-              <h2 className="mb-1 mt-7 font-display text-lg font-semibold">Movimientos</h2>
-              <p className="mb-3 text-xs text-ink-faint">Toca uno para editarlo o eliminarlo.</p>
+              <h2 className="mb-1 mt-7 font-display text-lg font-semibold">Ventas</h2>
+              <p className="mb-3 text-xs text-ink-faint">Toca una para corregirla.</p>
               <Card className="divide-y divide-line">
-                {movimientos(gastos, ingresos, todosMovs ? Infinity : 15).map((m) => (
-                  <button
-                    key={`${m.kind}-${m.id}`}
-                    onClick={() => {
-                      if (m.kind === 'gasto') setEditGasto(m.gasto)
-                      else setEditIngreso(m.ingreso)
-                      setEditRegistro(undefined)
-                      setSheet(m.kind === 'gasto' ? 'gasto' : 'ingreso')
-                    }}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition active:bg-paper-sunken"
-                  >
-                    <div>
-                      <div className="font-medium">{m.label}</div>
-                      <div className="text-xs text-ink-faint">{fecha(m.fecha)}</div>
-                    </div>
-                    <span
-                      className={
-                        'font-display font-semibold tnum ' +
-                        (m.kind === 'ingreso' ? 'text-forest-600' : 'text-ink')
-                      }
+                {[...ingresos]
+                  .sort((a, b) => b.fecha.localeCompare(a.fecha))
+                  .map((i) => (
+                    <button
+                      key={i.id}
+                      onClick={() => {
+                        setEditIngreso(i)
+                        setEditRegistro(undefined)
+                        setEditGasto(undefined)
+                        setSheet('ingreso')
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition active:bg-paper-sunken"
                     >
-                      {m.kind === 'ingreso' ? '+' : '−'}
-                      {money(m.monto)}
-                    </span>
-                  </button>
-                ))}
+                      <div>
+                        <div className="font-medium">
+                          {i.descripcion || tipoIngresoLabel(i.tipo)}
+                        </div>
+                        <div className="text-xs text-ink-faint tnum">
+                          {fecha(i.fecha)}
+                          {i.cantidad > 0 ? ` · ${num(i.cantidad)} aves` : ''}
+                          {i.pesoLb ? ` · ${num(i.pesoLb)} lb` : ''}
+                        </div>
+                      </div>
+                      <span className="font-display font-semibold text-forest-600 tnum">
+                        +{money(i.monto)}
+                      </span>
+                    </button>
+                  ))}
               </Card>
-              {!todosMovs && gastos.length + ingresos.length > 15 && (
-                <button
-                  onClick={() => setTodosMovs(true)}
-                  className="mt-2 w-full py-2 text-center text-[13px] font-medium text-forest-600"
-                >
-                  Ver los {num(gastos.length + ingresos.length)} movimientos
-                </button>
-              )}
             </>
           )}
 
@@ -461,99 +422,6 @@ export function LoteDetail() {
       <GastoSheet lote={lote} open={sheet === 'gasto'} onClose={() => setSheet(null)} editar={editGasto} />
       <IngresoSheet lote={lote} open={sheet === 'ingreso'} onClose={() => setSheet(null)} editar={editIngreso} />
     </div>
-  )
-}
-
-function SiVendes({
-  lote,
-  registros,
-  gastos,
-  metrics,
-}: {
-  lote: Lote
-  registros: Registro[]
-  gastos: Gasto[]
-  metrics: LoteMetrics
-}) {
-  const pesoActual = metrics.pesoEstimadoLb
-  if (pesoActual == null || metrics.avesVivas <= 0) return null
-  const objetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
-
-  const defs = [
-    { key: 'hoy', titulo: 'Hoy', peso: pesoActual },
-    { key: 'obj', titulo: 'Al peso objetivo', peso: Math.max(objetivo, pesoActual) },
-    { key: 'tarde', titulo: 'Una semana más', peso: Math.max(objetivo, pesoActual) + 0.8 },
-  ]
-  const escenarios = defs
-    .map((d) => ({ ...d, p: proyectarVenta(lote, registros, gastos, metrics, d.peso) }))
-    .filter((e) => e.p)
-
-  if (escenarios.length === 0) return null
-  const rec = escenarios.find((e) => e.key === 'obj') ?? escenarios[0]
-  const gananciaRec = rec.p!.gananciaProyectada
-
-  return (
-    <>
-      <h2 className="mb-1 mt-7 font-display text-lg font-semibold">Si vendes…</h2>
-      <p className="mb-3 text-xs text-ink-faint">
-        {lote.precioVentaLb
-          ? 'Cuánto ganarías según cuándo vendas.'
-          : 'Agrega el precio de venta por libra para ver la ganancia de cada opción.'}
-      </p>
-      <div className="space-y-2">
-        {escenarios.map((e) => {
-          const p = e.p!
-          const esRec = e.key === rec.key && escenarios.length > 1
-          const comeMas =
-            e.key === 'tarde' && gananciaRec != null && p.gananciaProyectada != null && p.gananciaProyectada <= gananciaRec
-          return (
-            <div
-              key={e.key}
-              className={clsx(
-                'flex items-center justify-between rounded-xl2 border px-4 py-3',
-                esRec ? 'border-2 border-green-action bg-green-tint' : 'border-line bg-paper-raised',
-              )}
-            >
-              <div className="min-w-0">
-                <div className="font-display text-[15px] font-semibold">
-                  {e.titulo}
-                  {p.diasRestantes > 0 && (
-                    <span className="ml-1.5 text-[13px] font-normal text-ink-soft tnum">
-                      · día {metrics.dias + p.diasRestantes}
-                    </span>
-                  )}
-                </div>
-                <div className="text-[13px] text-ink-soft tnum">
-                  {num(p.lbEnPie)} lb · {num(e.peso, 2)} lb/ave
-                </div>
-                {comeMas && (
-                  <div className="mt-0.5 text-[12px] font-semibold text-clay-text">
-                    ▼ come más de lo que crece
-                  </div>
-                )}
-              </div>
-              <div className="shrink-0 pl-3 text-right">
-                {p.gananciaProyectada != null ? (
-                  <div
-                    className={clsx(
-                      'font-display text-[19px] font-semibold tnum leading-none',
-                      p.gananciaProyectada >= 0 ? 'text-forest-600' : 'text-clay-deep',
-                    )}
-                  >
-                    {money(p.gananciaProyectada, { compact: true })}
-                  </div>
-                ) : (
-                  <div className="font-display text-[17px] font-semibold tnum">{num(p.lbEnPie)} lb</div>
-                )}
-                <div className="mt-0.5 text-[11px] text-ink-faint">
-                  {p.diasRestantes > 0 ? `en ${p.diasRestantes} días` : 'ahora'}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </>
   )
 }
 
@@ -841,8 +709,10 @@ function PrecioMinimo({
         </label>
       </div>
       <p className="mb-3 text-xs text-ink-faint">
-        Sobre el cierre proyectado: {num(a.lbEnPie)} lb de {num(a.aves)} aves, incluyendo el alimento
-        que falta comprar.
+        Sobre el cierre proyectado: {num(a.lbEnPie)} lb de {num(a.aves)} aves
+        {p && !p.listo
+          ? `, vendiendo el ${fecha(p.fechaEstimada)} (día ${p.diaVenta}) y comprando ${num(p.alimentoRestanteQuintales, 1)} qq más de alimento.`
+          : ', con el alimento que falta comprar.'}
       </p>
 
       <Card className="p-4">
@@ -1008,21 +878,21 @@ function PuntoOptimo({
       </Card>
 
       <Card className="mt-3 divide-y divide-line">
-        <FilaProyeccion
+        <FilaDato
           label="Esperar hasta ahí"
           value={faltan > 0 ? `+${money(a.gananciaExtra)}` : 'Ya lo pasaste'}
           valueClass={a.gananciaExtra > 0 ? 'text-forest-600' : undefined}
         />
-        <FilaProyeccion
+        <FilaDato
           label="La próxima libra te cuesta"
           value={`${porLb(marginalHoy)} de ${porLb(a.precioVentaLb)}`}
           valueClass={marginalHoy > a.precioVentaLb ? 'text-clay-deep' : 'text-forest-600'}
         />
         {a.diaCruce != null && (
-          <FilaProyeccion label="Deja de convenir" value={`día ${a.diaCruce}`} valueClass="text-clay-deep" />
+          <FilaDato label="Deja de convenir" value={`día ${a.diaCruce}`} valueClass="text-clay-deep" />
         )}
         {a.excedeObjetivo && (
-          <FilaProyeccion
+          <FilaDato
             label={`Si topan en ${num(a.objetivoLb, 1)} lb`}
             value={`día ${a.tope.dia} · ${money(a.tope.ganancia, { compact: true })}`}
           />
@@ -1039,154 +909,20 @@ function PuntoOptimo({
   )
 }
 
-function Equipo({
-  lote,
-  metrics,
-  settings,
+function FilaDato({
+  label,
+  value,
+  valueClass,
 }: {
-  lote: Lote
-  metrics: LoteMetrics
-  settings: Settings
+  label: string
+  value: string
+  valueClass?: string
 }) {
-  const aves = metrics.avesVivas > 0 ? metrics.avesVivas : lote.cantidadInicial
-  const plan = computeEquipo(
-    aves,
-    lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT,
-    settings.galponLargoM,
-    settings.galponAnchoM,
-  )
-  if (!plan) return null
-  const g = plan.galpon
-
   return (
-    <>
-      <h2 className="mb-1 mt-7 font-display text-lg font-semibold">Comederos y bebederos</h2>
-      <p className="mb-3 text-xs text-ink-faint">Para las {num(aves)} aves que tienes hoy.</p>
-
-      <Card className="divide-y divide-line">
-        {plan.ciclo.map((e) => (
-          <div key={e.nombre} className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">{e.nombre}</div>
-              <div className="text-xs text-ink-faint">{e.regla}</div>
-            </div>
-            <div className="font-display text-[22px] font-semibold tnum leading-none">{num(e.cantidad)}</div>
-          </div>
-        ))}
-      </Card>
-
-      <div className="mb-2 mt-4 text-xs font-medium text-ink-faint">Además, los primeros 10 días</div>
-      <Card className="divide-y divide-line">
-        {plan.crianza.map((e) => (
-          <div key={e.nombre} className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">{e.nombre}</div>
-              <div className="text-xs text-ink-faint">{e.regla}</div>
-            </div>
-            <div className="font-display text-[22px] font-semibold tnum leading-none">{num(e.cantidad)}</div>
-          </div>
-        ))}
-      </Card>
-
-      <div className="mb-2 mt-4 flex items-center justify-between">
-        <span className="text-xs font-medium text-ink-faint">Medidas del galpón</span>
-        <span className="flex items-center gap-1.5 text-xs text-ink-faint">
-          <MedidaGalpon
-            valor={settings.galponLargoM}
-            onGuardar={(v) => saveSettings({ galponLargoM: v })}
-            etiqueta="Largo en metros"
-          />
-          ×
-          <MedidaGalpon
-            valor={settings.galponAnchoM}
-            onGuardar={(v) => saveSettings({ galponAnchoM: v })}
-            etiqueta="Ancho en metros"
-          />
-          m
-        </span>
-      </div>
-
-      {!g ? (
-        <Card className="p-4 text-sm text-ink-faint">
-          Pon el largo y el ancho del galpón y te digo cuántas líneas hacen falta, cada cuántos
-          metros va cada equipo y si las aves caben al peso de venta.
-        </Card>
-      ) : (
-        <>
-          <Card className="divide-y divide-line">
-            <FilaProyeccion label="Área" value={`${num(g.areaM2)} m² · ${num(enPies2(g.areaM2))} pies²`} />
-            <FilaProyeccion
-              label={`Densidad a ${num(lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT, 1)} lb`}
-              value={`${num(g.densidadKgM2, 1)} kg/m² · caben ${num(g.avesMaximas)} aves`}
-              valueClass={g.sobrepoblado ? 'text-clay-deep' : 'text-forest-600'}
-            />
-          </Card>
-
-          {g.sobrepoblado && (
-            <div className="mt-2 rounded-xl2 border-l-4 border-amber-400 bg-amber-tint p-4">
-              <div className="font-display text-[15px] font-semibold text-amber-text">
-                El galpón queda apretado al peso de venta
-              </div>
-              <p className="mt-1 text-[13px] leading-relaxed text-amber-text">
-                Con {num(aves)} aves llegas a {num(g.densidadKgM2, 1)} kg/m², sobre los 30 kg/m² que
-                aguanta un galpón abierto en calor. Saca {num(Math.max(0, aves - g.avesMaximas))} aves
-                antes (raleo) o vende un poco más liviano.
-              </p>
-            </div>
-          )}
-
-          <div className="mb-2 mt-4 text-xs font-medium text-ink-faint">Cómo repartirlos</div>
-          <Card className="divide-y divide-line">
-            <FilaEquipo titulo="Comederos" d={g.comederos} />
-            <FilaEquipo titulo="Bebederos" d={g.bebederos} />
-          </Card>
-          <p className="mt-2 text-xs leading-relaxed text-ink-faint">
-            Ninguna ave debe caminar más de 3 m (10 pies) para comer o beber; así queda en{' '}
-            {num(g.bebederos.caminataMaxM, 1)} m. Los niples van cada 35 cm, o sea{' '}
-            {num(plan.metrosDeNiples, 1)} m de línea en total.
-          </p>
-        </>
-      )}
-    </>
-  )
-}
-
-function FilaEquipo({ titulo, d }: { titulo: string; d: Distribucion }) {
-  return (
-    <div className="px-4 py-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{titulo}</span>
-        <span className="font-display text-[15px] font-semibold tnum">
-          {num(d.lineas * d.porLinea)} repartidos
-        </span>
-      </div>
-      <div className="mt-1 text-xs leading-relaxed text-ink-faint tnum">
-        {d.lineas === 1
-          ? `Una sola línea por el centro del galpón, uno cada ${num(d.cadaM, 1)} m (${num(enPies(d.cadaM), 1)} pies).`
-          : `${num(d.lineas)} líneas a lo largo, separadas ${num(d.separacionM, 1)} m (${num(enPies(d.separacionM), 1)} pies) y la primera a ${num(d.desdeParedM, 1)} m de la pared. En cada línea, ${num(d.porLinea)}: uno cada ${num(d.cadaM, 1)} m (${num(enPies(d.cadaM), 1)} pies).`}
-      </div>
+    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+      <span className="text-ink-faint">{label}</span>
+      <span className={'text-right font-display font-semibold tnum ' + (valueClass ?? '')}>{value}</span>
     </div>
-  )
-}
-
-function MedidaGalpon({
-  valor,
-  onGuardar,
-  etiqueta,
-}: {
-  valor?: number
-  onGuardar: (v: number | undefined) => void
-  etiqueta: string
-}) {
-  return (
-    <input
-      type="number"
-      inputMode="decimal"
-      aria-label={etiqueta}
-      defaultValue={valor ?? ''}
-      onBlur={(e) => onGuardar(Number(e.target.value) || undefined)}
-      className="h-11 w-16 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
-    />
   )
 }
 
@@ -1195,19 +931,18 @@ function GridCrecimiento({ metrics: m }: { metrics: LoteMetrics }) {
 
   const celdas = [
     { label: 'Ganancia diaria', value: gananciaDiaria != null ? `${num(gananciaDiaria, 3)} lb` : '—' },
-    { label: 'Alimento total', value: `${num(m.alimentoTotalLb)} lb` },
-    { label: 'Mortalidad acum.', value: pct(m.mortalidadPct) },
+    { label: 'Conversión (FCA)', value: m.fca != null ? num(m.fca, 2) : '—' },
     { label: 'Índice de eficiencia', value: m.iep != null ? num(m.iep, 0) : '—' },
   ]
   return (
-    <div className="mt-4 grid grid-cols-2 gap-3">
+    <Card className="mt-4 grid grid-cols-3 gap-3 p-4">
       {celdas.map((c) => (
-        <Card key={c.label} className="p-3.5">
-          <div className="font-display text-[22px] font-semibold tnum leading-none">{c.value}</div>
-          <div className="mt-1.5 text-[13px] text-ink-soft">{c.label}</div>
-        </Card>
+        <div key={c.label}>
+          <div className="font-display text-[19px] font-semibold tnum leading-none">{c.value}</div>
+          <div className="mt-1 text-[11px] text-ink-faint">{c.label}</div>
+        </div>
       ))}
-    </div>
+    </Card>
   )
 }
 
@@ -1228,133 +963,50 @@ function Diagnostico({ metrics: m }: { metrics: LoteMetrics }) {
   )
 }
 
-type Movimiento =
-  | { kind: 'gasto'; id: number; fecha: string; monto: number; label: string; gasto: Gasto }
-  | { kind: 'ingreso'; id: number; fecha: string; monto: number; label: string; ingreso: Ingreso }
-
-function movimientos(gastos: Gasto[], ingresos: Ingreso[], limite: number): Movimiento[] {
-  const items: Movimiento[] = [
-    ...gastos.map((g) => ({
-      kind: 'gasto' as const,
-      id: g.id,
-      fecha: g.fecha,
-      monto: g.monto,
-      label: g.descripcion || categoriaLabel(g.categoria),
-      gasto: g,
-    })),
-    ...ingresos.map((i) => ({
-      kind: 'ingreso' as const,
-      id: i.id,
-      fecha: i.fecha,
-      monto: i.monto,
-      label: i.descripcion || tipoIngresoLabel(i.tipo),
-      ingreso: i,
-    })),
-  ]
-  const orden = items.sort((a, b) => b.fecha.localeCompare(a.fecha))
-  return Number.isFinite(limite) ? orden.slice(0, limite) : orden
-}
-
-function ProyeccionVenta({
+function FaseActual({
   lote,
-  registros,
   gastos,
   metrics,
 }: {
   lote: Lote
-  registros: Registro[]
   gastos: Gasto[]
   metrics: LoteMetrics
 }) {
-  const [objetivo, setObjetivo] = useState(String(lote.pesoObjetivoLb ?? 5.5))
-  if (lote.estado !== 'activo' || !registros.some((r) => r.pesoPromedio != null)) return null
-
-  const target = Number(objetivo) || 0
-  const p = target > 0 ? proyectarVenta(lote, registros, gastos, metrics, target) : null
+  const plan = computePlanAlimento(lote, metrics)
+  if (!plan?.faseActual) return null
+  const f = plan.faseActual
+  const inv = computeInventarioAlimento(gastos, metrics, plan.totalQuintales)
+  const quedan = inv?.completo ? inv.existenciaQq : undefined
 
   return (
-    <>
-      <div className="mb-3 mt-7 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold">Proyección de venta</h2>
-        <label className="flex items-center gap-1.5 text-xs text-ink-faint">
-          Objetivo
-          <input
-            type="number"
-            inputMode="decimal"
-            value={objetivo}
-            onChange={(e) => setObjetivo(e.target.value)}
-            onBlur={() => db.lotes.update(lote.id, { pesoObjetivoLb: Number(objetivo) || undefined })}
-            className="h-11 w-20 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
-          />
-          lb
-        </label>
+    <Link
+      to={`/lotes/${lote.id}/ficha/alimento`}
+      className="mt-5 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 shadow-card transition active:scale-[0.99]"
+    >
+      <div className="min-w-0">
+        <div className="text-xs text-ink-faint">Alimento de esta fase</div>
+        <div className="font-display text-[19px] font-semibold leading-tight">{f.nombre}</div>
+        <div className="text-[13px] text-ink-soft">
+          {f.proteinaPct}% proteína · {f.presentacion.toLowerCase()}
+          {plan.proximoCambio
+            ? ` · cambia en ${plan.proximoCambio.enDias} ${plan.proximoCambio.enDias === 1 ? 'día' : 'días'}`
+            : ''}
+        </div>
       </div>
-      {!p ? (
-        <Card className="p-4 text-sm text-ink-faint">
-          {target > 0
-            ? `Con el ritmo actual el lote no alcanza ${num(target, 1)} lb antes del día 90. Revisa el alimento o ajusta el objetivo.`
-            : 'Ingresa un peso objetivo para ver la proyección.'}
-        </Card>
-      ) : (
-        <Card className="divide-y divide-line">
-          {p.listo ? (
-            <FilaProyeccion label="Estado" value="Ya está en peso de venta" valueClass="text-forest-600" />
-          ) : (
-            <FilaProyeccion
-              label="Fecha estimada"
-              value={
-                p.diasRestantes > 0
-                  ? `${fecha(p.fechaEstimada)} · en ${p.diasRestantes} días`
-                  : 'Ya debería estar en peso'
-              }
-            />
-          )}
-          {!p.listo && (
-            <FilaProyeccion
-              label="Alimento restante aprox."
-              value={`${num(p.alimentoRestanteQuintales, 1)} qq · ${num(p.alimentoRestanteLb)} lb`}
-            />
-          )}
-          <FilaProyeccion label="Peso total a vender" value={`~${num(p.lbEnPie)} lb en pie`} />
-          <FilaProyeccion label="Costo proyectado al cierre" value={money(p.costoProyectado)} />
-          {p.ingresoProyectado != null ? (
-            <>
-              <FilaProyeccion label="Ingreso proyectado" value={money(p.ingresoProyectado)} />
-              <FilaProyeccion
-                label="Ganancia proyectada"
-                value={`${money(p.gananciaProyectada!)} · ${pct(p.margenProyectadoPct ?? 0)}`}
-                valueClass={p.gananciaProyectada! >= 0 ? 'text-forest-600' : 'text-clay-deep'}
-              />
-            </>
-          ) : (
-            <div className="px-4 py-3 text-xs text-ink-faint">
-              Agrega el precio de venta por libra para proyectar el ingreso y la ganancia.
-            </div>
-          )}
-          <FilaProyeccion
-            label="Precio de equilibrio"
-            value={`${porLb(p.precioEquilibrioLb)} / lb`}
-          />
-        </Card>
+      {quedan != null && (
+        <div className="shrink-0 text-right">
+          <div
+            className={
+              'font-display text-[17px] font-semibold leading-none tnum ' +
+              (inv!.diasQueAlcanza <= 3 ? 'text-clay-deep' : '')
+            }
+          >
+            {num(Math.max(0, quedan), 1)} qq
+          </div>
+          <div className="mt-0.5 text-[11px] text-ink-faint">en el galpón</div>
+        </div>
       )}
-    </>
-  )
-}
-
-function FilaProyeccion({
-  label,
-  value,
-  valueClass,
-}: {
-  label: string
-  value: string
-  valueClass?: string
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-      <span className="text-ink-faint">{label}</span>
-      <span className={'text-right font-display font-semibold tnum ' + (valueClass ?? '')}>{value}</span>
-    </div>
+    </Link>
   )
 }
 
@@ -1411,183 +1063,6 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
           ))}
         </div>
       </Card>
-    </>
-  )
-}
-
-function PlanAlimento({
-  lote,
-  gastos,
-  metrics,
-}: {
-  lote: Lote
-  gastos: Gasto[]
-  metrics: LoteMetrics
-}) {
-  const precioReal = precioQuintalReal(gastos)
-  const precioQuintal =
-    precioReal ?? lote.precioQuintal ?? Math.round(precioAlimentoLb(lote, gastos, metrics) * LB_POR_QUINTAL)
-  const plan = computePlanAlimento(lote, metrics, precioQuintal || undefined)
-  if (!plan || plan.fases.length === 0) return null
-  const inv = computeInventarioAlimento(gastos, metrics, plan.totalQuintales)
-
-  return (
-    <>
-      <div className="mb-3 mt-7 flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold">
-          Plan de alimento
-          <Link
-            to={`/lotes/${lote.id}/ficha/alimento`}
-            className="ml-2 align-middle text-[13px] font-semibold text-forest-600"
-          >
-            ver detalle
-          </Link>
-        </h2>
-        {precioReal ? (
-          <span className="text-right text-xs text-ink-faint tnum">
-            {money(precioReal)} el quintal
-            <span className="block text-[11px]">precio real de tus compras</span>
-          </span>
-        ) : (
-          <label className="flex items-center gap-1.5 text-xs text-ink-faint">
-            Quintal
-            <input
-              type="number"
-              inputMode="decimal"
-              defaultValue={precioQuintal || ''}
-              onBlur={(e) => db.lotes.update(lote.id, { precioQuintal: Number(e.target.value) || undefined })}
-              className="h-11 w-24 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
-            />
-          </label>
-        )}
-      </div>
-      <Card className="divide-y divide-line">
-        {plan.fases.map((f) => (
-          <div
-            key={f.nombre}
-            className={'flex items-center justify-between px-4 py-3 ' + (f.activa ? 'bg-forest-50' : '')}
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                {f.nombre}
-                {f.activa && (
-                  <span className="rounded-full bg-forest-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-forest-700">
-                    En curso
-                  </span>
-                )}
-                {f.cumplida && <span className="text-[11px] text-ink-faint">✓</span>}
-              </div>
-              <div className="text-xs text-ink-faint tnum">
-                {f.desde === f.hasta ? `Día ${f.desde}` : `Días ${f.desde}–${f.hasta}`} ·{' '}
-                {f.proteinaPct}% PC · {f.presentacion.toLowerCase()}
-              </div>
-            </div>
-            <div className="shrink-0 pl-3 text-right">
-              <div className="font-display font-semibold tnum">{num(f.quintales, 1)} qq</div>
-              <div className="text-xs text-ink-faint tnum">
-                {f.costo != null ? money(f.costo) : `${num(f.lb)} lb`}
-              </div>
-            </div>
-          </div>
-        ))}
-        <div className="flex items-center justify-between px-4 py-3 text-sm">
-          <span className="text-ink-faint">Todo el ciclo</span>
-          <span className="tnum">
-            <span className="font-display font-semibold">{num(plan.totalQuintales, 1)} qq</span>
-            {plan.costoTotal != null && (
-              <span className="text-ink-faint"> · {money(plan.costoTotal)}</span>
-            )}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3 text-sm">
-          <span className="text-ink-faint">Llevas consumido</span>
-          <span className="tnum">
-            <span className="font-display font-semibold">{num(plan.consumidoQuintales, 1)} qq</span>
-            <span className="text-ink-faint">
-              {' '}
-              / {num(plan.esperadoHoyLb / LB_POR_QUINTAL, 1)} qq esperados
-            </span>
-          </span>
-        </div>
-      </Card>
-      <p className="mt-2 text-xs text-ink-faint">
-        {plan.proximoCambio ? (
-          <>
-            Cambia a <span className="font-medium text-ink-soft">{plan.proximoCambio.nombre}</span> en{' '}
-            {plan.proximoCambio.enDias} días.{' '}
-          </>
-        ) : null}
-        Falta por dar {num(plan.restanteQuintales, 1)} qq.
-      </p>
-
-      <Existencia inv={inv} lote={lote} />
-    </>
-  )
-}
-
-function Existencia({ inv, lote }: { inv: InventarioAlimento | null; lote: Lote }) {
-  if (!inv) return null
-
-  if (!inv.completo)
-    return (
-      <Card className="mt-3 p-4 text-[13px] leading-relaxed text-ink-soft">
-        Anota los quintales en tus compras de alimento ({inv.comprasSinCantidad}{' '}
-        {inv.comprasSinCantidad === 1 ? 'compra sin cantidad' : 'compras sin cantidad'}) y la app te
-        lleva la existencia del galpón, el día que se acaba y el precio real de tu quintal.
-      </Card>
-    )
-
-  const faltante = inv.existenciaQq < -1
-  const alcanza = inv.diasQueAlcanza
-
-  return (
-    <>
-      <Card className="mt-3 p-4">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-xs text-ink-faint">Te queda en el galpón</div>
-            <div
-              className={clsx(
-                'font-display text-[28px] font-semibold leading-none tnum',
-                alcanza <= 3 && !faltante ? 'text-clay-deep' : '',
-              )}
-            >
-              {num(Math.max(0, inv.existenciaQq), 1)} qq
-            </div>
-            <div className="mt-1 text-[13px] text-ink-soft tnum">
-              {num(inv.compradoQq, 1)} comprados − {num(inv.consumidoQq, 1)} dados
-            </div>
-          </div>
-          {!faltante && (
-            <div className="shrink-0 text-right">
-              <div className="text-xs text-ink-faint">Alcanza hasta</div>
-              <div className="font-display text-[17px] font-semibold leading-none tnum">
-                {alcanza > 0 ? fecha(inv.fechaSeAcaba) : 'hoy'}
-              </div>
-              <div className="mt-0.5 text-[11px] text-ink-faint tnum">
-                {alcanza > 0 ? `${alcanza} ${alcanza === 1 ? 'día' : 'días'}` : 'compra ya'}
-              </div>
-            </div>
-          )}
-        </div>
-        {inv.faltaComprarQq > 0 && (
-          <div className="mt-3 flex items-center justify-between border-t border-line pt-3 text-sm">
-            <span className="text-ink-faint">Falta comprar hasta la venta</span>
-            <span className="tnum">
-              <span className="font-display font-semibold">{num(inv.faltaComprarQq, 1)} qq</span>
-              {inv.costoFaltante != null && (
-                <span className="text-ink-faint"> · {money(inv.costoFaltante)}</span>
-              )}
-            </span>
-          </div>
-        )}
-      </Card>
-      {faltante && (
-        <p className="mt-2 text-xs leading-relaxed text-clay-text">
-          Diste más alimento del que aparece comprado en {lote.nombre}: falta anotar una compra o hay
-          quintales mal contados.
-        </p>
-      )}
     </>
   )
 }
@@ -1678,43 +1153,6 @@ function Sociedad({
       <Button block variant="soft" className="mt-3" onClick={compartir}>
         Compartir liquidación
       </Button>
-    </>
-  )
-}
-
-function TablaSemanal({ lote, registros }: { lote: Lote; registros: Registro[] }) {
-  const semanas = resumenSemanal(lote, registros)
-  if (semanas.length < 2) return null
-
-  return (
-    <>
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Resumen semanal</h2>
-      <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-ink-faint">
-              <th className="px-4 py-2.5 font-medium">Sem</th>
-              <th className="px-2 py-2.5 font-medium">Mort.</th>
-              <th className="px-2 py-2.5 text-right font-medium">Alim. (lb)</th>
-              <th className="px-4 py-2.5 text-right font-medium">Peso (lb)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line tnum">
-            {semanas.map((s) => (
-              <tr key={s.semana}>
-                <td className="px-4 py-2.5 font-display font-semibold">{s.semana}</td>
-                <td className={'px-2 py-2.5 ' + (s.mortalidad > 0 ? 'text-ink-soft' : 'text-ink-faint')}>
-                  {num(s.mortalidad)}
-                </td>
-                <td className="px-2 py-2.5 text-right text-ink-soft">{num(s.alimentoLb)}</td>
-                <td className="px-4 py-2.5 text-right font-medium">
-                  {s.pesoFinal != null ? num(s.pesoFinal, 2) : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
     </>
   )
 }

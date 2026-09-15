@@ -4,6 +4,7 @@ import { fecha, money, num, pct, porLb } from '../../lib/format'
 import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
 import { precioQuintalReal } from '../../lib/precios'
 import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
+import { db } from '../../db/schema'
 import { Card } from '../../components/ui'
 import { Vacio } from './Vacio'
 
@@ -19,12 +20,12 @@ export function FichaAlimento({
   metrics: LoteMetrics
 }) {
   const fases = consumoPorFase(lote, registros, metrics).filter((f) => f.realLb > 0 || f.planALaFechaLb > 0)
-  const plan = computePlanAlimento(lote, metrics)
+  const precioQq = precioQuintalReal(gastos)
+  const plan = computePlanAlimento(lote, metrics, precioQq ?? lote.precioQuintal)
   const inv = computeInventarioAlimento(gastos, metrics, plan?.totalQuintales ?? 0)
   const compras = gastos
     .filter((g) => g.categoria === 'alimento')
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  const precioQq = precioQuintalReal(gastos)
   const stdFca = fcaEstandar(metrics.dias)
 
   if (metrics.alimentoTotalLb === 0 && !compras.length)
@@ -116,6 +117,64 @@ export function FichaAlimento({
           })}
         </Card>
       </div>
+
+      {plan && (
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h3 className="font-display text-base font-semibold">El plan del ciclo</h3>
+            {precioQq ? (
+              <span className="text-xs text-ink-faint tnum">{money(precioQq)} el quintal</span>
+            ) : (
+              <label className="flex items-center gap-1.5 text-xs text-ink-faint">
+                Quintal
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  defaultValue={lote.precioQuintal || ''}
+                  onBlur={(e) =>
+                    db.lotes.update(lote.id, { precioQuintal: Number(e.target.value) || undefined })
+                  }
+                  className="h-11 w-24 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+                />
+              </label>
+            )}
+          </div>
+          <Card className="divide-y divide-line">
+            {plan.fases.map((f) => (
+              <div key={f.nombre} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                <div className="min-w-0">
+                  <div className="font-medium">{f.nombre}</div>
+                  <div className="text-xs text-ink-faint tnum">
+                    {f.desde === f.hasta ? `Día ${f.desde}` : `Días ${f.desde}–${f.hasta}`} ·{' '}
+                    {f.proteinaPct}% PC · {f.kcalKg} kcal/kg
+                  </div>
+                </div>
+                <div className="shrink-0 pl-3 text-right tnum">
+                  <div className="font-display font-semibold">{num(f.quintales, 1)} qq</div>
+                  {f.costo != null && (
+                    <div className="text-xs text-ink-faint">{money(f.costo)}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center justify-between px-4 py-3 text-sm">
+              <span className="text-ink-faint">Todo el ciclo</span>
+              <span className="tnum">
+                <span className="font-display font-semibold">{num(plan.totalQuintales, 1)} qq</span>
+                {plan.costoTotal != null && (
+                  <span className="text-ink-faint"> · {money(plan.costoTotal)}</span>
+                )}
+              </span>
+            </div>
+          </Card>
+          {plan.proximoCambio && (
+            <p className="mt-2 text-xs text-ink-faint">
+              Cambia a <span className="font-medium text-ink-soft">{plan.proximoCambio.nombre}</span>{' '}
+              en {plan.proximoCambio.enDias} días.
+            </p>
+          )}
+        </div>
+      )}
 
       {inv?.completo && (
         <div>
