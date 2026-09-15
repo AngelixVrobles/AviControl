@@ -82,7 +82,7 @@ export function computeMetrics(
 
   const pesoObjetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
 
-  const conPeso = registros.filter((r) => typeof r.pesoPromedio === 'number')
+  const conPeso = registros.filter((r) => Number.isFinite(r.pesoPromedio))
   const ultimoPeso = conPeso.length ? conPeso[conPeso.length - 1] : undefined
   const pesoPromedioLb = ultimoPeso?.pesoPromedio
 
