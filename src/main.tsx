@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { MotionConfig } from 'motion/react'
 import './index.css'
+import { ErrorBoundary, ErrorDeRuta } from './components/ErrorBoundary'
 import { Shell } from './components/Shell'
 import { Dashboard } from './screens/Dashboard'
 import { Lotes } from './screens/Lotes'
@@ -15,6 +16,7 @@ import { Ajustes } from './screens/Ajustes'
 const router = createBrowserRouter([
   {
     element: <Shell />,
+    errorElement: <ErrorDeRuta />,
     children: [
       { path: '/', element: <Dashboard /> },
       { path: '/lotes', element: <Lotes /> },
@@ -24,13 +26,15 @@ const router = createBrowserRouter([
       { path: '/ajustes', element: <Ajustes /> },
     ],
   },
-  { path: '/lotes/nuevo', element: <NuevoLote /> },
+  { path: '/lotes/nuevo', element: <NuevoLote />, errorElement: <ErrorDeRuta /> },
 ])
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MotionConfig reducedMotion="user">
-      <RouterProvider router={router} />
-    </MotionConfig>
+    <ErrorBoundary>
+      <MotionConfig reducedMotion="user">
+        <RouterProvider router={router} />
+      </MotionConfig>
+    </ErrorBoundary>
   </StrictMode>,
 )

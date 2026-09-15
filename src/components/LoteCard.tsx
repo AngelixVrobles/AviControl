@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
-import { fecha, money, num } from '../lib/format'
+import { fecha, money, num, plural } from '../lib/format'
 import { RAZA } from '../lib/labels'
 import { desviaciones } from '../lib/desviaciones'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
@@ -19,6 +19,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
   const proximo = hitos.find((h) => h.dia > metrics.dias)
   const tieneDatos = metrics.pesoPromedioLb != null
   const dev = desviaciones(metrics)
+  const cerrado = lote.estado === 'cerrado'
 
   return (
     <Link
@@ -29,12 +30,17 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
         <div className="min-w-0">
           <div className="truncate font-display text-[19px] font-semibold leading-tight">{lote.nombre}</div>
           <div className="mt-0.5 text-[13px] text-ink-soft tnum">
-            {num(metrics.avesVivas)} aves · {RAZA}
+            {cerrado
+              ? `${num(metrics.vendidas)} ${plural(metrics.vendidas, 'ave vendida', 'aves vendidas')}`
+              : `${num(metrics.avesVivas)} ${plural(metrics.avesVivas, 'ave', 'aves')}`}{' '}
+            · {RAZA}
           </div>
         </div>
         <div className="shrink-0 pl-3 text-right">
           <div className="font-display text-[26px] font-semibold leading-none tnum">{metrics.dias}</div>
-          <div className="mt-0.5 text-[12px] text-ink-faint tnum">de {total} días</div>
+          <div className="mt-0.5 text-[12px] text-ink-faint tnum">
+            {cerrado ? plural(metrics.dias, 'día', 'días') : `de ${total} días`}
+          </div>
         </div>
       </div>
 
@@ -71,21 +77,48 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             <Estado dev={dev.fca} />
             <Estado dev={dev.mortalidad} />
           </div>
-          {metrics.fechaVentaEstimada && metrics.diaVentaEstimado != null && (
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-green-tint px-3.5 py-2.5">
-              <span className="text-[13px] font-medium text-forest-darkest">Venta estimada</span>
-              <span className="text-[13px] font-bold text-forest-darkest tnum">
-                {metrics.diaVentaEstimado <= metrics.dias
-                  ? 'lista para vender'
-                  : `${fecha(metrics.fechaVentaEstimada)} · ${enDias(metrics.diaVentaEstimado - metrics.dias)}`}
+          {cerrado ? (
+            <div
+              className={clsx(
+                'mt-3 flex items-center justify-between rounded-xl px-3.5 py-2.5',
+                metrics.ganancia >= 0 ? 'bg-green-tint' : 'bg-clay-tint',
+              )}
+            >
+              <span
+                className={clsx(
+                  'text-[13px] font-medium',
+                  metrics.ganancia >= 0 ? 'text-forest-darkest' : 'text-clay-text',
+                )}
+              >
+                {metrics.ganancia >= 0 ? 'Ganancia' : 'Pérdida'}
+              </span>
+              <span
+                className={clsx(
+                  'text-[13px] font-bold tnum',
+                  metrics.ganancia >= 0 ? 'text-forest-darkest' : 'text-clay-text',
+                )}
+              >
+                {money(metrics.ganancia)}
               </span>
             </div>
+          ) : (
+            metrics.fechaVentaEstimada &&
+            metrics.diaVentaEstimado != null && (
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-green-tint px-3.5 py-2.5">
+                <span className="text-[13px] font-medium text-forest-darkest">Venta estimada</span>
+                <span className="text-[13px] font-bold text-forest-darkest tnum">
+                  {metrics.diaVentaEstimado <= metrics.dias
+                    ? 'lista para vender'
+                    : `${fecha(metrics.fechaVentaEstimada)} · ${enDias(metrics.diaVentaEstimado - metrics.dias)}`}
+                </span>
+              </div>
+            )
           )}
         </>
       ) : (
         <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
           <span className="text-[13px] text-ink-soft">
-            {gananciaLabel(metrics.ganancia)} {money(metrics.ganancia, { compact: true })}
+            Invertido {money(metrics.costos, { compact: true })}
           </span>
           {proximo && (
             <span className="rounded-full bg-amber-tint px-3 py-1 text-[12px] font-semibold text-amber-text">
@@ -97,10 +130,6 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
       )}
     </Link>
   )
-}
-
-function gananciaLabel(g: number) {
-  return g >= 0 ? 'Ganancia' : 'Pérdida'
 }
 
 function enDias(n: number) {
