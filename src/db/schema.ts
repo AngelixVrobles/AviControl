@@ -8,6 +8,19 @@ export interface Socio {
   pct: number
 }
 
+// Lo que la app proyectaba justo antes de vender, congelado al cerrar: después
+// de registrar la venta ya no hay forma de reconstruirlo, y sin esto no se puede
+// contrastar lo que dijo la app contra lo que pasó.
+export interface CierreCiclo {
+  diaVenta: number
+  pesoProyectadoLb?: number
+  diaProyectado?: number
+  avesProyectadas?: number
+  lbProyectadas?: number
+  precioEquilibrioLb?: number
+  gananciaProyectada?: number
+}
+
 export interface Lote {
   id: number
   tipo: TipoLote
@@ -22,6 +35,7 @@ export interface Lote {
   socios?: Socio[]
   costoInicialPagadoPor?: number
   fechaCierre?: string
+  cierre?: CierreCiclo
   notas?: string
   creado: number
 }

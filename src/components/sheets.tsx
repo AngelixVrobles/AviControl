@@ -13,8 +13,11 @@ import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
 import { confirmar } from './confirm'
 import { CATEGORIAS } from '../lib/labels'
 import { diasEntre, hoyISO, money, num, pct, porLb } from '../lib/format'
+import type { LoteMetrics } from '../lib/metrics'
+import { proyectarVenta } from '../lib/proyeccion'
+import { construirContrastes, snapshotCierre, type Contraste, type RealCiclo } from '../lib/cierre'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
-import { LB_POR_QUINTAL, pesoEstandarLb } from '../lib/standards'
+import { LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT, pesoEstandarLb } from '../lib/standards'
 import { IconClose } from './icons'
 
 export function RegistroSheet({
@@ -101,7 +104,7 @@ export function RegistroSheet({
       mortalidad,
       descarte,
       alimentoLb: Number(alimentoLb) || 0,
-      pesoPromedio: !sinPesar && peso ? Number(peso) : undefined,
+      pesoPromedio: !sinPesar && Number(peso.replace(',', '.')) > 0 ? Number(peso.replace(',', '.')) : undefined,
       nota: nota.trim() || undefined,
     }
     if (existente) await db.registros.update(existente.id, datos)
@@ -697,6 +700,302 @@ export function IngresoSheet({
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
       </div>
     </Sheet>
+  )
+}
+
+export function CierreSheet({
+  lote,
+  metrics,
+  registros,
+  gastos,
+  open,
+  onClose,
+}: {
+  lote: Lote
+  metrics: LoteMetrics
+  registros: Registro[]
+  gastos: Gasto[]
+  open: boolean
+  onClose: () => void
+}) {
+  const [paso, setPaso] = useState(1)
+  const [aves, setAves] = useState('')
+  const [pesoTotal, setPesoTotal] = useState('')
+  const [precio, setPrecio] = useState('')
+  const [monto, setMonto] = useState('')
+  const [montoTocado, setMontoTocado] = useState(false)
+  const [fecha, setFecha] = useState(hoyISO())
+  const [recibidoPor, setRecibidoPor] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setPaso(1)
+    setAves(String(metrics.avesVivas))
+    setPesoTotal('')
+    setPrecio(lote.precioVentaLb ? String(lote.precioVentaLb) : '')
+    setMonto('')
+    setMontoTocado(false)
+    setFecha(hoyISO())
+    setRecibidoPor('')
+  }, [open, metrics.avesVivas, lote.precioVentaLb])
+
+  const nAves = Number(aves) || 0
+  const lbTotal = Number(pesoTotal) || 0
+  const precioLb = Number(precio) || 0
+  const montoFinal = montoTocado ? Number(monto) || 0 : Math.round(lbTotal * precioLb)
+  const pesoPorAve = nAves > 0 && lbTotal > 0 ? lbTotal / nAves : undefined
+  const parcial = nAves > 0 && nAves < metrics.avesVivas
+  const dia = diasEntre(lote.fechaInicio, fecha)
+
+  const proyeccion = proyectarVenta(
+    lote,
+    registros,
+    gastos,
+    metrics,
+    lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT,
+  )
+  const snap = snapshotCierre(metrics, proyeccion, dia)
+
+  const ingresoTotal = metrics.ingresos + montoFinal
+  const ganancia = ingresoTotal - metrics.costos
+  const real: RealCiclo = {
+    diaVenta: dia,
+    avesVendidas: nAves,
+    lbVendidas: lbTotal,
+    pesoPromedioLb: pesoPorAve,
+    precioLogradoLb: lbTotal > 0 ? montoFinal / lbTotal : undefined,
+    ingreso: montoFinal,
+    ganancia,
+    margenPct: ingresoTotal > 0 ? (ganancia / ingresoTotal) * 100 : 0,
+    costoPorLb: lbTotal > 0 ? metrics.costos / lbTotal : undefined,
+    gananciaPorAve: nAves > 0 ? ganancia / nAves : 0,
+  }
+  const contrastes = construirContrastes(snap, real)
+  const listo = nAves > 0 && montoFinal > 0
+
+  async function guardar() {
+    await db.transaction('rw', db.ingresos, db.lotes, async () => {
+      await db.ingresos.add({
+        loteId: lote.id,
+        tipo: 'aves',
+        cantidad: nAves,
+        pesoLb: lbTotal || undefined,
+        monto: montoFinal,
+        fecha,
+        recibidoPor: recibidoPor !== '' ? Number(recibidoPor) : undefined,
+        creado: Date.now(),
+      })
+      if (!parcial) {
+        await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: fecha, cierre: snap })
+      }
+    })
+    onClose()
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={paso === 1 ? 'Vender y cerrar' : parcial ? 'Confirmar la venta' : 'Cómo salió el ciclo'}
+    >
+      {paso === 1 ? (
+        <div className="space-y-4">
+          <p className="text-[13px] leading-relaxed text-ink-soft">
+            Anota lo que salió del galpón. Con esto el ciclo queda cerrado y el reporte se llena
+            solo.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Aves vendidas" hint={`Tienes ${num(metrics.avesVivas)} vivas`}>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={aves}
+                onChange={(e) => setAves(e.target.value)}
+                className="h-14 text-lg"
+              />
+            </Field>
+            <Field label="Peso total (lb)" hint="El del camión">
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={pesoTotal}
+                onChange={(e) => setPesoTotal(e.target.value)}
+                placeholder="0"
+                className="h-14 text-lg"
+              />
+            </Field>
+          </div>
+
+          {pesoPorAve != null && (
+            <div className="flex items-center justify-between rounded-xl bg-green-tint px-4 py-3 text-[13px] text-forest-darkest">
+              <span>Peso por ave</span>
+              <span className="tnum">
+                <span className="font-display text-base font-semibold">{num(pesoPorAve, 2)} lb</span>
+                {snap.pesoProyectadoLb != null && (
+                  <span className="text-forest-700">
+                    {' '}
+                    · la app estimaba {num(snap.pesoProyectadoLb, 2)}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Precio por libra">
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={precio}
+                onChange={(e) => setPrecio(e.target.value)}
+                placeholder="0"
+              />
+            </Field>
+            <Field label="Fecha de venta">
+              <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            </Field>
+          </div>
+
+          <Field
+            label="Monto recibido"
+            hint={montoTocado ? 'Lo escribiste a mano' : 'Sale del peso por el precio; puedes corregirlo'}
+          >
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={montoTocado ? monto : montoFinal ? String(montoFinal) : ''}
+              onChange={(e) => {
+                setMontoTocado(true)
+                setMonto(e.target.value)
+              }}
+              placeholder="0"
+              className="h-14 text-lg"
+            />
+          </Field>
+
+          {lote.socios && lote.socios.length >= 2 && (
+            <Field label="¿Quién recibió el dinero?">
+              <Select value={recibidoPor} onChange={(e) => setRecibidoPor(e.target.value)}>
+                <option value="">Común (según %)</option>
+                {lote.socios.map((s, i) => (
+                  <option key={i} value={i}>
+                    {s.nombre || `Socio ${i + 1}`}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          {parcial && (
+            <p className="rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-[13px] leading-relaxed text-amber-text">
+              Quedan {num(metrics.avesVivas - nAves)} aves en el galpón, así que el ciclo sigue
+              abierto. Ciérralo cuando salga el resto.
+            </p>
+          )}
+
+          <Button block className="h-14" disabled={!listo} onClick={() => setPaso(2)}>
+            Ver el resultado
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="rounded-xl2 border border-line bg-paper-raised p-4">
+            <div className="text-xs text-ink-faint">{ganancia >= 0 ? 'Ganancia' : 'Pérdida'}</div>
+            <div
+              className={clsx(
+                'font-display text-[32px] font-semibold leading-none tnum',
+                ganancia >= 0 ? 'text-forest-600' : 'text-clay-deep',
+              )}
+            >
+              {money(ganancia)}
+            </div>
+            <div className="mt-1.5 text-[13px] text-ink-soft tnum">
+              {money(real.gananciaPorAve)} por ave · margen {pct(real.margenPct)}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-3 border-t border-line pt-3">
+              <DatoCierre label="Vendiste" valor={`${num(nAves)} aves`} />
+              <DatoCierre label="En pie" valor={`${num(lbTotal)} lb`} />
+              <DatoCierre
+                label="Costo / lb"
+                valor={real.costoPorLb != null ? porLb(real.costoPorLb) : '—'}
+              />
+            </div>
+          </div>
+
+          {contrastes.length > 0 && (
+            <div>
+              <div className="mb-2 text-[13px] font-medium text-ink-soft">
+                Lo que decía la app contra lo que pasó
+              </div>
+              <div className="overflow-hidden rounded-xl2 border border-line bg-paper-raised">
+                <div className="flex items-center justify-between border-b border-line px-4 py-2 text-[11px] uppercase tracking-wide text-ink-faint">
+                  <span>Indicador</span>
+                  <span className="flex gap-4">
+                    <span className="w-[72px] text-right">Decía</span>
+                    <span className="w-[72px] text-right">Real</span>
+                  </span>
+                </div>
+                {contrastes.map((c) => (
+                  <FilaContraste key={c.etiqueta} c={c} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="soft" className="flex-1" onClick={() => setPaso(1)}>
+              Atrás
+            </Button>
+            <Button className="h-14 flex-[2]" onClick={guardar}>
+              {parcial ? 'Guardar venta' : 'Cerrar ciclo'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Sheet>
+  )
+}
+
+function DatoCierre({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div>
+      <div className="font-display text-[15px] font-semibold leading-none tnum">{valor}</div>
+      <div className="mt-1 text-[11px] text-ink-faint">{label}</div>
+    </div>
+  )
+}
+
+const valorContraste = (v: number, f: Contraste['formato']) =>
+  f === 'dinero' ? money(v, { compact: true }) : f === 'precio' ? porLb(v) : f === 'peso' ? `${num(v, 2)} lb` : num(v)
+
+function FilaContraste({ c }: { c: Contraste }) {
+  const dif = c.proyectado !== 0 ? ((c.real - c.proyectado) / Math.abs(c.proyectado)) * 100 : 0
+  const notable = Math.abs(dif) >= 2
+  const buena = c.mejorSi === 'mayor' ? dif > 0 : c.mejorSi === 'menor' ? dif < 0 : undefined
+
+  return (
+    <div className="flex items-center justify-between border-b border-line px-4 py-2.5 last:border-b-0 text-sm">
+      <span className="min-w-0 text-ink-soft">
+        {c.etiqueta}
+        {notable && buena != null && (
+          <span
+            className={clsx(
+              'ml-1.5 text-[11px] font-semibold tnum',
+              buena ? 'text-forest-600' : 'text-clay-text',
+            )}
+          >
+            {dif > 0 ? '▲' : '▼'} {num(Math.abs(dif), 0)}%
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 gap-4 tnum">
+        <span className="w-[72px] text-right text-ink-faint">{valorContraste(c.proyectado, c.formato)}</span>
+        <span className="w-[72px] text-right font-display font-semibold">
+          {valorContraste(c.real, c.formato)}
+        </span>
+      </span>
+    </div>
   )
 }
 
