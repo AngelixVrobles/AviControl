@@ -18,6 +18,7 @@ import { diasEntre, hoyISO, money, num, pct, porLb } from '../lib/format'
 import type { LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
 import { construirContrastes, snapshotCierre, type Contraste, type RealCiclo } from '../lib/cierre'
+import { aguaEsperadaL } from '../lib/agua'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
 import { LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT, pesoEstandarLb } from '../lib/standards'
 import { IconClose } from './icons'
@@ -39,6 +40,7 @@ export function RegistroSheet({
   const [mortalidad, setMortalidad] = useState(0)
   const [descarte, setDescarte] = useState(0)
   const [alimentoLb, setAlimentoLb] = useState('')
+  const [aguaL, setAguaL] = useState('')
   const [feedOtro, setFeedOtro] = useState(false)
   const [peso, setPeso] = useState('')
   const [sinPesar, setSinPesar] = useState(false)
@@ -65,6 +67,7 @@ export function RegistroSheet({
       setMortalidad(r?.mortalidad ?? 0)
       setDescarte(r?.descarte ?? 0)
       setAlimentoLb(r?.alimentoLb ? String(r.alimentoLb) : '')
+      setAguaL(r?.aguaL ? String(r.aguaL) : '')
       setFeedOtro(!!r?.alimentoLb && !chips.includes(r.alimentoLb))
       setPeso(r?.pesoPromedio != null ? String(r.pesoPromedio) : '')
       setSinPesar(!!r && r.pesoPromedio == null)
@@ -98,6 +101,9 @@ export function RegistroSheet({
 
   const dia = diasEntre(lote.fechaInicio, fecha)
   const existente = editar ?? registros.find((r) => r.fecha === fecha)
+  const esperadaL = aguaEsperadaL(Number(alimentoLb) || 0)
+  const litros = Number(aguaL.replace(',', '.')) || 0
+  const desvioAgua = litros > 0 && esperadaL > 0 ? ((litros - esperadaL) / esperadaL) * 100 : undefined
 
   async function guardar() {
     const datos = {
@@ -106,6 +112,7 @@ export function RegistroSheet({
       mortalidad,
       descarte,
       alimentoLb: Number(alimentoLb) || 0,
+      aguaL: Number(aguaL.replace(',', '.')) > 0 ? Number(aguaL.replace(',', '.')) : undefined,
       pesoPromedio: !sinPesar && Number(peso.replace(',', '.')) > 0 ? Number(peso.replace(',', '.')) : undefined,
       nota: nota.trim() || undefined,
     }
@@ -180,6 +187,30 @@ export function RegistroSheet({
               className="mt-2"
               autoFocus={feedOtro}
             />
+          )}
+        </div>
+
+        <div>
+          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Agua (litros)</span>
+          <Input
+            type="number"
+            inputMode="decimal"
+            value={aguaL}
+            onChange={(e) => setAguaL(e.target.value)}
+            placeholder={esperadaL > 0 ? `Lo normal hoy: ${num(esperadaL)} L` : 'Litros del día'}
+            className="h-14"
+          />
+          {aguaL && esperadaL > 0 && (
+            <p
+              className={clsx(
+                'mt-1 text-xs',
+                desvioAgua != null && Math.abs(desvioAgua) >= 20 ? 'text-clay-text' : 'text-ink-faint',
+              )}
+            >
+              {desvioAgua != null && Math.abs(desvioAgua) >= 20
+                ? `${desvioAgua > 0 ? 'Bastante más' : 'Bastante menos'} de lo normal para ${num(Number(alimentoLb))} lb de alimento (${num(esperadaL)} L).`
+                : `Para ${num(Number(alimentoLb))} lb de alimento lo normal son ${num(esperadaL)} L.`}
+            </p>
           )}
         </div>
 

@@ -1,5 +1,6 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
 import type { LoteMetrics } from './metrics'
+import { resumenAgua } from './agua'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
 import { diasEntre, hoyISO, num, pct } from './format'
 import { DIAS_RETIRO, FASES_ALIMENTO, fcaEstandar, mortalidadEsperadaPct } from './standards'
@@ -58,6 +59,21 @@ export function computeAlertas(
       texto: ultimoPesaje
         ? `Hace ${diasSinPesar} días que no pesas: sin peso no hay proyección`
         : 'Aún no has pesado ninguna ave de este lote',
+    })
+  }
+
+  // El agua avisa antes que nada: una caída de golpe precede al síntoma en un
+  // día entero, así que va con la prioridad más alta.
+  const agua = resumenAgua(lote, registros)
+  if (agua?.caidaPct != null) {
+    alertas.push({
+      nivel: 'bad',
+      texto: `El agua bajó ${pct(agua.caidaPct, 0)} de golpe: revisa bebederos y aves hoy mismo`,
+    })
+  } else if (agua && agua.estado === 'bajo' && agua.dias.length >= 3) {
+    alertas.push({
+      nivel: 'warn',
+      texto: `Están bebiendo poco para lo que comen (${num(agua.ultimo.litrosPorLb, 2)} L por libra)`,
     })
   }
 

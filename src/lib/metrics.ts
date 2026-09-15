@@ -32,7 +32,7 @@ export interface LoteMetrics {
   diaVentaEstimado?: number
   fechaVentaEstimada?: string
 
-  registroHoy?: { pesoPromedio?: number; alimentoLb: number; mortalidad: number }
+  registroHoy?: { pesoPromedio?: number; alimentoLb: number; aguaL?: number; mortalidad: number }
 }
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
@@ -64,7 +64,12 @@ export function computeMetrics(
   const base = {
     dias,
     registroHoy: rHoy
-      ? { pesoPromedio: rHoy.pesoPromedio, alimentoLb: rHoy.alimentoLb, mortalidad: rHoy.mortalidad + rHoy.descarte }
+      ? {
+          pesoPromedio: rHoy.pesoPromedio,
+          alimentoLb: rHoy.alimentoLb,
+          aguaL: rHoy.aguaL,
+          mortalidad: rHoy.mortalidad + rHoy.descarte,
+        }
       : undefined,
     ultimaFecha: registros.length ? registros[registros.length - 1].fecha : undefined,
     cantidadInicial: lote.cantidadInicial,

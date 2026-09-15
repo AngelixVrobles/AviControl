@@ -1,6 +1,9 @@
 import type { Gasto, Lote, Registro } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { fecha, money, num, pct, porLb } from '../../lib/format'
+import { resumenAgua } from '../../lib/agua'
+import { reduceMotion } from '../../lib/motion'
 import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
 import { precioQuintalReal } from '../../lib/precios'
 import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
@@ -27,6 +30,7 @@ export function FichaAlimento({
     .filter((g) => g.categoria === 'alimento')
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
   const stdFca = fcaEstandar(metrics.dias)
+  const agua = resumenAgua(lote, registros)
 
   if (metrics.alimentoTotalLb === 0 && !compras.length)
     return <Vacio texto="Todavía no has anotado alimento en este ciclo." />
@@ -117,6 +121,98 @@ export function FichaAlimento({
           })}
         </Card>
       </div>
+
+      {agua && (
+        <div>
+          <h3 className="mb-1 font-display text-base font-semibold">Agua</h3>
+          <p className="mb-2 text-xs text-ink-faint">
+            Un pollo bebe cerca del doble de lo que come. Cuando el agua cae, cae antes que
+            cualquier síntoma.
+          </p>
+          <Card className="p-4">
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-xs text-ink-faint">
+                  Último día anotado · día {agua.ultimo.dia}
+                </div>
+                <div className="font-display text-[24px] font-semibold leading-none tnum">
+                  {num(agua.ultimo.litros)} L
+                </div>
+                <div className="mt-1 text-[13px] text-ink-soft tnum">
+                  lo normal eran {num(agua.ultimo.esperadoL)} L
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-ink-faint">Por libra de alimento</div>
+                <div
+                  className={
+                    'font-display text-[20px] font-semibold leading-none tnum ' +
+                    (agua.estado === 'normal' ? 'text-forest-600' : 'text-clay-deep')
+                  }
+                >
+                  {num(agua.ultimo.litrosPorLb, 2)} L
+                </div>
+                <div className="mt-0.5 text-[11px] text-ink-faint">
+                  {agua.estado === 'normal'
+                    ? '✓ normal'
+                    : agua.estado === 'bajo'
+                      ? '▼ beben poco'
+                      : '▲ beben de más'}
+                </div>
+              </div>
+            </div>
+
+            {agua.dias.length > 1 && (
+              <div className="mt-4 border-t border-line pt-4">
+                <ResponsiveContainer width="100%" height={130}>
+                  <LineChart data={agua.dias} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid stroke="#EEEBE2" vertical={false} />
+                    <XAxis
+                      dataKey="dia"
+                      tick={{ fontSize: 11, fill: '#5F6D64' }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: '#5F6D64' }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      labelFormatter={(d) => `Día ${d}`}
+                      formatter={(v, n) => [`${num(Number(v))} L`, n === 'litros' ? 'Bebieron' : 'Normal']}
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: '1px solid #DCD6C7',
+                        background: '#FFFEFA',
+                        fontSize: 13,
+                      }}
+                    />
+                    <Line
+                      dataKey="esperadoL"
+                      stroke="#5F6D64"
+                      strokeDasharray="5 4"
+                      strokeWidth={1.5}
+                      dot={false}
+                      isAnimationActive={!reduceMotion}
+                    />
+                    <Line
+                      dataKey="litros"
+                      stroke="#1E7340"
+                      strokeWidth={2.5}
+                      dot={{ r: 2.5, fill: '#1E7340' }}
+                      isAnimationActive={!reduceMotion}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </Card>
+          {agua.caidaPct != null && (
+            <p className="mt-2 rounded-xl border-l-4 border-clay bg-clay-tint px-4 py-3 text-[13px] leading-relaxed text-clay-text">
+              El último día bebieron {pct(agua.caidaPct, 0)} menos que los anteriores. Revisa que los
+              bebederos tengan presión y altura, y mira si hay aves decaídas: el agua se cae un día
+              antes que todo lo demás.
+            </p>
+          )}
+        </div>
+      )}
 
       {plan && (
         <div>
