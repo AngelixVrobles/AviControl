@@ -60,6 +60,20 @@ export interface Pesaje {
   creado: number
 }
 
+export type TipoAplicacion = 'vacuna' | 'medicina' | 'vitamina'
+
+export interface Aplicacion {
+  id: number
+  loteId: number
+  fecha: string
+  tipo: TipoAplicacion
+  nombre: string
+  via?: string
+  dosis?: string
+  nota?: string
+  creado: number
+}
+
 export type CategoriaGasto =
   | 'alimento'
   | 'aves'
@@ -102,6 +116,7 @@ export const db = new Dexie('avicontrol') as Dexie & {
   gastos: EntityTable<Gasto, 'id'>
   ingresos: EntityTable<Ingreso, 'id'>
   pesajes: EntityTable<Pesaje, 'id'>
+  aplicaciones: EntityTable<Aplicacion, 'id'>
 }
 
 db.version(1).stores({
@@ -113,4 +128,8 @@ db.version(1).stores({
 
 db.version(2).stores({
   pesajes: '++id, loteId, fecha',
+})
+
+db.version(3).stores({
+  aplicaciones: '++id, loteId, fecha',
 })

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import {
   db,
+  type Aplicacion,
   type CategoriaGasto,
   type Gasto,
   type Ingreso,
   type Lote,
   type Pesaje,
   type Registro,
+  type TipoAplicacion,
 } from '../db/schema'
 import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
 import { confirmar } from './confirm'
@@ -996,6 +998,137 @@ function FilaContraste({ c }: { c: Contraste }) {
         </span>
       </span>
     </div>
+  )
+}
+
+const VIAS = ['Agua de bebida', 'Ocular', 'Spray', 'Inyectada', 'Oral', 'Alimento']
+const TIPOS_APLICACION: { id: TipoAplicacion; label: string }[] = [
+  { id: 'vacuna', label: 'Vacuna' },
+  { id: 'medicina', label: 'Medicina' },
+  { id: 'vitamina', label: 'Vitamina' },
+]
+
+export function AplicacionSheet({
+  lote,
+  open,
+  onClose,
+  editar,
+  sugerencia,
+}: {
+  lote: Lote
+  open: boolean
+  onClose: () => void
+  editar?: Aplicacion
+  sugerencia?: { nombre: string; fecha: string }
+}) {
+  const [tipo, setTipo] = useState<TipoAplicacion>('vacuna')
+  const [nombre, setNombre] = useState('')
+  const [fecha, setFecha] = useState(hoyISO())
+  const [via, setVia] = useState('')
+  const [dosis, setDosis] = useState('')
+  const [nota, setNota] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setTipo(editar?.tipo ?? 'vacuna')
+    setNombre(editar?.nombre ?? sugerencia?.nombre ?? '')
+    setFecha(editar?.fecha ?? sugerencia?.fecha ?? hoyISO())
+    setVia(editar?.via ?? '')
+    setDosis(editar?.dosis ?? '')
+    setNota(editar?.nota ?? '')
+  }, [open, editar, sugerencia])
+
+  const dia = diasEntre(lote.fechaInicio, fecha)
+
+  async function guardar() {
+    const datos = {
+      loteId: lote.id,
+      fecha,
+      tipo,
+      nombre: nombre.trim(),
+      via: via || undefined,
+      dosis: dosis.trim() || undefined,
+      nota: nota.trim() || undefined,
+    }
+    if (editar) await db.aplicaciones.update(editar.id, datos)
+    else await db.aplicaciones.add({ ...datos, creado: Date.now() })
+    onClose()
+  }
+
+  async function eliminar() {
+    if (!(await confirmar({ titulo: 'Eliminar aplicación', confirmar: 'Eliminar', peligro: true }))) return
+    await db.aplicaciones.delete(editar!.id)
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={editar ? 'Editar aplicación' : `Aplicación del día ${dia}`}>
+      <div className="space-y-4">
+        <div>
+          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Qué aplicaste</span>
+          <div className="flex gap-1 rounded-full bg-paper-sunken p-1">
+            {TIPOS_APLICACION.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTipo(t.id)}
+                className={clsx(
+                  'flex-1 rounded-full py-2.5 text-sm font-semibold transition',
+                  tipo === t.id ? 'bg-paper-raised text-ink shadow-card' : 'text-ink-faint',
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Field label="Nombre" hint="Como viene en el frasco.">
+          <Input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Newcastle, Gumboro, enrofloxacina…"
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Fecha">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </Field>
+          <Field label="Dosis" hint="Opcional.">
+            <Input value={dosis} onChange={(e) => setDosis(e.target.value)} placeholder="1 gota, 1 cc…" />
+          </Field>
+        </div>
+
+        <div>
+          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Vía</span>
+          <div className="flex flex-wrap gap-2">
+            {VIAS.map((v) => (
+              <button
+                key={v}
+                onClick={() => setVia(via === v ? '' : v)}
+                className={clsx(
+                  'rounded-full border px-3 py-2 text-[13px] font-medium transition',
+                  via === v
+                    ? 'border-2 border-green-action bg-green-tint text-ink'
+                    : 'border-line bg-paper-raised text-ink-soft',
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Field label="Nota">
+          <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Lote del frasco, quién aplicó…" />
+        </Field>
+
+        <Button block className="h-14" disabled={!nombre.trim()} onClick={guardar}>
+          {editar ? 'Guardar cambios' : 'Anotar aplicación'}
+        </Button>
+        {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
+      </div>
+    </Sheet>
   )
 }
 
