@@ -17,6 +17,7 @@ import { useLoteData, useSettings } from '../lib/hooks'
 import { agruparGastos, resumenSemanal, type LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
 import { analizarPrecio, precioAlimentoLb, precioQuintalReal } from '../lib/precios'
+import { resultadoCiclo, type Contraste } from '../lib/cierre'
 import { analizarPuntoOptimo } from '../lib/optimo'
 import { analizarMuestra, tamanoMuestra } from '../lib/muestreo'
 import { computeEquipo, enPies, enPies2, type Distribucion } from '../lib/equipo'
@@ -24,7 +25,7 @@ import { computeGuiaDia } from '../lib/guia'
 import { computeInventarioAlimento, computePlanAlimento, type InventarioAlimento } from '../lib/plan'
 import { computeLiquidacion } from '../lib/sociedad'
 import { compartirReporte } from '../lib/reporte'
-import { diasEntre, fecha, hoyISO, money, num, numCompacto, pct, porLb } from '../lib/format'
+import { diasEntre, fecha, money, num, numCompacto, pct, porLb } from '../lib/format'
 import { categoriaLabel, RAZA, tipoIngresoLabel } from '../lib/labels'
 import { LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT, fcaEstandar, pesoEstandarLb } from '../lib/standards'
 import { reduceMotion } from '../lib/motion'
@@ -34,9 +35,16 @@ import { confirmar } from '../components/confirm'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { Button, Card, Pill } from '../components/ui'
 import { IconBack, IconMoney, IconPesa, IconPlus, IconScale, IconTrend } from '../components/icons'
-import { ActionButton, GastoSheet, IngresoSheet, PesajeSheet, RegistroSheet } from '../components/sheets'
+import {
+  ActionButton,
+  CierreSheet,
+  GastoSheet,
+  IngresoSheet,
+  PesajeSheet,
+  RegistroSheet,
+} from '../components/sheets'
 
-type SheetKind = 'registro' | 'pesaje' | 'gasto' | 'ingreso' | null
+type SheetKind = 'registro' | 'pesaje' | 'gasto' | 'ingreso' | 'cierre' | null
 type Tab = 'hoy' | 'crecimiento' | 'dinero'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'hoy', label: 'Hoy' },
@@ -93,24 +101,18 @@ export function LoteDetail() {
     )
 
   const { lote, registros, gastos, ingresos, pesajes, metrics, alertas } = data
+  const cerrado = lote.estado === 'cerrado' && ingresos.some((i) => i.tipo === 'aves')
   const gastosCat = agruparGastos(gastos)
   const maxCat = Math.max(1, ...gastosCat.map((g) => g.total))
   const positivo = metrics.ganancia >= 0
 
-  async function cerrar() {
-    const activo = lote.estado === 'activo'
-    const ok = await confirmar(
-      activo
-        ? { titulo: 'Cerrar ciclo', mensaje: 'Podrás seguir viéndolo, pero no aparecerá como activo.', confirmar: 'Cerrar ciclo' }
-        : { titulo: 'Reabrir ciclo', mensaje: 'Volverá a aparecer como activo.', confirmar: 'Reabrir' },
-    )
-    if (!ok) return
-    await db.lotes.update(
-      lote.id,
-      activo
-        ? { estado: 'cerrado', fechaCierre: hoyISO() }
-        : { estado: 'activo', fechaCierre: undefined },
-    )
+  async function reabrir() {
+    const ok = await confirmar({
+      titulo: 'Reabrir ciclo',
+      mensaje: 'Volverá a aparecer como activo. La venta que registraste se queda.',
+      confirmar: 'Reabrir',
+    })
+    if (ok) await db.lotes.update(lote.id, { estado: 'activo', fechaCierre: undefined })
   }
 
   const kpis = [
@@ -285,7 +287,8 @@ export function LoteDetail() {
 
       {tab === 'dinero' && (
         <div className="animate-rise">
-          <Card className="mt-5 overflow-hidden">
+          <ComoSalio lote={lote} metrics={metrics} ingresos={ingresos} />
+          <Card className={clsx('mt-5 overflow-hidden', cerrado && 'hidden')}>
             <div className="flex items-stretch">
               <div className="flex-1 p-4">
                 <div className="flex items-center gap-1.5 text-ink-faint">
@@ -409,9 +412,15 @@ export function LoteDetail() {
               Compartir reporte
             </Button>
             <div className="flex justify-center">
-              <Button variant="ghost" onClick={cerrar}>
-                {lote.estado === 'activo' ? 'Cerrar ciclo' : 'Reabrir ciclo'}
-              </Button>
+              {lote.estado === 'activo' ? (
+                <Button variant="ghost" onClick={() => abrir('cierre')}>
+                  Vender y cerrar ciclo
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={reabrir}>
+                  Reabrir ciclo
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -423,6 +432,14 @@ export function LoteDetail() {
         open={sheet === 'registro'}
         onClose={() => setSheet(null)}
         editar={editRegistro}
+      />
+      <CierreSheet
+        lote={lote}
+        metrics={metrics}
+        registros={registros}
+        gastos={gastos}
+        open={sheet === 'cierre'}
+        onClose={() => setSheet(null)}
       />
       <PesajeSheet
         lote={lote}
@@ -664,6 +681,110 @@ function Muestreo({
   )
 }
 
+function ComoSalio({
+  lote,
+  metrics,
+  ingresos,
+}: {
+  lote: Lote
+  metrics: LoteMetrics
+  ingresos: Ingreso[]
+}) {
+  if (lote.estado !== 'cerrado') return null
+  const r = resultadoCiclo(lote, metrics, ingresos)
+  if (!r) return null
+  const positivo = r.ganancia >= 0
+
+  return (
+    <>
+      <h2 className="mb-3 mt-5 font-display text-lg font-semibold">Cómo salió el ciclo</h2>
+      <Card className="p-4">
+        <div className="text-xs text-ink-faint">{positivo ? 'Ganancia' : 'Pérdida'}</div>
+        <div
+          className={clsx(
+            'font-display text-[32px] font-semibold leading-none tnum',
+            positivo ? 'text-forest-600' : 'text-clay-deep',
+          )}
+        >
+          {money(r.ganancia)}
+        </div>
+        <div className="mt-1.5 text-[13px] text-ink-soft tnum">
+          {money(r.gananciaPorAve)} por ave · margen {pct(r.margenPct)}
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4">
+          <div>
+            <div className="font-display text-[15px] font-semibold leading-none tnum">
+              {num(r.avesVendidas)}
+            </div>
+            <div className="mt-1 text-[11px] text-ink-faint">Aves vendidas</div>
+          </div>
+          <div>
+            <div className="font-display text-[15px] font-semibold leading-none tnum">
+              {r.pesoPromedioLb != null ? `${num(r.pesoPromedioLb, 2)} lb` : '—'}
+            </div>
+            <div className="mt-1 text-[11px] text-ink-faint">Peso por ave</div>
+          </div>
+          <div>
+            <div className="font-display text-[15px] font-semibold leading-none tnum">
+              {r.precioLogradoLb != null ? porLb(r.precioLogradoLb) : '—'}
+            </div>
+            <div className="mt-1 text-[11px] text-ink-faint">Precio logrado</div>
+          </div>
+        </div>
+      </Card>
+
+      {r.contrastes.length > 0 && (
+        <>
+          <p className="mb-2 mt-3 text-xs text-ink-faint">
+            Lo que decía la app el día que cerraste, contra lo que pasó de verdad.
+          </p>
+          <Card className="divide-y divide-line">
+            {r.contrastes.map((c) => (
+              <Contrastada key={c.etiqueta} c={c} />
+            ))}
+          </Card>
+        </>
+      )}
+    </>
+  )
+}
+
+function Contrastada({ c }: { c: Contraste }) {
+  const dif = c.proyectado !== 0 ? ((c.real - c.proyectado) / Math.abs(c.proyectado)) * 100 : 0
+  const notable = Math.abs(dif) >= 2
+  const buena = c.mejorSi === 'mayor' ? dif > 0 : c.mejorSi === 'menor' ? dif < 0 : undefined
+  const valor = (v: number) =>
+    c.formato === 'dinero'
+      ? money(v, { compact: true })
+      : c.formato === 'precio'
+        ? porLb(v)
+        : c.formato === 'peso'
+          ? `${num(v, 2)} lb`
+          : num(v)
+
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+      <span className="min-w-0 text-ink-soft">
+        {c.etiqueta}
+        {notable && buena != null && (
+          <span
+            className={clsx(
+              'ml-1.5 text-[11px] font-semibold tnum',
+              buena ? 'text-forest-600' : 'text-clay-text',
+            )}
+          >
+            {dif > 0 ? '▲' : '▼'} {num(Math.abs(dif), 0)}%
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 gap-4 tnum">
+        <span className="w-[74px] text-right text-ink-faint">{valor(c.proyectado)}</span>
+        <span className="w-[74px] text-right font-display font-semibold">{valor(c.real)}</span>
+      </span>
+    </div>
+  )
+}
+
 function PrecioMinimo({
   lote,
   registros,
@@ -675,6 +796,7 @@ function PrecioMinimo({
   gastos: Gasto[]
   metrics: LoteMetrics
 }) {
+  if (lote.estado !== 'activo') return null
   const objetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
   const p = proyectarVenta(lote, registros, gastos, metrics, objetivo)
   const a = analizarPrecio(lote, gastos, metrics, p)

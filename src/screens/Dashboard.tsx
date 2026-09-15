@@ -11,9 +11,10 @@ import { useResumen, useSettings } from '../lib/hooks'
 
 export function Dashboard() {
   const activos = useResumen('activo')
+  const cerrados = useResumen('cerrado')
   const settings = useSettings()
 
-  if (!activos) return <SkeletonHeader />
+  if (!activos || !cerrados) return <SkeletonHeader />
 
   const hoy = capitalizar(fechaLarga(hoyISO()))
 
@@ -31,12 +32,23 @@ export function Dashboard() {
         <div className="mt-6">
           <EmptyState
             icon={<IconScale width={28} height={28} />}
-            title="Aún no tienes ciclos"
-            text="Crea tu primer ciclo de engorde para empezar a llevar el control."
+            title={cerrados.length ? 'No tienes ciclos en curso' : 'Aún no tienes ciclos'}
+            text={
+              cerrados.length
+                ? `Cerraste ${cerrados.length === 1 ? 'tu último ciclo' : `${cerrados.length} ciclos`}. El resultado está en Reportes; cuando recibas los pollitos, abre el siguiente.`
+                : 'Crea tu primer ciclo de engorde para empezar a llevar el control.'
+            }
             action={
-              <Link to="/lotes/nuevo">
-                <Button>Crear ciclo</Button>
-              </Link>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link to="/lotes/nuevo">
+                  <Button>Crear ciclo</Button>
+                </Link>
+                {cerrados.length > 0 && (
+                  <Link to="/reportes">
+                    <Button variant="soft">Ver el resultado</Button>
+                  </Link>
+                )}
+              </div>
             }
           />
         </div>
