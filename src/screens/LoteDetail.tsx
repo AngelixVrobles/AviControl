@@ -147,6 +147,15 @@ export function LoteDetail() {
   const gastosCat = agruparGastos(gastos);
   const positivo = metrics.ganancia >= 0;
 
+  // El ingreso llega el día de la venta: hasta entonces la ganancia solo puede
+  // decir «pérdida», y del tamaño de toda la inversión.
+  const sinVender = metrics.ingresos === 0;
+  const precioReferencia = lote.precioVentaLb ?? settings.precioMercadoLb;
+  const valorEnPie =
+    precioReferencia && metrics.pesoEstimadoLb != null
+      ? metrics.avesVivas * metrics.pesoEstimadoLb * precioReferencia
+      : 0;
+
   async function reabrir() {
     const ok = await confirmar({
       titulo: "Reabrir ciclo",
@@ -368,42 +377,54 @@ export function LoteDetail() {
       {tab === "dinero" && (
         <div className="animate-rise">
           <ComoSalio lote={lote} metrics={metrics} ingresos={ingresos} />
-          <Card className={clsx("mt-5 overflow-hidden", cerrado && "hidden")}>
+          <Card tono="elevado" className={clsx("mt-5 overflow-hidden", cerrado && "hidden")}>
             <div className="flex items-stretch">
               <div className="flex-1 p-4">
                 <div className="flex items-center gap-1.5 text-ink-faint">
                   <IconTrend width={16} height={16} />
                   <span className="text-xs font-medium">
-                    {positivo ? "Ganancia" : "Pérdida"}
+                    {sinVender ? "Invertido" : positivo ? "Ganancia" : "Pérdida"}
                   </span>
                 </div>
                 <div
                   className={
                     "mt-1 font-display text-2xl font-semibold tracking-tight tnum leading-none " +
-                    (positivo ? "text-forest-600" : "text-clay-deep")
+                    (sinVender ? "text-ink" : positivo ? "text-forest-600" : "text-clay-deep")
                   }
                 >
                   <AnimatedNumber
-                    value={metrics.ganancia}
+                    value={sinVender ? metrics.costos : metrics.ganancia}
                     format={(n) => money(n)}
                   />
                 </div>
                 <div className="mt-1 text-xs text-ink-faint tnum">
-                  Margen {pct(metrics.margenPct)}
+                  {sinVender ? "todavía sin vender" : `Margen ${pct(metrics.margenPct)}`}
                 </div>
               </div>
               <div className="w-px bg-line" />
               <div className="grid flex-1 grid-rows-2">
                 <div className="border-b border-line px-4 py-2.5">
-                  <div className="text-xs text-ink-faint">Ingresos</div>
+                  <div className="text-xs text-ink-faint">
+                    {sinVender ? "Valor en pie" : "Ingresos"}
+                  </div>
                   <div className="font-display text-lg font-semibold tnum leading-tight">
-                    {money(metrics.ingresos)}
+                    {sinVender && valorEnPie > 0
+                      ? money(valorEnPie)
+                      : sinVender
+                        ? "—"
+                        : money(metrics.ingresos)}
                   </div>
                 </div>
                 <div className="px-4 py-2.5">
-                  <div className="text-xs text-ink-faint">Costos</div>
+                  <div className="text-xs text-ink-faint">
+                    {sinVender ? "Costo por libra" : "Costos"}
+                  </div>
                   <div className="font-display text-lg font-semibold tnum leading-tight">
-                    {money(metrics.costos)}
+                    {sinVender
+                      ? metrics.costoPorLb != null
+                        ? porLb(metrics.costoPorLb)
+                        : "—"
+                      : money(metrics.costos)}
                   </div>
                 </div>
               </div>
@@ -425,7 +446,7 @@ export function LoteDetail() {
 
           <Link
             to={`/lotes/${lote.id}/ficha/gastos`}
-            className="mt-7 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 shadow-card transition active:scale-[0.99]"
+            className="mt-7 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 transition active:scale-[0.99]"
           >
             <div>
               <div className="font-display text-lg font-semibold leading-tight">
@@ -744,7 +765,7 @@ function ComoSalio({
       <h2 className="mb-3 mt-5 font-display text-lg font-semibold">
         Cómo salió el ciclo
       </h2>
-      <Card className="p-4">
+      <Card tono="elevado" className="p-4">
         <div className="text-xs text-ink-faint">
           {positivo ? "Ganancia" : "Pérdida"}
         </div>
@@ -1226,7 +1247,7 @@ function FaseActual({
   return (
     <Link
       to={`/lotes/${lote.id}/ficha/alimento`}
-      className="mt-5 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 shadow-card transition active:scale-[0.99]"
+      className="mt-5 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 transition active:scale-[0.99]"
     >
       <div className="min-w-0">
         <div className="text-xs text-ink-faint">Alimento de esta fase</div>
@@ -1235,10 +1256,13 @@ function FaseActual({
         </div>
         <div className="text-sm text-ink-soft">
           {f.proteinaPct}% proteína · {f.presentacion.toLowerCase()}
-          {plan.proximoCambio
-            ? ` · cambia en ${plan.proximoCambio.enDias} ${plan.proximoCambio.enDias === 1 ? "día" : "días"}`
-            : ""}
         </div>
+        {plan.proximoCambio && (
+          <div className="text-xs text-ink-faint">
+            Cambia en {plan.proximoCambio.enDias}{" "}
+            {plural(plan.proximoCambio.enDias, "día", "días")}
+          </div>
+        )}
       </div>
       {quedan != null && (
         <div className="shrink-0 text-right">
@@ -1280,7 +1304,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
       <h2 className="mb-3 mt-7 font-display text-lg font-semibold">
         Guía del día {g.dia}
       </h2>
-      <Card className="p-4">
+      <Card tono="elevado" className="p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-xs text-ink-faint">Peso ideal hoy</div>
@@ -1459,7 +1483,7 @@ function CurvaEstandar({
   return (
     <>
       <h2 className="mb-3 mt-7 font-display text-lg font-semibold">{titulo}</h2>
-      <Card className="p-4 pt-5">
+      <Card tono="elevado" className="p-4 pt-5">
         <ResponsiveContainer width="100%" height={200}>
           <LineChart
             data={puntos}

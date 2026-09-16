@@ -5,12 +5,28 @@ import { createPortal } from 'react-dom'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
 import { IconChevron, IconClose } from './icons'
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <div className={clsx('rounded-xl2 border border-line bg-paper-raised shadow-card', className)}>
-      {children}
-    </div>
-  )
+// Cuatro niveles, y la sombra significa uno solo. Cuando todas las tarjetas
+// llevaban sombra no señalaba nada: `elevado` se usa para la que responde la
+// pregunta de la pantalla, una por vista.
+const SUPERFICIES = {
+  plano: 'border border-line bg-paper-raised',
+  elevado: 'border border-line bg-paper-raised shadow-card',
+  hundido: 'bg-sunken',
+  oscuro: 'bg-forest-deep text-paper-raised shadow-card',
+} as const
+
+export type Superficie = keyof typeof SUPERFICIES
+
+export function Card({
+  tono = 'plano',
+  className,
+  children,
+}: {
+  tono?: Superficie
+  className?: string
+  children: ReactNode
+}) {
+  return <div className={clsx('rounded-xl2', SUPERFICIES[tono], className)}>{children}</div>
 }
 
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {

@@ -56,7 +56,7 @@ export function FichasNav({
           key={f.tipo}
           to={`/lotes/${lote.id}/ficha/${f.tipo}`}
           className={clsx(
-            'rounded-xl2 border border-line bg-paper-raised p-3.5 shadow-card transition active:scale-[0.98]',
+            'rounded-xl2 border border-line bg-paper-raised p-3.5 transition active:scale-[0.98]',
             f.ancho && 'col-span-2',
           )}
         >
