@@ -17,23 +17,24 @@ export default {
           muted: '#5F6D64',
         },
         line: '#DCD6C7',
+        // Una sola familia. Antes convivían `forest` y `green` con los mismos
+        // hexes bajo dos nombres: ocho colores repartidos en dieciocho tokens.
+        //
+        // El 600 es el verde de la app y hace dos trabajos —lo que se toca y lo
+        // que va a favor—, porque no cabe un segundo: sobre este papel, los
+        // únicos verdes que llegan a AA caen entre 5.4 y 7.4 de contraste, y el
+        // primero más claro (400) se queda en 2.7 y no puede llevar texto. La
+        // diferencia la marca la forma, no el color: los enlaces llevan verbo o
+        // flecha, los valores llevan ✓ o ▲.
         forest: {
           50: '#E4EEE6',
           100: '#C5DACB',
+          200: '#B9DCC3',
           400: '#4FA968',
           500: '#1E7340',
           600: '#175C31',
           700: '#153F27',
-          deep: '#153F27',
-          darkest: '#123F24',
-        },
-        green: {
-          action: '#1E7340',
-          text: '#146B34',
-          tint: '#E4EEE6',
-          'tint-line': '#C5DACB',
-          'on-dark': '#4FA968',
-          pale: '#B9DCC3',
+          800: '#123F24',
         },
         amber: {
           400: '#E9A93C',

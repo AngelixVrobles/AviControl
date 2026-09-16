@@ -47,7 +47,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
       <div className="mb-1 mt-5">
         <div className="relative h-2.5 rounded-full bg-sunken">
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-green-action"
+            className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
             style={{ width: pos(dia) }}
           />
           {marcas.slice(1, -1).map((h) => (
@@ -59,7 +59,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
           ))}
           {dia < total && (
             <span
-              className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-darkest"
+              className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-800"
               style={{ left: pos(dia), marginLeft: -12 }}
             />
           )}
@@ -81,13 +81,13 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             <div
               className={clsx(
                 'mt-3 flex items-center justify-between rounded-xl px-3.5 py-2.5',
-                metrics.ganancia >= 0 ? 'bg-green-tint' : 'bg-clay-tint',
+                metrics.ganancia >= 0 ? 'bg-forest-50' : 'bg-clay-tint',
               )}
             >
               <span
                 className={clsx(
                   'text-sm font-medium',
-                  metrics.ganancia >= 0 ? 'text-forest-darkest' : 'text-clay-text',
+                  metrics.ganancia >= 0 ? 'text-forest-800' : 'text-clay-text',
                 )}
               >
                 {metrics.ganancia >= 0 ? 'Ganancia' : 'Pérdida'}
@@ -95,7 +95,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
               <span
                 className={clsx(
                   'text-sm font-bold tnum',
-                  metrics.ganancia >= 0 ? 'text-forest-darkest' : 'text-clay-text',
+                  metrics.ganancia >= 0 ? 'text-forest-800' : 'text-clay-text',
                 )}
               >
                 {money(metrics.ganancia)}
@@ -104,9 +104,9 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
           ) : (
             metrics.fechaVentaEstimada &&
             metrics.diaVentaEstimado != null && (
-              <div className="mt-3 flex items-center justify-between rounded-xl bg-green-tint px-3.5 py-2.5">
-                <span className="text-sm font-medium text-forest-darkest">Venta estimada</span>
-                <span className="text-sm font-bold text-forest-darkest tnum">
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-forest-50 px-3.5 py-2.5">
+                <span className="text-sm font-medium text-forest-800">Venta estimada</span>
+                <span className="text-sm font-bold text-forest-800 tnum">
                   {metrics.diaVentaEstimado <= metrics.dias
                     ? 'lista para vender'
                     : `${fecha(metrics.fechaVentaEstimada)} · ${enDias(metrics.diaVentaEstimado - metrics.dias)}`}
@@ -144,7 +144,7 @@ function Estado({ dev }: { dev: ReturnType<typeof desviaciones>['peso'] }) {
       <div
         className={clsx(
           'mt-1 text-xs font-semibold tnum',
-          dev.estado === 'mal' ? 'text-clay-text' : 'text-green-text',
+          dev.estado === 'mal' ? 'text-clay-text' : 'text-forest-600',
         )}
       >
         {dev.detalle}

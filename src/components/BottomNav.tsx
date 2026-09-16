@@ -29,7 +29,7 @@ export function BottomNav() {
         <div className="flex flex-col items-center">
           <button
             onClick={registrar}
-            className="grid h-14 w-14 -translate-y-3 place-items-center rounded-full bg-green-action text-paper-raised shadow-pop transition active:scale-90"
+            className="grid h-14 w-14 -translate-y-3 place-items-center rounded-full bg-forest-500 text-paper-raised shadow-pop transition active:scale-90"
             aria-label="Registrar día"
           >
             <IconLapiz width={24} height={24} />

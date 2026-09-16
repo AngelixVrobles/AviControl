@@ -137,7 +137,7 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
                 to={`/lotes/${r.lote.id}`}
                 className="flex items-center gap-3 rounded-xl bg-paper px-3 py-2.5"
               >
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-green-text text-paper">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-600 text-paper">
                   <IconCheck width={15} height={15} strokeWidth={2.6} />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -165,7 +165,7 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
               </div>
               <button
                 onClick={() => nav(`/lotes/${r.lote.id}?reg=1`)}
-                className="shrink-0 rounded-full bg-green-action px-4 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
+                className="shrink-0 rounded-full bg-forest-500 px-4 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
               >
                 Registrar
               </button>
@@ -201,8 +201,8 @@ function BloqueFinanciero({
   }, 0)
 
   return (
-    <section className="mt-7 overflow-hidden rounded-xl2 bg-forest-deep p-5 text-paper-raised shadow-card">
-      <div className="text-sm font-medium text-green-pale">
+    <section className="mt-7 overflow-hidden rounded-xl2 bg-forest-700 p-5 text-paper-raised shadow-card">
+      <div className="text-sm font-medium text-forest-200">
         Costo por libra ·{' '}
         {conCosto.length === activos.length
           ? `promedio de ${conCosto.length} ${plural(conCosto.length, 'ciclo activo', 'ciclos activos')}`
@@ -210,7 +210,7 @@ function BloqueFinanciero({
       </div>
       <div className="mt-2 font-display text-hero font-semibold leading-none tracking-tight tnum">
         {costoLbProm != null ? <AnimatedNumber value={costoLbProm} format={porLb} /> : '—'}
-        <span className="ml-1 align-baseline text-lg font-medium text-green-pale">/ lb</span>
+        <span className="ml-1 align-baseline text-lg font-medium text-forest-200">/ lb</span>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
         <HeroStat label="Invertido" value={money(invertido, { compact: true })} />
@@ -227,7 +227,7 @@ function HeroStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="font-display text-xl font-semibold tnum leading-none">{value}</div>
-      <div className="mt-1 text-xs text-green-pale/80">{label}</div>
+      <div className="mt-1 text-xs text-forest-200/80">{label}</div>
     </div>
   )
 }

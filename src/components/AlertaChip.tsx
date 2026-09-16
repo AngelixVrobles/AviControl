@@ -6,7 +6,7 @@ import { IconAlerta, IconVacuna } from './icons'
 const tonos = {
   bad: 'border-clay-line border-l-4 border-l-clay bg-clay-tint text-clay-text',
   warn: 'border-amber-line border-l-4 border-l-amber bg-amber-tint text-amber-text',
-  info: 'border-green-tint-line border-l-4 border-l-green-action bg-green-tint text-forest-darkest',
+  info: 'border-forest-100 border-l-4 border-l-forest-500 bg-forest-50 text-forest-800',
 }
 
 export function AlertaChip({
