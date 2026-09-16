@@ -3,6 +3,7 @@ import type { Lote, Registro } from '../../db/schema'
 import { fecha, num, pct } from '../../lib/format'
 import { reduceMotion } from '../../lib/motion'
 import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from '../../lib/mortalidad'
+import { AnimatedNumber } from '../../components/AnimatedNumber'
 import { Card } from '../../components/ui'
 import { Vacio } from './Vacio'
 
@@ -22,7 +23,7 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
           <div>
             <div className="text-xs text-ink-faint">Bajas del ciclo</div>
             <div className="font-display text-2xl font-semibold leading-none tnum">
-              {num(r.bajas + r.descartes)}
+              <AnimatedNumber value={r.bajas + r.descartes} format={(n) => num(n)} />
             </div>
             <div className="mt-1 text-sm text-ink-soft tnum">
               de {num(lote.cantidadInicial)} · quedan {num(r.vivas)}

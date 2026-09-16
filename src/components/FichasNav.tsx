@@ -51,12 +51,13 @@ export function FichasNav({
 
   return (
     <div className="mt-5 grid grid-cols-2 gap-3">
-      {fichas.map((f) => (
+      {fichas.map((f, i) => (
         <Link
           key={f.tipo}
+          style={{ animationDelay: `${i * 45}ms` }}
           to={`/lotes/${lote.id}/ficha/${f.tipo}`}
           className={clsx(
-            'rounded-xl2 border border-line bg-paper-raised p-3.5 transition active:scale-[0.98]',
+            'animate-rise rounded-xl2 border border-line bg-paper-raised p-3.5 transition active:scale-[0.98]',
             f.ancho && 'col-span-2',
           )}
         >

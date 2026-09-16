@@ -111,5 +111,8 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    /* Sin esto el escalonado sigue vivo: la duración se anula pero el retraso
+       deja los elementos invisibles hasta que les toca. */
+    animation-delay: 0ms !important;
   }
 }
