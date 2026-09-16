@@ -2,18 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import {
   db,
+  type Abono,
   type Aplicacion,
+  type CategoriaDeuda,
   type CategoriaGasto,
+  type Deuda,
   type Gasto,
   type Ingreso,
   type Lote,
   type Pesaje,
   type Registro,
+  type Socio,
   type TipoAplicacion,
 } from '../db/schema'
 import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
 import { confirmar, toast } from './confirm'
 import { CATEGORIAS, categoriaLabel } from '../lib/labels'
+import { CATEGORIAS_DEUDA } from '../lib/deudas'
 import { diasEntre, hoyISO, money, num, pct, porLb } from '../lib/format'
 import type { LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
@@ -1197,5 +1202,333 @@ export function ActionButton({
       </span>
       <span className="text-xs font-medium text-ink-soft">{label}</span>
     </button>
+  )
+}
+
+export function DeudaSheet({
+  open,
+  onClose,
+  editar,
+  sociosSugeridos,
+}: {
+  open: boolean
+  onClose: () => void
+  editar?: Deuda
+  sociosSugeridos?: Socio[]
+}) {
+  const [concepto, setConcepto] = useState('')
+  const [categoria, setCategoria] = useState<CategoriaDeuda>('estructura')
+  const [monto, setMonto] = useState('')
+  const [fecha, setFecha] = useState(hoyISO())
+  const [acreedor, setAcreedor] = useState('')
+  const [enSociedad, setEnSociedad] = useState(false)
+  const [socios, setSocios] = useState<Socio[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    setConcepto(editar?.concepto ?? '')
+    setCategoria(editar?.categoria ?? 'estructura')
+    setMonto(editar ? String(editar.monto) : '')
+    setFecha(editar?.fecha ?? hoyISO())
+    setAcreedor(editar?.acreedor ?? '')
+    const base = editar?.socios ?? sociosSugeridos ?? [
+      { nombre: 'Yo', pct: 50 },
+      { nombre: 'Socio', pct: 50 },
+    ]
+    setEnSociedad((editar?.socios?.length ?? 0) >= 2 || (!editar && (sociosSugeridos?.length ?? 0) >= 2))
+    setSocios(base.map((s) => ({ ...s })))
+  }, [open, editar, sociosSugeridos])
+
+  const valido = concepto.trim() !== '' && Number(monto) > 0
+
+  async function guardar() {
+    const datos = {
+      concepto: concepto.trim(),
+      categoria,
+      monto: Number(monto) || 0,
+      fecha,
+      acreedor: acreedor.trim() || undefined,
+      socios: enSociedad ? socios.filter((s) => s.nombre.trim()) : undefined,
+    }
+    if (editar) await db.deudas.update(editar.id, datos)
+    else await db.deudas.add({ ...datos, creado: Date.now() })
+    toast(`${datos.concepto} · ${money(datos.monto)}`)
+    onClose()
+  }
+
+  async function eliminar() {
+    if (
+      !(await confirmar({
+        titulo: 'Eliminar deuda',
+        mensaje: 'Se borran también los abonos que le anotaste.',
+        confirmar: 'Eliminar',
+        peligro: true,
+      }))
+    )
+      return
+    await db.transaction('rw', db.deudas, db.abonos, async () => {
+      await db.abonos.where('deudaId').equals(editar!.id).delete()
+      await db.deudas.delete(editar!.id)
+    })
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={editar ? 'Editar deuda' : 'Nueva deuda'}>
+      <div className="space-y-4">
+        <Field label="Qué es" hint="Galpón 2, planta eléctrica, el terreno…">
+          <Input
+            value={concepto}
+            onChange={(e) => setConcepto(e.target.value)}
+            placeholder="Galpón 2"
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Categoría">
+            <Select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value as CategoriaDeuda)}
+            >
+              {CATEGORIAS_DEUDA.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Cuánto se debe">
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Desde cuándo">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </Field>
+          <Field label="A quién" hint="Opcional.">
+            <Input
+              value={acreedor}
+              onChange={(e) => setAcreedor(e.target.value)}
+              placeholder="Ferretería, banco…"
+            />
+          </Field>
+        </div>
+
+        <RepartoSocios
+          activo={enSociedad}
+          onActivo={setEnSociedad}
+          socios={socios}
+          onSocios={setSocios}
+        />
+
+        <Button block disabled={!valido} onClick={guardar}>
+          {editar ? 'Guardar' : 'Agregar deuda'}
+        </Button>
+        {editar && <DangerButton onClick={eliminar}>Eliminar deuda</DangerButton>}
+      </div>
+    </Sheet>
+  )
+}
+
+function RepartoSocios({
+  activo,
+  onActivo,
+  socios,
+  onSocios,
+}: {
+  activo: boolean
+  onActivo: (v: boolean) => void
+  socios: Socio[]
+  onSocios: (s: Socio[]) => void
+}) {
+  const suma = socios.reduce((a, s) => a + (Number(s.pct) || 0), 0)
+  const set = (i: number, patch: Partial<Socio>) =>
+    onSocios(socios.map((s, j) => (j === i ? { ...s, ...patch } : s)))
+
+  return (
+    <div className="rounded-xl2 border border-line bg-paper-raised p-4">
+      <button onClick={() => onActivo(!activo)} className="flex w-full items-center justify-between">
+        <div className="text-left">
+          <div className="font-display text-base font-semibold">Es en sociedad</div>
+          <div className="text-xs text-ink-faint">Reparte lo que falta por pagar.</div>
+        </div>
+        <span
+          className={clsx('relative h-6 w-10 rounded-full transition', activo ? 'bg-forest-500' : 'bg-line')}
+        >
+          <span
+            className={clsx(
+              'absolute top-0.5 h-5 w-5 rounded-full bg-paper-raised shadow-card transition-all',
+              activo ? 'left-[18px]' : 'left-0.5',
+            )}
+          />
+        </span>
+      </button>
+
+      {activo && (
+        <div className="mt-4 space-y-3">
+          {socios.map((s, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input
+                value={s.nombre}
+                onChange={(e) => set(i, { nombre: e.target.value })}
+                placeholder="Nombre"
+                className="flex-1"
+              />
+              <div className="relative w-24">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={String(s.pct)}
+                  onChange={(e) => set(i, { pct: Number(e.target.value) || 0 })}
+                  className="pr-7 text-center"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
+                  %
+                </span>
+              </div>
+              {socios.length > 2 && (
+                <button
+                  onClick={() => onSocios(socios.filter((_, j) => j !== i))}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-faint active:bg-paper-sunken"
+                  aria-label="Quitar socio"
+                >
+                  <IconClose width={18} height={18} />
+                </button>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => onSocios([...socios, { nombre: '', pct: 0 }])}
+              className="text-sm font-medium text-forest-600"
+            >
+              + Agregar socio
+            </button>
+            <span
+              className={clsx('text-xs tnum', suma === 100 ? 'text-ink-faint' : 'text-clay-deep')}
+            >
+              Suma {suma}%
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function AbonoSheet({
+  deuda,
+  saldo,
+  open,
+  onClose,
+  editar,
+}: {
+  deuda: Deuda
+  saldo: number
+  open: boolean
+  onClose: () => void
+  editar?: Abono
+}) {
+  const [monto, setMonto] = useState('')
+  const [fecha, setFecha] = useState(hoyISO())
+  const [pagadoPor, setPagadoPor] = useState('')
+  const [nota, setNota] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setMonto(editar ? String(editar.monto) : '')
+    setFecha(editar?.fecha ?? hoyISO())
+    setPagadoPor(editar?.pagadoPor != null ? String(editar.pagadoPor) : '')
+    setNota(editar?.nota ?? '')
+  }, [open, editar])
+
+  const valor = Number(monto) || 0
+  const falta = saldo + (editar?.monto ?? 0)
+  const quedaria = Math.max(0, falta - valor)
+  const sobra = valor - falta
+
+  async function guardar() {
+    const datos = {
+      deudaId: deuda.id,
+      monto: valor,
+      fecha,
+      pagadoPor: pagadoPor !== '' ? Number(pagadoPor) : undefined,
+      nota: nota.trim() || undefined,
+    }
+    if (editar) await db.abonos.update(editar.id, datos)
+    else await db.abonos.add({ ...datos, creado: Date.now() })
+    toast(
+      quedaria > 0
+        ? `Abonaste ${money(valor)} · quedan ${money(quedaria)}`
+        : `${deuda.concepto} quedó saldada`,
+    )
+    onClose()
+  }
+
+  async function eliminar() {
+    if (!(await confirmar({ titulo: 'Eliminar abono', confirmar: 'Eliminar', peligro: true }))) return
+    await db.abonos.delete(editar!.id)
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={editar ? 'Editar abono' : `Abonar a ${deuda.concepto}`}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Cuánto abonas" hint={`Faltan ${money(falta)}.`}>
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
+          <Field label="Fecha">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </Field>
+        </div>
+
+        {(deuda.socios?.length ?? 0) >= 2 && (
+          <Field label="¿Quién lo puso?">
+            <Select value={pagadoPor} onChange={(e) => setPagadoPor(e.target.value)}>
+              <option value="">De la caja común (según %)</option>
+              {deuda.socios!.map((s, i) => (
+                <option key={i} value={i}>
+                  {s.nombre || `Socio ${i + 1}`}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
+        <Field label="Nota" hint="Opcional. De dónde salió, número de recibo…">
+          <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Del ciclo de agosto" />
+        </Field>
+
+        {valor > 0 &&
+          (sobra > 0 ? (
+            <div className="rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-sm leading-relaxed text-amber-text">
+              Te pasas por {money(sobra)}: solo faltaban {money(falta)}. Revisa el monto.
+            </div>
+          ) : (
+            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
+              {quedaria > 0
+                ? `Después de este abono quedan ${money(quedaria)} por pagar.`
+                : 'Con este abono la deuda queda saldada.'}
+            </div>
+          ))}
+
+        <Button block disabled={valor <= 0} onClick={guardar}>
+          {editar ? 'Guardar' : 'Anotar abono'}
+        </Button>
+        {editar && <DangerButton onClick={eliminar}>Eliminar abono</DangerButton>}
+      </div>
+    </Sheet>
   )
 }

@@ -1,9 +1,10 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
-import { useResumen } from '../lib/hooks'
+import { useDeudas, useResumen } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { Banda, Seccion } from '../components/ui'
+import { gananciaPorSocio } from '../lib/sociedad'
 import { GraficaBarras } from '../components/chart'
 import { ComparacionLotes } from '../components/Comparacion'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
@@ -62,6 +63,8 @@ export function Reportes() {
           <ComparacionLotes resumen={lista} />
         </>
       )}
+
+      <DeudasDeLaEmpresa />
     </div>
   )
 }
@@ -124,27 +127,129 @@ function Totales({ lista }: { lista: LoteConMetrics[] }) {
   const ingresos = lista.reduce((a, r) => a + r.metrics.ingresos, 0)
   const costos = lista.reduce((a, r) => a + r.metrics.costos, 0)
   const ganancia = ingresos - costos
+  const reparto = gananciaPorSocio(
+    lista.map((r) => ({ socios: r.lote.socios, ganancia: r.metrics.ganancia })),
+  )
   const filas: { label: string; valor: number; tono: 'ink' | 'ok' | 'bad' }[] = [
     { label: 'Ingresos', valor: ingresos, tono: 'ink' },
     { label: 'Costos', valor: costos, tono: 'ink' },
     { label: ganancia >= 0 ? 'Ganancia' : 'Pérdida', valor: ganancia, tono: ganancia >= 0 ? 'ok' : 'bad' },
   ]
   return (
-    <Banda className="mt-4 divide-y divide-line">
-      {filas.map((f) => (
-        <div key={f.label} className="flex items-center justify-between px-5 py-3">
-          <span className="text-sm text-ink-soft">{f.label}</span>
+    <>
+      <Banda className="mt-4 divide-y divide-line">
+        {filas.map((f) => (
+          <div key={f.label} className="flex items-center justify-between px-5 py-3">
+            <span className="text-sm text-ink-soft">{f.label}</span>
+            <span
+              className={clsx(
+                'font-display text-xl font-semibold tnum',
+                f.tono === 'ok' ? 'text-forest-600' : f.tono === 'bad' ? 'text-clay-deep' : 'text-ink',
+              )}
+            >
+              {money(f.valor)}
+            </span>
+          </div>
+        ))}
+      </Banda>
+      <RepartoSocios reparto={reparto} />
+    </>
+  )
+}
+
+function RepartoSocios({ reparto }: { reparto: ReturnType<typeof gananciaPorSocio> }) {
+  if (reparto.socios.length === 0) return null
+  return (
+    <Banda className="divide-y divide-line border-t-0">
+      {reparto.socios.map((s) => (
+        <div key={s.nombre} className="flex items-baseline justify-between px-5 py-2.5">
+          <span className="text-sm">
+            {s.nombre} <span className="text-ink-faint tnum">{pct(s.pct, 0)}</span>
+          </span>
           <span
             className={clsx(
-              'font-display text-xl font-semibold tnum',
-              f.tono === 'ok' ? 'text-forest-600' : f.tono === 'bad' ? 'text-clay-deep' : 'text-ink',
+              'font-display text-lg font-semibold tnum',
+              s.monto >= 0 ? 'text-forest-600' : 'text-clay-deep',
             )}
           >
-            {money(f.valor)}
+            {money(s.monto)}
           </span>
         </div>
       ))}
+      {Math.abs(reparto.sinSociedad) >= 1 && (
+        <div className="flex items-baseline justify-between px-5 py-2.5 text-sm text-ink-faint">
+          <span>De ciclos sin sociedad</span>
+          <span className="tnum">{money(reparto.sinSociedad)}</span>
+        </div>
+      )}
     </Banda>
+  )
+}
+
+function DeudasDeLaEmpresa() {
+  const resumen = useDeudas()
+  if (!resumen) return null
+
+  if (resumen.deudas.length === 0)
+    return (
+      <Seccion
+        className="mt-8"
+        etiqueta="Deudas de la empresa"
+        titulo="No has anotado ninguna"
+        nota="El galpón, el equipo o el terreno que estás pagando poco a poco van aquí: se abonan cuando puedes y no ensucian el resultado de ningún ciclo."
+        accion={
+          <Link to="/deudas" className="-m-2 p-2 text-sm font-medium text-forest-600">
+            Anotar →
+          </Link>
+        }
+      />
+    )
+
+  return (
+    <>
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Deudas de la empresa"
+        titulo={
+          resumen.saldo > 0
+            ? `Faltan ${money(resumen.saldo)} de ${money(resumen.total)}`
+            : 'Todo lo de la granja está pagado'
+        }
+        nota="El galpón, el equipo y el terreno se abonan poco a poco, así que no entran en el resultado de ningún ciclo."
+        accion={
+          <Link to="/deudas" className="-m-2 p-2 text-sm font-medium text-forest-600">
+            Ver todas
+          </Link>
+        }
+      />
+      <Banda className="divide-y divide-line">
+        {resumen.deudas.slice(0, 4).map((e) => (
+          <Link
+            key={e.deuda.id}
+            to="/deudas"
+            className="block px-5 py-3 transition active:bg-paper-sunken"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-sm font-medium">{e.deuda.concepto}</span>
+              <span
+                className={clsx(
+                  'shrink-0 font-display text-base font-semibold tnum',
+                  e.saldo > 0 ? 'text-ink' : 'text-forest-600',
+                )}
+              >
+                {e.saldo > 0 ? money(e.saldo) : 'Saldada'}
+              </span>
+            </div>
+            <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
+                style={{ width: `${e.pagadoPct}%` }}
+              />
+            </div>
+          </Link>
+        ))}
+      </Banda>
+    </>
   )
 }
 
@@ -234,10 +339,13 @@ function atribucionIEP(cerrados: LoteConMetrics[]): Atribucion | null {
   if (d1.w === 0) return { delta, desde, frase: 'Mejoró parejo en todo.' }
   const frase =
     d2.w / d1.w >= 0.85
-      ? `La mitad viene de ${d1.frase} y la otra mitad, de ${d2.frase}.`
-      : `Casi todo viene de ${d1.frase}.`
+      ? `La mitad viene ${de(d1.frase)} y la otra mitad, ${de(d2.frase)}.`
+      : `Casi todo viene ${de(d1.frase)}.`
   return { delta, desde, frase }
 }
+
+// «de el peso» no existe.
+const de = (frase: string) => (frase.startsWith('el ') ? `del ${frase.slice(3)}` : `de ${frase}`)
 
 function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetrics[] }) {
   const objeto = seg === 'cerrado' ? 'cerrado' : 'en curso'

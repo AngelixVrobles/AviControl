@@ -12,6 +12,7 @@ import { Ficha } from './screens/fichas'
 import { NuevoLote } from './screens/NuevoLote'
 import { Reportes } from './screens/Reportes'
 import { Ajustes } from './screens/Ajustes'
+import { Deudas } from './screens/Deudas'
 
 const router = createBrowserRouter([
   {
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
       { path: '/lotes/:id', element: <LoteDetail /> },
       { path: '/lotes/:id/ficha/:tipo', element: <Ficha /> },
       { path: '/reportes', element: <Reportes /> },
+      { path: '/deudas', element: <Deudas /> },
       { path: '/ajustes', element: <Ajustes /> },
     ],
   },

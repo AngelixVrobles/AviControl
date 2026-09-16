@@ -5,16 +5,25 @@ import { hoyISO } from '../lib/format'
 import { Button } from './ui'
 
 async function respaldar() {
-  const [lotes, registros, gastos, ingresos, pesajes, aplicaciones] = await Promise.all([
-    db.lotes.toArray(),
-    db.registros.toArray(),
-    db.gastos.toArray(),
-    db.ingresos.toArray(),
-    db.pesajes.toArray(),
-    db.aplicaciones.toArray(),
-  ])
+  const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos] =
+    await Promise.all([
+      db.lotes.toArray(),
+      db.registros.toArray(),
+      db.gastos.toArray(),
+      db.ingresos.toArray(),
+      db.pesajes.toArray(),
+      db.aplicaciones.toArray(),
+      db.deudas.toArray(),
+      db.abonos.toArray(),
+    ])
   const blob = new Blob(
-    [JSON.stringify({ version: 2, lotes, registros, gastos, ingresos, pesajes, aplicaciones }, null, 2)],
+    [
+      JSON.stringify(
+        { version: 3, lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos },
+        null,
+        2,
+      ),
+    ],
     { type: 'application/json' },
   )
   const a = document.createElement('a')
