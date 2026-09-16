@@ -69,7 +69,7 @@ export function FichaGastos({
 
   return (
     <div className="space-y-5">
-      <Card className="p-4">
+      <Card tono="elevado" className="p-4">
         <div className="text-xs text-ink-faint">Gastado en el ciclo</div>
         <div className="font-display text-2xl font-semibold leading-none tnum">{money(total)}</div>
         <div className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">

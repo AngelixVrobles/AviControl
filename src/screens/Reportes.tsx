@@ -129,7 +129,7 @@ function Totales({ lista }: { lista: LoteConMetrics[] }) {
     { label: ganancia >= 0 ? 'Ganancia' : 'Pérdida', valor: ganancia, tono: ganancia >= 0 ? 'ok' : 'bad' },
   ]
   return (
-    <Card className="mt-4 divide-y divide-line">
+    <Card tono="elevado" className="mt-4 divide-y divide-line">
       {filas.map((f) => (
         <div key={f.label} className="flex items-center justify-between px-4 py-3">
           <span className="text-sm text-ink-soft">{f.label}</span>

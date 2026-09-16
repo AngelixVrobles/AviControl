@@ -17,7 +17,7 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
 
   return (
     <div className="space-y-5">
-      <Card className="p-4">
+      <Card tono="elevado" className="p-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">Bajas del ciclo</div>
