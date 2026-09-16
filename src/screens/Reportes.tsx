@@ -3,7 +3,7 @@ import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
 import { useResumen } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
-import { Card, Seccion } from '../components/ui'
+import { Banda, Seccion } from '../components/ui'
 import { GraficaBarras } from '../components/chart'
 import { ComparacionLotes } from '../components/Comparacion'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
@@ -96,18 +96,20 @@ function FichaDelCiclo({ r }: { r: LoteConMetrics }) {
 
   return (
     <>
-      <h2 className="mb-1 mt-7 font-display text-lg font-semibold">{lote.nombre}</h2>
-      <p className="mb-3 text-xs text-ink-faint">
-        Cuando cierres el siguiente, aquí aparece la comparación entre los dos.
-      </p>
-      <Card className="divide-y divide-line">
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Último ciclo"
+        titulo={lote.nombre}
+        nota="Cuando cierres el siguiente, aquí aparece la comparación entre los dos."
+      />
+      <Banda className="divide-y divide-line">
         {filas.map((f) => (
-          <div key={f.label} className="flex items-center justify-between px-4 py-3">
+          <div key={f.label} className="flex items-center justify-between px-5 py-3">
             <span className="text-sm text-ink-soft">{f.label}</span>
             <span className="font-display font-semibold tnum">{f.valor}</span>
           </div>
         ))}
-      </Card>
+      </Banda>
       <Link
         to={`/lotes/${lote.id}?t=dinero`}
         className="mt-3 block w-full rounded-full bg-forest-50 py-3 text-center text-base font-semibold text-forest-700"
@@ -128,9 +130,9 @@ function Totales({ lista }: { lista: LoteConMetrics[] }) {
     { label: ganancia >= 0 ? 'Ganancia' : 'Pérdida', valor: ganancia, tono: ganancia >= 0 ? 'ok' : 'bad' },
   ]
   return (
-    <Card tono="elevado" className="mt-4 divide-y divide-line">
+    <Banda className="mt-4 divide-y divide-line">
       {filas.map((f) => (
-        <div key={f.label} className="flex items-center justify-between px-4 py-3">
+        <div key={f.label} className="flex items-center justify-between px-5 py-3">
           <span className="text-sm text-ink-soft">{f.label}</span>
           <span
             className={clsx(
@@ -142,7 +144,7 @@ function Totales({ lista }: { lista: LoteConMetrics[] }) {
           </span>
         </div>
       ))}
-    </Card>
+    </Banda>
   )
 }
 
@@ -170,7 +172,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
         }
         nota="El IEP junta peso, conversión, mortalidad y días en un solo número. Más alto es mejor."
       />
-      <Card className="mt-3 p-4 pt-6">
+      <Banda className="mt-3 px-5 py-4 pt-6">
         <GraficaBarras
           etiquetas={datos.map((d) => d.nombre)}
           valores={datos.map((d) => d.iep)}
@@ -183,7 +185,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
             {attr.frase}
           </p>
         )}
-      </Card>
+      </Banda>
     </>
   )
 }
@@ -248,7 +250,7 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
 
   return (
     <div className="mt-6 space-y-4">
-      <Card className="p-5 text-center">
+      <Banda className="px-5 py-5 text-center">
         <h2 className="font-display text-lg font-semibold">
           Todavía no has {seg === 'cerrado' ? 'cerrado' : 'abierto'} ningún ciclo{seg === 'activo' ? ' en curso' : ''}
         </h2>
@@ -263,7 +265,7 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
             Crea tu primer ciclo y aquí verás cómo te fue con cada camada.
           </p>
         )}
-      </Card>
+      </Banda>
 
       {activo && seg === 'cerrado' && <BarraCiclo r={activo} />}
 
@@ -304,7 +306,7 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
   const pos = (d: number) => `${Math.max(0, Math.min(100, (d / total) * 100))}%`
   const hitos = agruparHitos(hitosEngorde(total), total)
   return (
-    <Card className="p-4">
+    <Banda className="px-5 py-4">
       <div className="mb-3 flex items-baseline justify-between">
         <span className="font-display text-lg font-semibold">{r.lote.nombre}</span>
         <span className="text-sm text-ink-soft tnum">
@@ -331,7 +333,7 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
         <span>día 1</span>
         <span>{total} · venta</span>
       </div>
-    </Card>
+    </Banda>
   )
 }
 

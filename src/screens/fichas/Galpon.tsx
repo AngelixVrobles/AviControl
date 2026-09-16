@@ -4,7 +4,7 @@ import { saveSettings, type Settings } from '../../lib/settings'
 import { num } from '../../lib/format'
 import { computeEquipo, enPies, enPies2, type Distribucion } from '../../lib/equipo'
 import { PESO_OBJETIVO_DEFAULT } from '../../lib/standards'
-import { Card } from '../../components/ui'
+import { Banda } from '../../components/ui'
 
 function Fila({
   label,
@@ -16,7 +16,7 @@ function Fila({
   valueClass?: string
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+    <div className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
       <span className="text-ink-faint">{label}</span>
       <span className={'text-right font-display font-semibold tnum ' + (valueClass ?? '')}>{value}</span>
     </div>
@@ -46,9 +46,9 @@ export function FichaGalpon({
     <>
       <p className="mb-3 text-xs text-ink-faint">Para las {num(aves)} aves que tienes hoy.</p>
 
-      <Card className="divide-y divide-line">
+      <Banda className="divide-y divide-line">
         {plan.ciclo.map((e) => (
-          <div key={e.nombre} className="flex items-center justify-between gap-3 px-4 py-3">
+          <div key={e.nombre} className="flex items-center justify-between gap-3 px-5 py-3">
             <div className="min-w-0">
               <div className="text-sm font-medium">{e.nombre}</div>
               <div className="text-xs text-ink-faint">{e.regla}</div>
@@ -56,12 +56,12 @@ export function FichaGalpon({
             <div className="font-display text-xl font-semibold tnum leading-none">{num(e.cantidad)}</div>
           </div>
         ))}
-      </Card>
+      </Banda>
 
       <div className="mb-2 mt-4 text-xs font-medium text-ink-faint">Además, los primeros 10 días</div>
-      <Card className="divide-y divide-line">
+      <Banda className="divide-y divide-line">
         {plan.crianza.map((e) => (
-          <div key={e.nombre} className="flex items-center justify-between gap-3 px-4 py-3">
+          <div key={e.nombre} className="flex items-center justify-between gap-3 px-5 py-3">
             <div className="min-w-0">
               <div className="text-sm font-medium">{e.nombre}</div>
               <div className="text-xs text-ink-faint">{e.regla}</div>
@@ -69,7 +69,7 @@ export function FichaGalpon({
             <div className="font-display text-xl font-semibold tnum leading-none">{num(e.cantidad)}</div>
           </div>
         ))}
-      </Card>
+      </Banda>
 
       <div className="mb-2 mt-4 flex items-center justify-between">
         <span className="text-xs font-medium text-ink-faint">Medidas del galpón</span>
@@ -90,20 +90,20 @@ export function FichaGalpon({
       </div>
 
       {!g ? (
-        <Card className="p-4 text-sm text-ink-faint">
+        <Banda className="px-5 py-4 text-sm text-ink-faint">
           Pon el largo y el ancho del galpón y te digo cuántas líneas hacen falta, cada cuántos
           metros va cada equipo y si las aves caben al peso de venta.
-        </Card>
+        </Banda>
       ) : (
         <>
-          <Card className="divide-y divide-line">
+          <Banda className="divide-y divide-line">
             <Fila label="Área" value={`${num(g.areaM2)} m² · ${num(enPies2(g.areaM2))} pies²`} />
             <Fila
               label={`Densidad a ${num(lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT, 1)} lb`}
               value={`${num(g.densidadKgM2, 1)} kg/m² · caben ${num(g.avesMaximas)} aves`}
               valueClass={g.sobrepoblado ? 'text-clay-deep' : 'text-forest-600'}
             />
-          </Card>
+          </Banda>
 
           {g.sobrepoblado && (
             <div className="mt-2 rounded-xl2 border-l-4 border-amber-400 bg-amber-tint p-4">
@@ -119,10 +119,10 @@ export function FichaGalpon({
           )}
 
           <div className="mb-2 mt-4 text-xs font-medium text-ink-faint">Cómo repartirlos</div>
-          <Card className="divide-y divide-line">
+          <Banda className="divide-y divide-line">
             <FilaEquipo titulo="Comederos" d={g.comederos} />
             <FilaEquipo titulo="Bebederos" d={g.bebederos} />
-          </Card>
+          </Banda>
           <p className="mt-2 text-xs leading-relaxed text-ink-faint">
             Ninguna ave debe caminar más de 3 m (10 pies) para comer o beber; así queda en{' '}
             {num(g.bebederos.caminataMaxM, 1)} m. Los niples van cada 35 cm, o sea{' '}
@@ -136,7 +136,7 @@ export function FichaGalpon({
 
 function FilaEquipo({ titulo, d }: { titulo: string; d: Distribucion }) {
   return (
-    <div className="px-4 py-3">
+    <div className="px-5 py-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{titulo}</span>
         <span className="font-display text-base font-semibold tnum">

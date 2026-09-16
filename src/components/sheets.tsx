@@ -1183,7 +1183,7 @@ export function ActionButton({
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-2 rounded-xl2 border border-line bg-paper-raised py-3.5 shadow-card transition active:scale-95"
+      className="flex flex-col items-center gap-2 rounded-xl2 border border-line bg-paper-raised py-3.5 transition active:scale-95"
     >
       <span
         className={clsx(

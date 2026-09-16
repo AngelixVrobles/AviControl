@@ -24,7 +24,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
   return (
     <Link
       to={`/lotes/${lote.id}`}
-      className="block rounded-xl2 border border-line bg-paper-raised p-4 shadow-card transition active:scale-[0.985]"
+      className="block rounded-xl2 border border-line bg-paper-raised p-4 transition active:scale-[0.985]"
     >
       <div className="flex items-start justify-between">
         <div className="min-w-0">

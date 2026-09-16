@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import type { LoteConMetrics } from '../lib/hooks'
 import type { LoteMetrics } from '../lib/metrics'
 import { fecha, money, num, pct, porLb } from '../lib/format'
-import { Card } from './ui'
+import { Banda, Seccion } from './ui'
 import { IconTrofeo } from './icons'
 
 interface Metrica {
@@ -42,14 +42,12 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
 
   return (
     <>
-      <div className="mb-3 mt-7">
-        <h2 className="font-display text-lg font-semibold">Comparar ciclos</h2>
-      </div>
-      <Card className="overflow-x-auto no-scrollbar">
+      <Seccion className="mb-3 mt-8" etiqueta="Comparar ciclos" />
+      <Banda className="overflow-x-auto no-scrollbar">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line">
-              <th scope="col" className="sticky left-0 z-10 border-r border-line bg-paper-raised px-4 py-3" />
+              <th scope="col" className="sticky left-0 z-10 border-r border-line bg-paper-raised px-5 py-3" />
               {lotes.map((l, i) => (
                 <th key={l.lote.id} scope="col" className="min-w-[124px] px-3 py-3 text-right align-top">
                   <Link to={`/lotes/${l.lote.id}`} className="block">
@@ -88,7 +86,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                 <tr key={met.label}>
                   <th
                     scope="row"
-                    className="sticky left-0 z-10 whitespace-nowrap border-r border-line bg-paper-raised px-4 py-2.5 text-left text-sm font-normal text-ink-faint"
+                    className="sticky left-0 z-10 whitespace-nowrap border-r border-line bg-paper-raised px-5 py-2.5 text-left text-sm font-normal text-ink-faint"
                   >
                     {met.label}
                   </th>
@@ -114,7 +112,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
             })}
           </tbody>
         </table>
-      </Card>
+      </Banda>
       <p className="mt-2 text-sm text-ink-soft">
         En verde, el mejor valor de cada indicador. «hoy» marca lo que aún no es final. Toca un ciclo para abrirlo.
       </p>

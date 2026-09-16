@@ -47,7 +47,7 @@ import { AlertaChip } from "../components/AlertaChip";
 import { FichasNav } from "../components/FichasNav";
 import { confirmar } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
-import { Button, Card, Pill, Seccion } from "../components/ui";
+import { Button, Banda, Pill, Seccion } from "../components/ui";
 import { GraficaLineas } from "../components/chart";
 import {
   IconBack,
@@ -294,7 +294,7 @@ export function LoteDetail() {
               <p className="mb-3 text-xs text-ink-faint">
                 Toca un día para corregirlo.
               </p>
-              <Card className="divide-y divide-line">
+              <Banda className="divide-y divide-line">
                 {[...registros]
                   .reverse()
                   .slice(0, todoHistorial ? undefined : 5)
@@ -307,7 +307,7 @@ export function LoteDetail() {
                         setEditIngreso(undefined);
                         setSheet("registro");
                       }}
-                      className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition active:bg-paper-sunken"
+                      className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
                     >
                       <span className="font-medium">{fecha(r.fecha)}</span>
                       <div className="flex items-center gap-3 text-ink-soft tnum">
@@ -327,7 +327,7 @@ export function LoteDetail() {
                       </div>
                     </button>
                   ))}
-              </Card>
+              </Banda>
               {!todoHistorial && registros.length > 5 && (
                 <button
                   onClick={() => setTodoHistorial(true)}
@@ -365,7 +365,7 @@ export function LoteDetail() {
       {tab === "dinero" && (
         <div className="animate-rise">
           <ComoSalio lote={lote} metrics={metrics} ingresos={ingresos} />
-          <Card tono="elevado" className={clsx("mt-5 overflow-hidden", cerrado && "hidden")}>
+          <Banda className={clsx("mt-5 overflow-hidden", cerrado && "hidden")}>
             <div className="flex items-stretch">
               <div className="flex-1 p-4">
                 <div className="flex items-center gap-1.5 text-ink-faint">
@@ -391,7 +391,7 @@ export function LoteDetail() {
               </div>
               <div className="w-px bg-line" />
               <div className="grid flex-1 grid-rows-2">
-                <div className="border-b border-line px-4 py-2.5">
+                <div className="border-b border-line px-5 py-2.5">
                   <div className="text-xs text-ink-faint">
                     {sinVender ? "Valor en pie" : "Ingresos"}
                   </div>
@@ -403,7 +403,7 @@ export function LoteDetail() {
                         : money(metrics.ingresos)}
                   </div>
                 </div>
-                <div className="px-4 py-2.5">
+                <div className="px-5 py-2.5">
                   <div className="text-xs text-ink-faint">
                     {sinVender ? "Costo por libra" : "Costos"}
                   </div>
@@ -417,7 +417,7 @@ export function LoteDetail() {
                 </div>
               </div>
             </div>
-          </Card>
+          </Banda>
 
           <PrecioMinimo
             lote={lote}
@@ -468,7 +468,7 @@ export function LoteDetail() {
               <p className="mb-3 text-xs text-ink-faint">
                 Toca una para corregirla.
               </p>
-              <Card className="divide-y divide-line">
+              <Banda className="divide-y divide-line">
                 {[...ingresos]
                   .sort((a, b) => b.fecha.localeCompare(a.fecha))
                   .map((i) => (
@@ -480,7 +480,7 @@ export function LoteDetail() {
                         setEditGasto(undefined);
                         setSheet("ingreso");
                       }}
-                      className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition active:bg-paper-sunken"
+                      className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
                     >
                       <div>
                         <div className="font-medium">
@@ -497,7 +497,7 @@ export function LoteDetail() {
                       </span>
                     </button>
                   ))}
-              </Card>
+              </Banda>
             </>
           )}
 
@@ -595,7 +595,7 @@ function Muestreo({
       />
 
       {!m || !ultimo ? (
-        <Card className="p-4">
+        <Banda className="px-5 py-4">
           <p className="text-sm leading-relaxed text-ink-soft">
             Pesando{" "}
             <span className="font-semibold text-ink">
@@ -608,10 +608,10 @@ function Muestreo({
           <Button variant="soft" block className="mt-3" onClick={onNuevo}>
             Empezar pesaje
           </Button>
-        </Card>
+        </Banda>
       ) : (
         <>
-          <Card className="p-4">
+          <Banda className="px-5 py-4">
             <div className="flex items-end justify-between">
               <div>
                 <div className="text-xs text-ink-faint">
@@ -685,7 +685,7 @@ function Muestreo({
                 </div>
               </div>
             </div>
-          </Card>
+          </Banda>
 
           {m.uniformidad === "despareja" && (
             <p className="mt-2 text-xs leading-relaxed text-ink-faint">
@@ -696,7 +696,7 @@ function Muestreo({
           )}
 
           {pesajes.length > 1 && (
-            <Card className="mt-3 divide-y divide-line">
+            <Banda className="mt-3 divide-y divide-line">
               {[...pesajes]
                 .reverse()
                 .slice(0, 6)
@@ -707,7 +707,7 @@ function Muestreo({
                     <button
                       key={p.id}
                       onClick={() => onEditar(p)}
-                      className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition active:bg-paper-sunken"
+                      className="flex w-full items-center justify-between px-5 py-2.5 text-left text-sm transition active:bg-paper-sunken"
                     >
                       <span className="font-medium">
                         Día {diasEntre(lote.fechaInicio, p.fecha)}
@@ -724,7 +724,7 @@ function Muestreo({
                     </button>
                   );
                 })}
-            </Card>
+            </Banda>
           )}
         </>
       )}
@@ -748,10 +748,8 @@ function ComoSalio({
 
   return (
     <>
-      <h2 className="mb-3 mt-5 font-display text-lg font-semibold">
-        Cómo salió el ciclo
-      </h2>
-      <Card tono="elevado" className="p-4">
+      <Seccion className="mb-3 mt-6" etiqueta="Cierre" titulo="Cómo salió el ciclo" />
+      <Banda className="px-5 py-4">
         <div className="text-xs text-ink-faint">
           {positivo ? "Ganancia" : "Pérdida"}
         </div>
@@ -790,7 +788,7 @@ function ComoSalio({
             </div>
           </div>
         </div>
-      </Card>
+      </Banda>
 
       {r.contrastes.length > 0 && (
         <>
@@ -798,11 +796,11 @@ function ComoSalio({
             Lo que decía la app el día que cerraste, contra lo que pasó de
             verdad.
           </p>
-          <Card className="divide-y divide-line">
+          <Banda className="divide-y divide-line">
             {r.contrastes.map((c) => (
               <Contrastada key={c.etiqueta} c={c} />
             ))}
-          </Card>
+          </Banda>
         </>
       )}
     </>
@@ -831,7 +829,7 @@ function Contrastada({ c }: { c: Contraste }) {
           : num(v);
 
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+    <div className="flex items-center justify-between px-5 py-2.5 text-sm">
       <span className="min-w-0 text-ink-soft">
         {c.etiqueta}
         {notable && buena != null && (
@@ -877,10 +875,10 @@ function PrecioMinimo({
     return (
       <>
         <Seccion className="mb-3 mt-8" etiqueta="A cómo vender" />
-        <Card className="p-4 text-sm text-ink-faint">
+        <Banda className="px-5 py-4 text-sm text-ink-faint">
           Pesa unas aves para saber cuántas libras vas a vender; con eso se
           calcula el precio mínimo por libra.
-        </Card>
+        </Banda>
       </>
     );
 
@@ -888,32 +886,37 @@ function PrecioMinimo({
 
   return (
     <>
-      <div className="mb-1 mt-7 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold">¿A cómo vender?</h2>
-        <label className="flex items-center gap-1.5 text-xs text-ink-faint">
-          Tu precio
-          <input
-            type="number"
-            inputMode="decimal"
-            defaultValue={lote.precioVentaLb ?? ""}
-            onBlur={(e) =>
-              db.lotes.update(lote.id, {
-                precioVentaLb: Number(e.target.value) || undefined,
-              })
-            }
-            className="h-11 w-20 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
-          />
-          /lb
-        </label>
-      </div>
-      <p className="mb-3 text-xs text-ink-faint">
-        Sobre el cierre proyectado: {num(a.lbEnPie)} lb de {num(a.aves)} aves
-        {p && !p.listo
-          ? `, vendiendo el ${fecha(p.fechaEstimada)} (día ${p.diaVenta}) y comprando ${num(p.alimentoRestanteQuintales, 1)} qq más de alimento.`
-          : ", con el alimento que falta comprar."}
-      </p>
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="A cómo vender"
+        nota={
+          <>
+            Sobre el cierre proyectado: {num(a.lbEnPie)} lb de {num(a.aves)} aves
+            {p && !p.listo
+              ? `, vendiendo el ${fecha(p.fechaEstimada)} (día ${p.diaVenta}) y comprando ${num(p.alimentoRestanteQuintales, 1)} qq más de alimento.`
+              : ", con el alimento que falta comprar."}
+          </>
+        }
+        accion={
+          <label className="flex items-center gap-1.5 text-xs text-ink-faint">
+            Tu precio
+            <input
+              type="number"
+              inputMode="decimal"
+              defaultValue={lote.precioVentaLb ?? ""}
+              onBlur={(e) =>
+                db.lotes.update(lote.id, {
+                  precioVentaLb: Number(e.target.value) || undefined,
+                })
+              }
+              className="h-11 w-20 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+            />
+            /lb
+          </label>
+        }
+      />
 
-      <Card className="p-4">
+      <Banda className="px-5 py-4">
         <div className="text-xs text-ink-faint">
           Precio mínimo para no perder
         </div>
@@ -937,9 +940,9 @@ function PrecioMinimo({
           </span>{" "}
           de ganancia.
         </div>
-      </Card>
+      </Banda>
 
-      <Card className="mt-3 divide-y divide-line">
+      <Banda className="mt-3 divide-y divide-line">
         {[...a.escalones, ...(a.actual ? [a.actual] : [])]
           .sort((x, y) => x.precioLb - y.precioLb)
           .map((e, i) => (
@@ -947,7 +950,7 @@ function PrecioMinimo({
               key={e.etiqueta}
               style={{ animationDelay: `${i * 45}ms` }}
               className={clsx(
-                "animate-rise flex items-center justify-between px-4 py-2.5",
+                "animate-rise flex items-center justify-between px-5 py-2.5",
                 e.esActual && "bg-forest-50",
               )}
             >
@@ -975,7 +978,7 @@ function PrecioMinimo({
               </div>
             </div>
           ))}
-      </Card>
+      </Banda>
       {a.actual && (
         <p className="mt-2 text-xs text-ink-faint">
           {a.actual.ganancia >= 0
@@ -1009,10 +1012,10 @@ function PuntoOptimo({
           etiqueta="Punto de venta"
           titulo="Todavía no se puede calcular hasta qué día conviene"
         />
-        <Card className="mt-3 p-4 text-sm text-ink-faint">
+        <Banda className="mt-3 px-5 py-4 text-sm text-ink-faint">
           Necesita tu precio de venta por libra, el precio del quintal y al
           menos un pesaje para decirte hasta qué día vale la pena engordar.
-        </Card>
+        </Banda>
       </>
     );
 
@@ -1033,7 +1036,7 @@ function PuntoOptimo({
         nota="Cada día extra el pollo convierte peor. Este es el día en que la ganancia deja de subir."
       />
 
-      <Card className="mt-3 p-4">
+      <Banda className="mt-3 px-5 py-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-xs text-ink-faint">Mejor día para vender</div>
@@ -1080,9 +1083,9 @@ function PuntoOptimo({
               : "Arrastra el dedo por la gráfica para ver cualquier día"}
           </p>
         </div>
-      </Card>
+      </Banda>
 
-      <Card className="mt-3 divide-y divide-line">
+      <Banda className="mt-3 divide-y divide-line">
         <FilaDato
           label="Esperar hasta ahí"
           value={faltan > 0 ? `+${money(a.gananciaExtra)}` : "Ya lo pasaste"}
@@ -1108,7 +1111,7 @@ function PuntoOptimo({
             value={`día ${a.tope.dia} · ${money(a.tope.ganancia, { compact: true })}`}
           />
         )}
-      </Card>
+      </Banda>
       <p className="mt-2 text-xs leading-relaxed text-ink-faint">
         {a.excedeObjetivo
           ? `El día ${a.optimo.dia} sale un pollo de ${num(a.optimo.pesoLb, 2)} lb: solo conviene si te lo pagan a ${money(a.precioVentaLb)} la libra igual que uno de ${num(a.objetivoLb, 1)} lb. `
@@ -1131,7 +1134,7 @@ function FilaDato({
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+    <div className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
       <span className="text-ink-faint">{label}</span>
       <span
         className={
@@ -1162,7 +1165,7 @@ function GridCrecimiento({ metrics: m }: { metrics: LoteMetrics }) {
     },
   ];
   return (
-    <Card className="mt-4 grid grid-cols-3 gap-3 p-4">
+    <Banda className="mt-4 grid grid-cols-3 gap-3 px-5 py-4">
       {celdas.map((c) => (
         <div key={c.label}>
           <div className="font-display text-lg font-semibold tnum leading-none">
@@ -1171,7 +1174,7 @@ function GridCrecimiento({ metrics: m }: { metrics: LoteMetrics }) {
           <div className="mt-1 text-xs text-ink-faint">{c.label}</div>
         </div>
       ))}
-    </Card>
+    </Banda>
   );
 }
 
@@ -1265,7 +1268,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
   return (
     <>
       <Seccion className="mb-3 mt-8" etiqueta="Hoy" titulo={`Guía del día ${g.dia}`} />
-      <Card tono="elevado" className="p-4">
+      <Banda className="px-5 py-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-xs text-ink-faint">Peso ideal hoy</div>
@@ -1313,7 +1316,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
             </div>
           ))}
         </div>
-      </Card>
+      </Banda>
     </>
   );
 }
@@ -1359,9 +1362,9 @@ function Sociedad({
   return (
     <>
       <Seccion className="mb-3 mt-8" etiqueta="Sociedad" />
-      <Card className="divide-y divide-line">
+      <Banda className="divide-y divide-line">
         {liq.socios.map((s, i) => (
-          <div key={i} className="px-4 py-3">
+          <div key={i} className="px-5 py-3">
             <div className="flex items-center justify-between">
               <span className="font-medium">{s.nombre}</span>
               <Pill tone="neutral">{pct(s.pct, 0)}</Pill>
@@ -1387,7 +1390,7 @@ function Sociedad({
             )}
           </div>
         ))}
-      </Card>
+      </Banda>
       {liq.traspasos.length > 0 && (
         <>
           <div className="mb-2 mt-3 text-xs font-medium text-ink-faint">
@@ -1447,7 +1450,7 @@ function Desvio({ lote, registros }: { lote: Lote; registros: Registro[] }) {
         titulo={tituloDesvio(puntos)}
         className="mt-8"
       />
-      <Card tono="elevado" className="mt-3 p-4">
+      <Banda className="mt-3 px-5 py-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">
@@ -1492,7 +1495,7 @@ function Desvio({ lote, registros }: { lote: Lote; registros: Registro[] }) {
           La línea del centro es el {RAZA}. Arriba es lo que le sacas de ventaja;
           abajo, lo que le falta. Arrastra el dedo para ver cualquier pesaje.
         </p>
-      </Card>
+      </Banda>
     </>
   );
 }

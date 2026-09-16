@@ -5,7 +5,7 @@ import { fecha, money, num } from '../../lib/format'
 import { agendaSanitaria, type EventoSanitario } from '../../lib/sanidad'
 import { useSettings } from '../../lib/hooks'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
-import { Button, Card, Pill } from '../../components/ui'
+import { Button, Banda, Pill, Seccion } from '../../components/ui'
 import { AplicacionSheet } from '../../components/sheets'
 import { sumarDias } from '../../lib/format'
 
@@ -44,7 +44,7 @@ export function FichaSanidad({
 
   return (
     <div className="space-y-5">
-      <Card tono="elevado" className="p-4">
+      <Banda className="px-5 py-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">Aplicaciones anotadas</div>
@@ -69,21 +69,24 @@ export function FichaSanidad({
             )}
           </div>
         </div>
-      </Card>
+      </Banda>
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-display text-base font-semibold">Agenda del ciclo</h3>
-          <button onClick={() => anotar()} className="text-sm font-semibold text-forest-600">
-            Anotar →
-          </button>
-        </div>
-        <Card className="divide-y divide-line">
+        <Seccion
+          className="mb-3"
+          etiqueta="Agenda del ciclo"
+          accion={
+            <button onClick={() => anotar()} className="text-sm font-semibold text-forest-600">
+              Anotar →
+            </button>
+          }
+        />
+        <Banda className="divide-y divide-line">
           {agenda.map((e, i) => (
             <button
               key={`${e.nombre}-${i}`}
               onClick={() => anotar(e)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left transition active:bg-paper-sunken"
+              className="flex w-full items-center justify-between px-5 py-3 text-left transition active:bg-paper-sunken"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-sm font-medium">
@@ -102,7 +105,7 @@ export function FichaSanidad({
               <EstadoSanitario estado={e.estado} />
             </button>
           ))}
-        </Card>
+        </Banda>
         <p className="mt-2 text-xs leading-relaxed text-ink-faint">
           El plan sale de Ajustes y lo puedes cambiar según lo que diga tu veterinario. Toca
           cualquier línea para anotar lo que aplicaste de verdad.

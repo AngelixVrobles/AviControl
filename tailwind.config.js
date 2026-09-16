@@ -74,7 +74,7 @@ export default {
         pop: '0 8px 24px -6px rgba(20,32,26,0.4)',
       },
       borderRadius: {
-        xl2: '1.25rem',
+        xl2: '1rem',
         xl3: '1.75rem',
       },
     },

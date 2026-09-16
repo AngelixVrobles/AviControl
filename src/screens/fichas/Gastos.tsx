@@ -5,7 +5,7 @@ import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, pct, porLb } from '../../lib/format'
 import { categoriaLabel } from '../../lib/labels'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
-import { Card } from '../../components/ui'
+import { Banda, Seccion } from '../../components/ui'
 import { GastoSheet } from '../../components/sheets'
 import { Vacio } from './Vacio'
 
@@ -70,7 +70,7 @@ export function FichaGastos({
 
   return (
     <div className="space-y-5">
-      <Card tono="elevado" className="p-4">
+      <Banda className="px-5 py-4">
         <div className="text-xs text-ink-faint">Gastado en el ciclo</div>
         <div className="font-display text-2xl font-semibold leading-none tnum">
           <AnimatedNumber value={total} format={(n) => money(n)} />
@@ -89,11 +89,11 @@ export function FichaGastos({
             <div className="mt-1 text-xs text-ink-faint">Por libra producida</div>
           </div>
         </div>
-      </Card>
+      </Banda>
 
       <div>
-        <h3 className="mb-2 font-display text-base font-semibold">En qué se fue</h3>
-        <Card className="divide-y divide-line">
+        <Seccion className="mb-3" etiqueta="En qué se fue" />
+        <Banda className="divide-y divide-line">
           {categorias.map(([id, monto]) => {
             const activa = cat === id
             return (
@@ -101,7 +101,7 @@ export function FichaGastos({
                 key={id}
                 onClick={() => setCat(activa ? 'todo' : id)}
                 className={clsx(
-                  'w-full px-4 py-3 text-left transition active:bg-paper-sunken',
+                  'w-full px-5 py-3 text-left transition active:bg-paper-sunken',
                   activa && 'bg-forest-50',
                 )}
               >
@@ -126,7 +126,7 @@ export function FichaGastos({
               </button>
             )
           })}
-        </Card>
+        </Banda>
         <p className="mt-2 text-xs text-ink-faint">
           {cat === 'todo'
             ? 'Toca una categoría para ver solo sus movimientos.'
@@ -135,13 +135,12 @@ export function FichaGastos({
       </div>
 
       <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <h3 className="font-display text-base font-semibold">
-            {cat === 'todo' ? 'Todos los movimientos' : categoriaLabel(cat)}
-          </h3>
-          <span className="text-sm font-semibold tnum">{money(subtotal)}</span>
-        </div>
-        <Card className="divide-y divide-line">
+        <Seccion
+          className="mb-3"
+          etiqueta={cat === 'todo' ? 'Todos los movimientos' : categoriaLabel(cat)}
+          accion={<span className="text-sm font-semibold tnum">{money(subtotal)}</span>}
+        />
+        <Banda className="divide-y divide-line">
           {visibles.map((l) => (
             <button
               key={l.id}
@@ -150,7 +149,7 @@ export function FichaGastos({
                 setEditar(l.gasto)
                 setAbierta(true)
               }}
-              className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
+              className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
             >
               <div className="min-w-0">
                 <div className="font-medium">{l.label}</div>
@@ -163,7 +162,7 @@ export function FichaGastos({
               <span className="shrink-0 pl-3 font-display font-semibold tnum">{money(l.monto)}</span>
             </button>
           ))}
-        </Card>
+        </Banda>
       </div>
 
       <GastoSheet lote={lote} open={abierta} onClose={() => setAbierta(false)} editar={editar} />
