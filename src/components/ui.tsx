@@ -23,7 +23,7 @@ export function Button({ variant = 'primary', block, className, children, ...res
     <button
       {...rest}
       className={clsx(
-        'inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[15px] font-semibold transition active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100',
+        'inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-base font-semibold transition active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100',
         variant === 'primary' && 'bg-forest-600 text-paper-raised shadow-card hover:bg-forest-700',
         variant === 'soft' && 'bg-forest-50 text-forest-700 hover:bg-forest-100',
         variant === 'ghost' && 'text-ink-soft hover:bg-paper-sunken',
@@ -58,7 +58,7 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-ink-soft">{label}</span>
       {children}
       {hint && <span className="mt-1 block text-xs text-ink-faint">{hint}</span>}
     </label>

@@ -23,7 +23,7 @@ export function Dashboard() {
       <header className="flex items-center justify-between gap-4 pt-3">
         <div className="min-w-0">
           <p className="text-sm text-ink-soft">{settings.granja}</p>
-          <h1 className="font-display text-[26px] font-semibold leading-[1.15]">{hoy}</h1>
+          <h1 className="font-display text-xl font-semibold leading-tight">{hoy}</h1>
         </div>
         <LogoAviControl size={40} tile className="shrink-0 rounded-[9px] shadow-card" />
       </header>
@@ -99,7 +99,7 @@ function Alertas({ activos }: { activos: LoteConMetrics[] }) {
       {!todas && items.length > 2 && (
         <button
           onClick={() => setTodas(true)}
-          className="mt-2 w-full rounded-xl border border-dashed border-line py-2.5 text-center text-[13px] font-medium text-ink-soft"
+          className="mt-2 w-full rounded-xl border border-dashed border-line py-2.5 text-center text-sm font-medium text-ink-soft"
         >
           Ver {items.length - 2} {plural(items.length - 2, 'aviso', 'avisos')} más
         </button>
@@ -115,8 +115,8 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
   return (
     <section className="mt-6 rounded-xl2 bg-sunken p-3">
       <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="font-display text-[17px] font-semibold">Registro de hoy</h2>
-        <span className="text-[13px] font-medium text-ink-soft tnum">
+        <h2 className="font-display text-lg font-semibold">Registro de hoy</h2>
+        <span className="text-sm font-medium text-ink-soft tnum">
           {listos} de {activos.length} {plural(activos.length, 'listo', 'listos')}
         </span>
       </div>
@@ -144,7 +144,7 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
                   <div className="text-sm font-semibold leading-tight">
                     {r.lote.nombre} <span className="font-normal text-ink-faint">· día {r.metrics.dias}</span>
                   </div>
-                  {resumen && <div className="text-[13px] text-ink-soft tnum">{resumen}</div>}
+                  {resumen && <div className="text-sm text-ink-soft tnum">{resumen}</div>}
                 </div>
               </Link>
             )
@@ -154,14 +154,14 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
               key={r.lote.id}
               className="flex items-center gap-3 rounded-xl border-t-2 border-amber-line bg-amber-tint px-3 py-2.5"
             >
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 border-dashed border-amber text-[13px] font-bold text-amber-text">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 border-dashed border-amber text-sm font-bold text-amber-text">
                 !
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold leading-tight">
                   {r.lote.nombre} <span className="font-normal text-ink-soft">· día {r.metrics.dias}</span>
                 </div>
-                <div className="text-[13px] font-medium text-amber-text">Falta el de hoy</div>
+                <div className="text-sm font-medium text-amber-text">Falta el de hoy</div>
               </div>
               <button
                 onClick={() => nav(`/lotes/${r.lote.id}?reg=1`)}
@@ -202,21 +202,20 @@ function BloqueFinanciero({
 
   return (
     <section className="mt-7 overflow-hidden rounded-xl2 bg-forest-deep p-5 text-paper-raised shadow-card">
-      <div className="text-[13px] font-medium text-green-pale">
+      <div className="text-sm font-medium text-green-pale">
         Costo por libra ·{' '}
         {conCosto.length === activos.length
           ? `promedio de ${conCosto.length} ${plural(conCosto.length, 'ciclo activo', 'ciclos activos')}`
           : `${conCosto.length} de ${activos.length} ciclos, los que ya tienen pesaje`}
       </div>
-      <div className="mt-2 font-display text-[40px] font-semibold leading-none tracking-tight tnum">
+      <div className="mt-2 font-display text-hero font-semibold leading-none tracking-tight tnum">
         {costoLbProm != null ? <AnimatedNumber value={costoLbProm} format={porLb} /> : '—'}
         <span className="ml-1 align-baseline text-lg font-medium text-green-pale">/ lb</span>
       </div>
-      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
-        <HeroStat label="Aves vivas" value={num(avesVivas)} />
+      <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
         <HeroStat label="Invertido" value={money(invertido, { compact: true })} />
         <HeroStat
-          label="Valor en pie"
+          label={`Valor en pie · ${num(avesVivas)} aves`}
           value={valorEnPie > 0 ? money(valorEnPie, { compact: true }) : '—'}
         />
       </div>
@@ -228,7 +227,7 @@ function HeroStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="font-display text-xl font-semibold tnum leading-none">{value}</div>
-      <div className="mt-1 text-[11px] text-green-pale/80">{label}</div>
+      <div className="mt-1 text-xs text-green-pale/80">{label}</div>
     </div>
   )
 }

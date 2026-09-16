@@ -20,7 +20,7 @@ export function AlertaChip({
 }) {
   const Icono = alerta.nivel === 'info' ? IconVacuna : IconAlerta
   const cls = clsx(
-    'flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13px] font-medium',
+    'flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium',
     tonos[alerta.nivel],
   )
   const contenido = (

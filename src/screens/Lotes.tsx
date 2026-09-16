@@ -16,7 +16,7 @@ export function Lotes() {
   return (
     <div className="animate-rise pt-3">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-[26px] font-semibold">Ciclos</h1>
+        <h1 className="font-display text-2xl font-semibold">Ciclos</h1>
         <Link
           to="/lotes/nuevo"
           className="inline-flex items-center gap-1.5 rounded-full bg-green-action px-4 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"

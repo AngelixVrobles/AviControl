@@ -138,12 +138,12 @@ export function RegistroSheet({
         </Field>
 
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Mortalidad (aves)</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-soft">Mortalidad (aves)</span>
           <Stepper value={mortalidad} onChange={setMortalidad} />
         </div>
 
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Alimento (lb)</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-soft">Alimento (lb)</span>
           <div className="flex flex-wrap gap-2">
             {chips.map((v) => {
               const activo = !feedOtro && Number(alimentoLb) === v
@@ -160,7 +160,7 @@ export function RegistroSheet({
                   )}
                 >
                   {num(v)}
-                  {v === ayer && <span className="block text-[10px] font-sans font-medium text-ink-faint">ayer</span>}
+                  {v === ayer && <span className="block text-xs font-sans font-medium text-ink-faint">ayer</span>}
                 </button>
               )
             })}
@@ -191,7 +191,7 @@ export function RegistroSheet({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Agua (litros)</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-soft">Agua (litros)</span>
           <Input
             type="number"
             inputMode="decimal"
@@ -215,7 +215,7 @@ export function RegistroSheet({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Peso promedio (lb/ave)</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-soft">Peso promedio (lb/ave)</span>
           {sinPesar ? (
             <button
               onClick={() => setSinPesar(false)}
@@ -249,7 +249,7 @@ export function RegistroSheet({
         {masOpciones ? (
           <div className="space-y-4 border-t border-line pt-4">
             <div>
-              <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Descarte (aves)</span>
+              <span className="mb-1.5 block text-sm font-medium text-ink-soft">Descarte (aves)</span>
               <Stepper value={descarte} onChange={setDescarte} />
             </div>
             <Field label="Nota">
@@ -285,7 +285,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (v: number) => 
       >
         −
       </button>
-      <div className="grid h-14 flex-1 place-items-center rounded-2xl bg-sunken font-display text-[26px] font-semibold tnum">
+      <div className="grid h-14 flex-1 place-items-center rounded-2xl bg-sunken font-display text-2xl font-semibold tnum">
         {value}
       </div>
       <button
@@ -373,7 +373,7 @@ export function PesajeSheet({
   return (
     <Sheet open={open} onClose={onClose} title={editar ? 'Editar pesaje' : `Pesaje del día ${dia}`}>
       <div className="space-y-4">
-        <div className="rounded-xl bg-green-tint px-4 py-3 text-[13px] leading-relaxed text-forest-darkest">
+        <div className="rounded-xl bg-green-tint px-4 py-3 text-sm leading-relaxed text-forest-darkest">
           Pesa <span className="font-semibold tnum">{num(sugeridas)}</span> aves al azar
           {avesVivas > 0 && (
             <span className="text-forest-700"> ({pct((sugeridas / avesVivas) * 100, 1)} del galpón)</span>
@@ -424,7 +424,7 @@ export function PesajeSheet({
             <div className="flex items-end justify-between">
               <div>
                 <div className="text-xs text-ink-faint">Promedio de {num(muestra.n)} aves</div>
-                <div className="font-display text-[30px] font-semibold leading-none tnum">
+                <div className="font-display text-2xl font-semibold leading-none tnum">
                   {num(muestra.promedioLb, 2)} lb
                 </div>
               </div>
@@ -442,7 +442,7 @@ export function PesajeSheet({
                 >
                   ± {num(muestra.margenLb, 2)} lb
                 </div>
-                <div className="mt-0.5 text-[11px] text-ink-faint tnum">±{pct(muestra.margenPct, 1)}</div>
+                <div className="mt-0.5 text-xs text-ink-faint tnum">±{pct(muestra.margenPct, 1)}</div>
               </div>
             </div>
 
@@ -455,7 +455,7 @@ export function PesajeSheet({
                 style={{ width: `${Math.min(100, (muestra.n / Math.max(1, muestra.n + faltan)) * 100)}%` }}
               />
             </div>
-            <p className="mt-2 text-[12px] text-ink-soft">
+            <p className="mt-2 text-xs text-ink-soft">
               {faltan === 0
                 ? `Muestra suficiente: el promedio real del galpón está dentro de ±${PRECISION_OBJETIVO_PCT}%.`
                 : `Pesa ${num(faltan)} aves más para bajar el margen a ±${PRECISION_OBJETIVO_PCT}%.`}
@@ -473,10 +473,10 @@ export function PesajeSheet({
 
             {muestra.biomasaLb != null && (
               <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
-                <span className="text-[13px] text-ink-faint">Peso vivo del galpón</span>
+                <span className="text-sm text-ink-faint">Peso vivo del galpón</span>
                 <span className="text-right">
                   <span className="font-display font-semibold tnum">{num(muestra.biomasaLb)} lb</span>
-                  <span className="block text-[11px] text-ink-faint tnum">
+                  <span className="block text-xs text-ink-faint tnum">
                     entre {num(muestra.biomasaMinLb!)} y {num(muestra.biomasaMaxLb!)} lb
                   </span>
                 </span>
@@ -501,9 +501,9 @@ export function PesajeSheet({
 function Dato({ label, valor, nota }: { label: string; valor: string; nota?: string }) {
   return (
     <div>
-      <div className="font-display text-[17px] font-semibold leading-none tnum">{valor}</div>
-      <div className="mt-1 text-[11px] text-ink-faint">{label}</div>
-      {nota && <div className="text-[11px] text-ink-soft tnum">{nota}</div>}
+      <div className="font-display text-lg font-semibold leading-none tnum">{valor}</div>
+      <div className="mt-1 text-xs text-ink-faint">{label}</div>
+      {nota && <div className="text-xs text-ink-soft tnum">{nota}</div>}
     </div>
   )
 }
@@ -833,7 +833,7 @@ export function CierreSheet({
     >
       {paso === 1 ? (
         <div className="space-y-4">
-          <p className="text-[13px] leading-relaxed text-ink-soft">
+          <p className="text-sm leading-relaxed text-ink-soft">
             Anota lo que salió del galpón. Con esto el ciclo queda cerrado y el reporte se llena
             solo.
           </p>
@@ -861,7 +861,7 @@ export function CierreSheet({
           </div>
 
           {pesoPorAve != null && (
-            <div className="flex items-center justify-between rounded-xl bg-green-tint px-4 py-3 text-[13px] text-forest-darkest">
+            <div className="flex items-center justify-between rounded-xl bg-green-tint px-4 py-3 text-sm text-forest-darkest">
               <span>Peso por ave</span>
               <span className="tnum">
                 <span className="font-display text-base font-semibold">{num(pesoPorAve, 2)} lb</span>
@@ -921,7 +921,7 @@ export function CierreSheet({
           )}
 
           {parcial && (
-            <p className="rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-[13px] leading-relaxed text-amber-text">
+            <p className="rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-sm leading-relaxed text-amber-text">
               Quedan {num(metrics.avesVivas - nAves)} aves en el galpón, así que el ciclo sigue
               abierto. Ciérralo cuando salga el resto.
             </p>
@@ -937,13 +937,13 @@ export function CierreSheet({
             <div className="text-xs text-ink-faint">{ganancia >= 0 ? 'Ganancia' : 'Pérdida'}</div>
             <div
               className={clsx(
-                'font-display text-[32px] font-semibold leading-none tnum',
+                'font-display text-3xl font-semibold leading-none tnum',
                 ganancia >= 0 ? 'text-forest-600' : 'text-clay-deep',
               )}
             >
               {money(ganancia)}
             </div>
-            <div className="mt-1.5 text-[13px] text-ink-soft tnum">
+            <div className="mt-1.5 text-sm text-ink-soft tnum">
               {money(real.gananciaPorAve)} por ave · margen {pct(real.margenPct)}
             </div>
             <div className="mt-3 grid grid-cols-3 gap-3 border-t border-line pt-3">
@@ -958,15 +958,15 @@ export function CierreSheet({
 
           {contrastes.length > 0 && (
             <div>
-              <div className="mb-2 text-[13px] font-medium text-ink-soft">
+              <div className="mb-2 text-sm font-medium text-ink-soft">
                 Lo que decía la app contra lo que pasó
               </div>
               <div className="overflow-hidden rounded-xl2 border border-line bg-paper-raised">
-                <div className="flex items-center justify-between border-b border-line px-4 py-2 text-[11px] uppercase tracking-wide text-ink-faint">
+                <div className="flex items-center justify-between border-b border-line px-4 py-2 text-xs uppercase tracking-wide text-ink-faint">
                   <span>Indicador</span>
                   <span className="flex gap-4">
-                    <span className="w-[72px] text-right">Decía</span>
-                    <span className="w-[72px] text-right">Real</span>
+                    <span className="w-[82px] text-right">Decía</span>
+                    <span className="w-[82px] text-right">Real</span>
                   </span>
                 </div>
                 {contrastes.map((c) => (
@@ -993,8 +993,8 @@ export function CierreSheet({
 function DatoCierre({ label, valor }: { label: string; valor: string }) {
   return (
     <div>
-      <div className="font-display text-[15px] font-semibold leading-none tnum">{valor}</div>
-      <div className="mt-1 text-[11px] text-ink-faint">{label}</div>
+      <div className="font-display text-base font-semibold leading-none tnum">{valor}</div>
+      <div className="mt-1 text-xs text-ink-faint">{label}</div>
     </div>
   )
 }
@@ -1014,7 +1014,7 @@ function FilaContraste({ c }: { c: Contraste }) {
         {notable && buena != null && (
           <span
             className={clsx(
-              'ml-1.5 text-[11px] font-semibold tnum',
+              'ml-1.5 text-xs font-semibold tnum',
               buena ? 'text-forest-600' : 'text-clay-text',
             )}
           >
@@ -1023,8 +1023,8 @@ function FilaContraste({ c }: { c: Contraste }) {
         )}
       </span>
       <span className="flex shrink-0 gap-4 tnum">
-        <span className="w-[72px] text-right text-ink-faint">{valorContraste(c.proyectado, c.formato)}</span>
-        <span className="w-[72px] text-right font-display font-semibold">
+        <span className="w-[82px] text-right text-ink-faint">{valorContraste(c.proyectado, c.formato)}</span>
+        <span className="w-[82px] text-right font-display font-semibold">
           {valorContraste(c.real, c.formato)}
         </span>
       </span>
@@ -1096,7 +1096,7 @@ export function AplicacionSheet({
     <Sheet open={open} onClose={onClose} title={editar ? 'Editar aplicación' : `Aplicación del día ${dia}`}>
       <div className="space-y-4">
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Qué aplicaste</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-soft">Qué aplicaste</span>
           <div className="flex gap-1 rounded-full bg-paper-sunken p-1">
             {TIPOS_APLICACION.map((t) => (
               <button
@@ -1131,14 +1131,14 @@ export function AplicacionSheet({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-ink-soft">Vía</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-soft">Vía</span>
           <div className="flex flex-wrap gap-2">
             {VIAS.map((v) => (
               <button
                 key={v}
                 onClick={() => setVia(via === v ? '' : v)}
                 className={clsx(
-                  'rounded-full border px-3 py-2 text-[13px] font-medium transition',
+                  'rounded-full border px-3 py-2 text-sm font-medium transition',
                   via === v
                     ? 'border-2 border-green-action bg-green-tint text-ink'
                     : 'border-line bg-paper-raised text-ink-soft',

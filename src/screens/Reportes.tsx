@@ -34,7 +34,7 @@ export function Reportes() {
 
   return (
     <div className="animate-rise pt-3">
-      <h1 className="font-display text-[26px] font-semibold">Reportes</h1>
+      <h1 className="font-display text-2xl font-semibold">Reportes</h1>
 
       <div className="mt-4 flex gap-1 rounded-full bg-sunken p-1">
         {(['cerrado', 'activo'] as Segmento[]).map((s) => (
@@ -51,7 +51,7 @@ export function Reportes() {
         ))}
       </div>
 
-      <p className="mt-3 text-[13px] text-ink-soft">{alcance(lista, seg)}</p>
+      <p className="mt-3 text-sm text-ink-soft">{alcance(lista, seg)}</p>
 
       {lista.length === 0 ? (
         <VacioReportes seg={seg} activos={activos} />
@@ -104,14 +104,14 @@ function FichaDelCiclo({ r }: { r: LoteConMetrics }) {
       <Card className="divide-y divide-line">
         {filas.map((f) => (
           <div key={f.label} className="flex items-center justify-between px-4 py-3">
-            <span className="text-[13px] text-ink-soft">{f.label}</span>
+            <span className="text-sm text-ink-soft">{f.label}</span>
             <span className="font-display font-semibold tnum">{f.valor}</span>
           </div>
         ))}
       </Card>
       <Link
         to={`/lotes/${lote.id}?t=dinero`}
-        className="mt-3 block w-full rounded-full bg-forest-50 py-3 text-center text-[15px] font-semibold text-forest-700"
+        className="mt-3 block w-full rounded-full bg-forest-50 py-3 text-center text-base font-semibold text-forest-700"
       >
         Ver el ciclo completo
       </Link>
@@ -132,7 +132,7 @@ function Totales({ lista }: { lista: LoteConMetrics[] }) {
     <Card className="mt-4 divide-y divide-line">
       {filas.map((f) => (
         <div key={f.label} className="flex items-center justify-between px-4 py-3">
-          <span className="text-[13px] text-ink-soft">{f.label}</span>
+          <span className="text-sm text-ink-soft">{f.label}</span>
           <span
             className={clsx(
               'font-display text-xl font-semibold tnum',
@@ -163,7 +163,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
   return (
     <>
       <h2 className="mb-1 mt-7 font-display text-lg font-semibold">¿Vas mejorando?</h2>
-      <p className="mb-3 text-[13px] text-ink-soft">
+      <p className="mb-3 text-sm text-ink-soft">
         Índice de eficiencia (IEP) de cada ciclo. Más alto es mejor.
       </p>
       <Card className="p-4 pt-6">
@@ -187,7 +187,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
           </BarChart>
         </ResponsiveContainer>
         {attr && (
-          <p className="mt-3 border-t border-line pt-3 text-[13px] leading-relaxed text-ink-soft">
+          <p className="mt-3 border-t border-line pt-3 text-sm leading-relaxed text-ink-soft">
             <span className="font-semibold text-green-text">▲ {attr.delta} puntos</span> desde{' '}
             {attr.desde} — {attr.frase}
           </p>
@@ -262,13 +262,13 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
           Todavía no has {seg === 'cerrado' ? 'cerrado' : 'abierto'} ningún ciclo{seg === 'activo' ? ' en curso' : ''}
         </h2>
         {activo ? (
-          <p className="mx-auto mt-1 max-w-[30ch] text-[13px] text-ink-soft">
+          <p className="mx-auto mt-1 max-w-[30ch] text-sm text-ink-soft">
             {objeto === 'cerrado'
               ? `Faltan ${enDias(activo)} para vender ${activo.lote.nombre}. Ese día este reporte se llena solo.`
               : 'Crea un ciclo para empezar a llevarlo.'}
           </p>
         ) : (
-          <p className="mx-auto mt-1 max-w-[30ch] text-[13px] text-ink-soft">
+          <p className="mx-auto mt-1 max-w-[30ch] text-sm text-ink-soft">
             Crea tu primer ciclo y aquí verás cómo te fue con cada camada.
           </p>
         )}
@@ -278,7 +278,7 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
 
       {viejo && (
         <div className="rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
-          <p className="text-[13px] font-medium leading-relaxed text-amber-text">
+          <p className="text-sm font-medium leading-relaxed text-amber-text">
             El peso, la conversión y el costo por libra que ves son del{' '}
             {fecha(viejo.metrics.ultimaFecha!)} — no de hoy.
           </p>
@@ -297,7 +297,7 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
             Ver cómo va {activo.lote.nombre} →
           </Link>
         )}
-        <p className="pt-1 text-[13px] leading-relaxed text-ink-soft">
+        <p className="pt-1 text-sm leading-relaxed text-ink-soft">
           <span className="font-semibold text-ink">¿Qué es el IEP?</span> Un solo número que junta
           peso, conversión, mortalidad y días para comparar una camada con otra. Más alto es mejor
           (un buen ciclo anda por 300–400).
@@ -315,8 +315,8 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
   return (
     <Card className="p-4">
       <div className="mb-3 flex items-baseline justify-between">
-        <span className="font-display text-[17px] font-semibold">{r.lote.nombre}</span>
-        <span className="text-[13px] text-ink-soft tnum">
+        <span className="font-display text-lg font-semibold">{r.lote.nombre}</span>
+        <span className="text-sm text-ink-soft tnum">
           día {r.metrics.dias} de {total}
         </span>
       </div>
@@ -336,7 +336,7 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
           />
         )}
       </div>
-      <div className="mt-2 flex justify-between text-[11px] font-semibold text-forest-600">
+      <div className="mt-2 flex justify-between text-xs font-semibold text-forest-600">
         <span>día 1</span>
         <span>{total} · venta</span>
       </div>

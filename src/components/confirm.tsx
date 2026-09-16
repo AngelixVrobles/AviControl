@@ -84,7 +84,7 @@ export function ConfirmHost() {
   return (
     <Sheet open={!!estado} onClose={() => cerrar(false)} title={o?.titulo ?? ''}>
       <div className="space-y-4">
-        {o?.mensaje && <p className="text-[15px] leading-relaxed text-ink-soft">{o.mensaje}</p>}
+        {o?.mensaje && <p className="text-base leading-relaxed text-ink-soft">{o.mensaje}</p>}
         {o?.peligro ? (
           <>
             <DangerButton onClick={() => cerrar(true)}>{o?.confirmar ?? 'Eliminar'}</DangerButton>

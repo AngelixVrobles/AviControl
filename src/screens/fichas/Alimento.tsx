@@ -41,10 +41,10 @@ export function FichaAlimento({
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">Consumido</div>
-            <div className="font-display text-[30px] font-semibold leading-none tnum">
+            <div className="font-display text-2xl font-semibold leading-none tnum">
               {num(metrics.alimentoTotalLb / LB_POR_QUINTAL, 1)} qq
             </div>
-            <div className="mt-1 text-[13px] text-ink-soft tnum">
+            <div className="mt-1 text-sm text-ink-soft tnum">
               {num(metrics.alimentoTotalLb)} lb
               {precioQq ? ` · ${money(precioQq)} el quintal` : ''}
             </div>
@@ -54,13 +54,13 @@ export function FichaAlimento({
               <div className="text-xs text-ink-faint">Conversión</div>
               <div
                 className={
-                  'font-display text-[22px] font-semibold leading-none tnum ' +
+                  'font-display text-xl font-semibold leading-none tnum ' +
                   (metrics.fca > stdFca + 0.1 ? 'text-clay-deep' : 'text-forest-600')
                 }
               >
                 {num(metrics.fca, 2)}
               </div>
-              <div className="mt-0.5 text-[11px] text-ink-faint tnum">
+              <div className="mt-0.5 text-xs text-ink-faint tnum">
                 Cobb {num(stdFca, 2)}
               </div>
             </div>
@@ -81,7 +81,7 @@ export function FichaAlimento({
                   <div className="flex items-center gap-2 text-sm font-medium">
                     {f.nombre}
                     {f.enCurso && (
-                      <span className="rounded-full bg-forest-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-forest-700">
+                      <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-forest-700">
                         En curso
                       </span>
                     )}
@@ -93,7 +93,7 @@ export function FichaAlimento({
                     {notable && (
                       <span
                         className={
-                          'ml-1.5 text-[11px] font-semibold ' +
+                          'ml-1.5 text-xs font-semibold ' +
                           (dif > 0 ? 'text-clay-text' : 'text-forest-600')
                         }
                       >
@@ -135,10 +135,10 @@ export function FichaAlimento({
                 <div className="text-xs text-ink-faint">
                   Último día anotado · día {agua.ultimo.dia}
                 </div>
-                <div className="font-display text-[24px] font-semibold leading-none tnum">
+                <div className="font-display text-xl font-semibold leading-none tnum">
                   {num(agua.ultimo.litros)} L
                 </div>
-                <div className="mt-1 text-[13px] text-ink-soft tnum">
+                <div className="mt-1 text-sm text-ink-soft tnum">
                   lo normal eran {num(agua.ultimo.esperadoL)} L
                 </div>
               </div>
@@ -146,13 +146,13 @@ export function FichaAlimento({
                 <div className="text-xs text-ink-faint">Por libra de alimento</div>
                 <div
                   className={
-                    'font-display text-[20px] font-semibold leading-none tnum ' +
+                    'font-display text-xl font-semibold leading-none tnum ' +
                     (agua.estado === 'normal' ? 'text-forest-600' : 'text-clay-deep')
                   }
                 >
                   {num(agua.ultimo.litrosPorLb, 2)} L
                 </div>
-                <div className="mt-0.5 text-[11px] text-ink-faint">
+                <div className="mt-0.5 text-xs text-ink-faint">
                   {agua.estado === 'normal'
                     ? '✓ normal'
                     : agua.estado === 'bajo'
@@ -205,7 +205,7 @@ export function FichaAlimento({
             )}
           </Card>
           {agua.caidaPct != null && (
-            <p className="mt-2 rounded-xl border-l-4 border-clay bg-clay-tint px-4 py-3 text-[13px] leading-relaxed text-clay-text">
+            <p className="mt-2 rounded-xl border-l-4 border-clay bg-clay-tint px-4 py-3 text-sm leading-relaxed text-clay-text">
               El último día bebieron {pct(agua.caidaPct, 0)} menos que los anteriores. Revisa que los
               bebederos tengan presión y altura, y mira si hay aves decaídas: el agua se cae un día
               antes que todo lo demás.
@@ -278,17 +278,17 @@ export function FichaAlimento({
           <Card className="p-4">
             <div className="flex items-end justify-between">
               <div>
-                <div className="font-display text-[24px] font-semibold leading-none tnum">
+                <div className="font-display text-xl font-semibold leading-none tnum">
                   {num(Math.max(0, inv.existenciaQq), 1)} qq
                 </div>
-                <div className="mt-1 text-[13px] text-ink-soft tnum">
+                <div className="mt-1 text-sm text-ink-soft tnum">
                   {num(inv.compradoQq, 1)} comprados − {num(inv.consumidoQq, 1)} dados
                 </div>
               </div>
               {inv.existenciaQq > 0 && (
                 <div className="text-right">
                   <div className="text-xs text-ink-faint">Alcanza</div>
-                  <div className="font-display text-[15px] font-semibold leading-none tnum">
+                  <div className="font-display text-base font-semibold leading-none tnum">
                     {inv.diasQueAlcanza > 0 ? `${inv.diasQueAlcanza} días` : 'hoy'}
                   </div>
                 </div>

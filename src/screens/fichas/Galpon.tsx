@@ -53,7 +53,7 @@ export function FichaGalpon({
               <div className="text-sm font-medium">{e.nombre}</div>
               <div className="text-xs text-ink-faint">{e.regla}</div>
             </div>
-            <div className="font-display text-[22px] font-semibold tnum leading-none">{num(e.cantidad)}</div>
+            <div className="font-display text-xl font-semibold tnum leading-none">{num(e.cantidad)}</div>
           </div>
         ))}
       </Card>
@@ -66,7 +66,7 @@ export function FichaGalpon({
               <div className="text-sm font-medium">{e.nombre}</div>
               <div className="text-xs text-ink-faint">{e.regla}</div>
             </div>
-            <div className="font-display text-[22px] font-semibold tnum leading-none">{num(e.cantidad)}</div>
+            <div className="font-display text-xl font-semibold tnum leading-none">{num(e.cantidad)}</div>
           </div>
         ))}
       </Card>
@@ -107,10 +107,10 @@ export function FichaGalpon({
 
           {g.sobrepoblado && (
             <div className="mt-2 rounded-xl2 border-l-4 border-amber-400 bg-amber-tint p-4">
-              <div className="font-display text-[15px] font-semibold text-amber-text">
+              <div className="font-display text-base font-semibold text-amber-text">
                 El galpón queda apretado al peso de venta
               </div>
-              <p className="mt-1 text-[13px] leading-relaxed text-amber-text">
+              <p className="mt-1 text-sm leading-relaxed text-amber-text">
                 Con {num(aves)} aves llegas a {num(g.densidadKgM2, 1)} kg/m², sobre los 30 kg/m² que
                 aguanta un galpón abierto en calor. Saca {num(Math.max(0, aves - g.avesMaximas))} aves
                 antes (raleo) o vende un poco más liviano.
@@ -139,7 +139,7 @@ function FilaEquipo({ titulo, d }: { titulo: string; d: Distribucion }) {
     <div className="px-4 py-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{titulo}</span>
-        <span className="font-display text-[15px] font-semibold tnum">
+        <span className="font-display text-base font-semibold tnum">
           {num(d.lineas * d.porLinea)} repartidos
         </span>
       </div>

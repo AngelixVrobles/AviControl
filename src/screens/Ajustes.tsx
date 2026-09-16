@@ -177,7 +177,7 @@ export function Ajustes() {
 
   return (
     <div className="animate-rise pt-3">
-      <h1 className="font-display text-[26px] font-semibold">Ajustes</h1>
+      <h1 className="font-display text-2xl font-semibold">Ajustes</h1>
 
       <AvisoRespaldo ultimo={s.ultimoRespaldo} onRespaldar={exportar} onRestaurar={pickFile} />
 
@@ -240,7 +240,7 @@ export function Ajustes() {
 
       <h2 className="mb-3 mt-7 font-display text-lg font-semibold text-clay-deep">Zona de peligro</h2>
       <Card className="space-y-3 p-4">
-        <p className="text-[13px] leading-relaxed text-ink-soft">
+        <p className="text-sm leading-relaxed text-ink-soft">
           Borra {num(conteos?.ciclos ?? 0)} ciclos, {num(conteos?.registros ?? 0)} registros diarios,{' '}
           {num(conteos?.gastos ?? 0)} gastos y {num(conteos?.ventas ?? 0)} ventas. No se puede deshacer
           y no hay copia en internet.
@@ -248,7 +248,7 @@ export function Ajustes() {
         <DangerButton onClick={borrarTodo}>Borrar todo</DangerButton>
       </Card>
 
-      <p className="mt-8 text-center text-[13px] text-ink-soft">AviControl · v{__APP_VERSION__} · datos locales</p>
+      <p className="mt-8 text-center text-sm text-ink-soft">AviControl · v{__APP_VERSION__} · datos locales</p>
     </div>
   )
 }
@@ -273,10 +273,10 @@ function AvisoRespaldo({
       <div className="font-display text-base font-semibold text-amber-text">
         Tus datos viven solo en este teléfono
       </div>
-      <p className="mt-1 text-[13px] leading-relaxed text-amber-text">
+      <p className="mt-1 text-sm leading-relaxed text-amber-text">
         Si lo pierdes o lo cambias, se pierde todo. No hay copia en internet.
       </p>
-      <p className="mt-2 text-[13px] font-medium text-amber-text">
+      <p className="mt-2 text-sm font-medium text-amber-text">
         {ultimo
           ? `Último respaldo: hace ${num(dias!)} ${dias === 1 ? 'día' : 'días'} · ${fecha(ultimo)}`
           : 'Nunca has hecho un respaldo.'}
@@ -310,7 +310,7 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
   return (
     <>
       <h2 className="mb-1 mt-7 font-display text-lg font-semibold">Plan sanitario</h2>
-      <p className="mb-3 text-[13px] text-ink-soft">
+      <p className="mb-3 text-sm text-ink-soft">
         Lo que aparece como hito en la barra del ciclo. Ajústalo al plan de tu veterinario.
       </p>
       <Card className="space-y-3 p-4">
@@ -331,7 +331,7 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
                 className="pr-10 text-center"
                 placeholder="día"
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-ink-soft">
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">
                 día
               </span>
             </div>
@@ -360,7 +360,7 @@ function FilaEstatica({ label, valor, sub }: { label: string; valor: string; sub
     <div className="flex items-center justify-between px-4 py-3">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
-        <div className="text-[13px] text-ink-soft">{sub}</div>
+        <div className="text-sm text-ink-soft">{sub}</div>
       </div>
       <span className="shrink-0 pl-3 font-display text-base font-semibold tnum">{valor}</span>
     </div>
@@ -384,7 +384,7 @@ function FilaNumero({
     <div className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
-        <div className="text-[13px] text-ink-soft">{sub}</div>
+        <div className="text-sm text-ink-soft">{sub}</div>
       </div>
       <div className="flex shrink-0 items-baseline gap-1">
         <input
@@ -395,7 +395,7 @@ function FilaNumero({
           placeholder="—"
           className="h-11 w-20 rounded-xl border border-line bg-paper-raised px-2 text-right font-display text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
         />
-        {unidad && <span className="text-[13px] text-ink-soft">{unidad}</span>}
+        {unidad && <span className="text-sm text-ink-soft">{unidad}</span>}
       </div>
     </div>
   )

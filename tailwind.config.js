@@ -52,6 +52,15 @@ export default {
           line: '#F0CFC0',
         },
       },
+      // La escala de Tailwind ya servía: xs/sm/base/lg quedan como están y solo
+      // se añaden los pasos de display, que es donde hacía falta aire. Antes
+      // convivían 22 tamaños distintos elegidos a ojo pantalla por pantalla.
+      fontSize: {
+        xl: ['1.375rem', { lineHeight: '1.25' }],
+        '2xl': ['1.75rem', { lineHeight: '1.15' }],
+        '3xl': ['2.125rem', { lineHeight: '1.05' }],
+        hero: ['2.5rem', { lineHeight: '1' }],
+      },
       fontFamily: {
         display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
         sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],

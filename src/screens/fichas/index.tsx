@@ -60,13 +60,13 @@ export function Ficha() {
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="truncate font-display text-xl font-semibold leading-tight">{ficha.titulo}</h1>
-          <p className="truncate text-[13px] text-ink-soft">
+          <p className="truncate text-sm text-ink-soft">
             {lote.nombre} · día {metrics.dias}
           </p>
         </div>
       </header>
 
-      <p className="mb-5 text-[13px] text-ink-faint">{ficha.sub}</p>
+      <p className="mb-5 text-sm text-ink-faint">{ficha.sub}</p>
 
       {tipo === 'aves' && <FichaMortalidad lote={lote} registros={registros} />}
       {tipo === 'alimento' && (

@@ -61,13 +61,13 @@ export function FichasNav({
           )}
         >
           <div className="flex items-baseline justify-between">
-            <span className="text-[13px] font-medium text-ink-soft">{f.titulo}</span>
+            <span className="text-sm font-medium text-ink-soft">{f.titulo}</span>
             <span className="text-ink-faint">›</span>
           </div>
-          <div className="mt-1.5 font-display text-[20px] font-semibold leading-none tnum">
+          <div className="mt-1.5 font-display text-xl font-semibold leading-none tnum">
             {f.valor}
           </div>
-          <div className="mt-1 text-[11px] text-ink-faint">{f.pie}</div>
+          <div className="mt-1 text-xs text-ink-faint">{f.pie}</div>
         </Link>
       ))}
     </div>

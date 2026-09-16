@@ -71,19 +71,19 @@ export function FichaGastos({
     <div className="space-y-5">
       <Card className="p-4">
         <div className="text-xs text-ink-faint">Gastado en el ciclo</div>
-        <div className="font-display text-[30px] font-semibold leading-none tnum">{money(total)}</div>
+        <div className="font-display text-2xl font-semibold leading-none tnum">{money(total)}</div>
         <div className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">
           <div>
-            <div className="font-display text-[17px] font-semibold leading-none tnum">
+            <div className="font-display text-lg font-semibold leading-none tnum">
               {money(total / Math.max(1, lote.cantidadInicial))}
             </div>
-            <div className="mt-1 text-[11px] text-ink-faint">Por ave recibida</div>
+            <div className="mt-1 text-xs text-ink-faint">Por ave recibida</div>
           </div>
           <div>
-            <div className="font-display text-[17px] font-semibold leading-none tnum">
+            <div className="font-display text-lg font-semibold leading-none tnum">
               {metrics.costoPorLb != null ? porLb(metrics.costoPorLb) : '—'}
             </div>
-            <div className="mt-1 text-[11px] text-ink-faint">Por libra producida</div>
+            <div className="mt-1 text-xs text-ink-faint">Por libra producida</div>
           </div>
         </div>
       </Card>
