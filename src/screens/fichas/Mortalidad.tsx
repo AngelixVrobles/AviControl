@@ -3,7 +3,7 @@ import type { Lote, Registro } from '../../db/schema'
 import { fecha, num, pct, plural } from '../../lib/format'
 import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from '../../lib/mortalidad'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
-import { Card } from '../../components/ui'
+import { Card, Seccion } from '../../components/ui'
 import { GraficaBarras } from '../../components/chart'
 import { Vacio } from './Vacio'
 
@@ -14,13 +14,16 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
 
   const arranqueBien = r.primeraSemanaPct <= LIMITE_PRIMERA_SEMANA_PCT
   const sobreEsperado = r.pct > r.esperadoPct
-  const barras = r.dias.map((d) => ({ dia: d.dia, bajas: d.muertes + d.descartes }))
-  const maxBajas = Math.max(...barras.map((b) => b.bajas), 1)
-  const peor = maxBajas > 1 ? barras.findIndex((b) => b.bajas === maxBajas) : undefined
-  const enfocada = foco != null ? barras[foco] : undefined
+  const esperados = r.semanas.map((s) => (s.esperadoPct / 100) * lote.cantidadInicial)
+  const peor = r.semanas.reduce((p, s, i) => (s.muertes > r.semanas[p].muertes ? i : p), 0)
+  const semanaDelPeor = r.peorDia
+    ? r.semanas.findIndex((s) => s.semana === Math.floor(Math.max(0, r.peorDia!.dia - 1) / 7) + 1)
+    : -1
+  const enfocada = foco != null ? r.semanas[foco] : undefined
+  const bajasDelPeorDia = r.peorDia ? r.peorDia.muertes + r.peorDia.descartes : 0
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Card tono="elevado" className="p-4">
         <div className="flex items-end justify-between">
           <div>
@@ -55,81 +58,59 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
       </Card>
 
       <div>
-        <h3 className="mb-2 font-display text-base font-semibold">La primera semana</h3>
-        <Card className={'p-4 ' + (arranqueBien ? '' : 'border-l-4 border-l-clay')}>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-2xl font-semibold tnum leading-none">
-              {num(r.primeraSemana)}
-            </span>
-            <span className="text-sm text-ink-soft tnum">aves · {pct(r.primeraSemanaPct, 2)}</span>
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-            {arranqueBien
-              ? `Buen arranque: por debajo del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. Lo que muere en los primeros siete días viene del pollito y del recibo, no del manejo del resto del ciclo.`
-              : `Por encima del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. La mortalidad de los primeros siete días apunta al pollito o al recibo: temperatura de la cama, acceso a agua y calidad del lote que te vendieron.`}
-          </p>
-        </Card>
-      </div>
-
-      <div>
-        <h3 className="mb-2 font-display text-base font-semibold">Bajas día a día</h3>
-        <Card className="p-4 pt-5">
+        <Seccion
+          etiqueta="Semana a semana"
+          titulo={tituloSemanas(r.semanas[peor], esperados[peor])}
+        />
+        <Card className="mt-3 p-4 pt-5">
           <GraficaBarras
-            etiquetas={barras.map((b) => `d${b.dia}`)}
-            valores={barras.map((b) => b.bajas)}
-            alto={150}
+            etiquetas={r.semanas.map((s) => `S${s.semana}`)}
+            valores={r.semanas.map((s) => s.muertes)}
+            esperados={esperados}
+            alto={170}
             tono="aviso"
             destacar={peor}
+            nota={
+              semanaDelPeor >= 0 && bajasDelPeorDia > 2
+                ? { indice: semanaDelPeor, texto: `${num(bajasDelPeorDia)} el día ${r.peorDia!.dia}` }
+                : undefined
+            }
             foco={foco}
             onFoco={setFoco}
-            resumen={`Bajas por día, del día ${barras[0]?.dia ?? 0} al ${barras.at(-1)?.dia ?? 0}.`}
+            resumen={`Bajas por semana contra lo esperado, ${r.semanas.length} semanas.`}
           />
-          <p className="mt-2 text-xs text-ink-faint tnum">
+          <p className="mt-2 border-t border-line pt-2 text-xs leading-relaxed text-ink-faint tnum">
             {enfocada
-              ? `Día ${enfocada.dia} · ${num(enfocada.bajas)} ${plural(enfocada.bajas, 'ave', 'aves')}`
+              ? `Semana ${enfocada.semana} · ${num(enfocada.muertes)} ${plural(enfocada.muertes, 'ave', 'aves')} · ${pct(enfocada.pctDelLote, 2)} del lote · esperado ${pct(enfocada.esperadoPct, 2)}`
               : r.peorDia
-                ? `El peor fue el día ${r.peorDia.dia} (${fecha(r.peorDia.fecha)}) con ${num(r.peorDia.muertes + r.peorDia.descartes)} aves.`
-                : 'Arrastra el dedo por la gráfica para ver cualquier día.'}
+                ? `El peor día fue el ${r.peorDia.dia} (${fecha(r.peorDia.fecha)}). Toca cualquier semana para ver sus números.`
+                : 'Toca cualquier semana para ver sus números.'}
           </p>
         </Card>
       </div>
 
       <div>
-        <h3 className="mb-2 font-display text-base font-semibold">Por semana</h3>
-        <Card className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-faint">
-                <th className="px-4 py-2.5 font-medium">Sem</th>
-                <th className="px-2 py-2.5 text-right font-medium">Bajas</th>
-                <th className="px-2 py-2.5 text-right font-medium">% del lote</th>
-                <th className="px-4 py-2.5 text-right font-medium">Esperado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line tnum">
-              {r.semanas.map((s) => {
-                const alta = s.pctDelLote > s.esperadoPct + 0.3
-                return (
-                  <tr key={s.semana}>
-                    <td className="px-4 py-2.5 font-display font-semibold">{s.semana}</td>
-                    <td className="px-2 py-2.5 text-right text-ink-soft">{num(s.muertes)}</td>
-                    <td
-                      className={
-                        'px-2 py-2.5 text-right font-medium ' +
-                        (alta ? 'text-clay-deep' : 'text-ink')
-                      }
-                    >
-                      {alta ? '▲ ' : ''}
-                      {pct(s.pctDelLote, 2)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-ink-faint">{pct(s.esperadoPct, 2)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <Seccion
+          etiqueta="Arranque"
+          titulo={
+            arranqueBien
+              ? `Buen arranque: ${pct(r.primeraSemanaPct, 2)} en los primeros siete días`
+              : `El arranque se pasó: ${pct(r.primeraSemanaPct, 2)} en los primeros siete días`
+          }
+        />
+        <Card className={'mt-3 p-4 ' + (arranqueBien ? '' : 'border-l-4 border-l-clay')}>
+          <p className="text-sm leading-relaxed text-ink-soft">
+            {arranqueBien
+              ? `${num(r.primeraSemana)} aves, por debajo del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. Lo que muere en los primeros siete días viene del pollito y del recibo, no del manejo del resto del ciclo.`
+              : `${num(r.primeraSemana)} aves, por encima del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. La mortalidad de los primeros siete días apunta al pollito o al recibo: temperatura de la cama, acceso a agua y calidad del lote que te vendieron.`}
+          </p>
         </Card>
       </div>
     </div>
   )
+}
+
+function tituloSemanas(peor: { semana: number; muertes: number }, esperado: number) {
+  if (peor.muertes <= esperado) return 'Ninguna semana se pasó de lo esperado'
+  return `La semana ${peor.semana} fue la peor: ${num(peor.muertes)} ${plural(peor.muertes, 'ave', 'aves')}`
 }

@@ -127,3 +127,14 @@ export function interpolar(x: number[], datos: (number | undefined)[]): (number 
   }
   return salida
 }
+
+/**
+ * La referencia necesita aire a los dos lados: pegada al borde no se lee que
+ * hay un arriba y un abajo, que es justo lo que la gráfica quiere decir.
+ */
+export function dominioConReferencia(valores: number[], referencia: number): [number, number] {
+  const min = Math.min(...valores)
+  const max = Math.max(...valores)
+  const lado = Math.max(max - referencia, referencia - min)
+  return [Math.min(min, referencia - lado * 0.22), Math.max(max, referencia + lado * 0.22)]
+}

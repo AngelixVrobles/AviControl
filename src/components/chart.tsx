@@ -1,5 +1,11 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
-import { escalaY, indicesEtiqueta, interpolar, tramosBanda } from '../lib/escala'
+import {
+  dominioConReferencia,
+  escalaY,
+  indicesEtiqueta,
+  interpolar,
+  tramosBanda,
+} from '../lib/escala'
 import { num } from '../lib/format'
 
 // SVG necesita el valor, no la clase de Tailwind, así que los tonos de las
@@ -8,11 +14,12 @@ const TINTA = {
   serie: '#1E7340', // forest-500: la línea que es tuya
   guia: '#5F6D64', // ink-faint: la referencia contra la que te mides
   aviso: '#A03A16', // clay
+  texto: '#3A4840', // ink-soft: las notas
   reja: '#EDE9DD', // paper-sunken
   papel: '#FFFEFA', // paper-raised
 }
 
-const PAD = { arriba: 16, derecha: 6, abajo: 18, izquierda: 2 }
+const PAD = { arriba: 18, derecha: 6, abajo: 18, izquierda: 2 }
 
 const numEje = (v: number) => num(v, Number.isInteger(v) ? 0 : 1)
 
@@ -23,6 +30,18 @@ export interface Serie {
   punteada?: boolean
   conectar?: boolean
   puntos?: boolean
+}
+
+/** La línea que la app imprime debajo de tus datos: el estándar, el equilibrio. */
+export interface Referencia {
+  valor: number
+  texto: string
+}
+
+/** Nota al margen anclada a un punto de la última serie. */
+export interface Nota {
+  indice: number
+  texto: string
 }
 
 function useAncho() {
@@ -69,6 +88,39 @@ const ruta = (puntos: Punto[]) =>
 const rutaCerrada = (arriba: Punto[], abajo: Punto[]) =>
   `${ruta(arriba)}${ruta([...abajo].reverse()).replace('M', 'L')}Z`
 
+// Texto con halo del color del papel para que la línea de debajo no lo cruce.
+function Rotulo({
+  x,
+  y,
+  children,
+  ...rest
+}: {
+  x: number
+  y: number
+  children: string
+  fontSize?: number
+  fill?: string
+  fontWeight?: number
+  letterSpacing?: number
+  textAnchor?: 'start' | 'middle' | 'end'
+}) {
+  return (
+    <text
+      x={x}
+      y={y}
+      fontSize={9}
+      fill={TINTA.guia}
+      stroke={TINTA.papel}
+      strokeWidth={3}
+      strokeLinejoin="round"
+      paintOrder="stroke"
+      {...rest}
+    >
+      {children}
+    </text>
+  )
+}
+
 function useArrastre(onFoco?: (i: number | undefined) => void) {
   const activo = useRef(false)
   if (!onFoco) return undefined
@@ -95,11 +147,15 @@ function useArrastre(onFoco?: (i: number | undefined) => void) {
 const desplazamiento = (e: PointerEvent<SVGSVGElement>) =>
   e.clientX - e.currentTarget.getBoundingClientRect().left
 
+const LIENZO = { fontVariantNumeric: 'tabular-nums', touchAction: 'pan-y' } as const
+
 export function GraficaLineas({
   x,
   series,
   alto = 180,
   banda,
+  referencia,
+  nota,
   formatoY = numEje,
   etiquetaX = String,
   marca,
@@ -111,6 +167,8 @@ export function GraficaLineas({
   series: Serie[]
   alto?: number
   banda?: 'signo' | 'neutro'
+  referencia?: Referencia
+  nota?: Nota
   formatoY?: (v: number) => string
   etiquetaX?: (v: number) => string
   marca?: { x: number; texto?: string }
@@ -122,9 +180,13 @@ export function GraficaLineas({
   const valores = series.flatMap((s) => s.datos).filter((v): v is number => v != null)
   if (x.length === 0 || valores.length === 0) return null
 
-  const escala = escalaY(Math.min(...valores), Math.max(...valores))
+  const [min, max] = referencia
+    ? dominioConReferencia(valores, referencia.valor)
+    : [Math.min(...valores), Math.max(...valores)]
+  const escala = escalaY(min, max)
   const x0 = Math.min(...x)
   const x1 = Math.max(...x)
+  const principal = series[series.length - 1]
 
   return (
     <Lienzo alto={alto} resumen={resumen}>
@@ -145,18 +207,16 @@ export function GraficaLineas({
         }
 
         const paraBanda = (s: Serie) => (s.conectar ? interpolar(x, s.datos) : s.datos)
-        const tramos =
-          banda && series.length >= 2
+        const tramos = !banda
+          ? []
+          : series.length >= 2
             ? tramosBanda(x, paraBanda(series[1]), paraBanda(series[0]))
-            : []
+            : referencia
+              ? tramosBanda(x, paraBanda(series[0]), x.map(() => referencia.valor))
+              : []
 
         return (
-          <svg
-            width={ancho}
-            height={alto}
-            style={{ touchAction: 'pan-y' }}
-            {...arrastre?.(indiceEn)}
-          >
+          <svg width={ancho} height={alto} style={LIENZO} {...arrastre?.(indiceEn)}>
             {tramos.map((t, i) => (
               <path
                 key={i}
@@ -166,27 +226,44 @@ export function GraficaLineas({
                   t.puntos.map((p) => ({ x: ex(p.x), y: ey(p.b) })),
                 )}
                 fill={banda === 'neutro' ? TINTA.guia : t.signo === 1 ? TINTA.serie : TINTA.aviso}
-                fillOpacity={banda === 'neutro' ? 0.12 : 0.14}
+                fillOpacity={banda === 'neutro' ? 0.1 : 0.11}
               />
             ))}
 
-            {escala.marcas.map((v) => (
-              <g key={v}>
+            {escala.marcas
+              .filter((v) => referencia == null || v !== referencia.valor)
+              .map((v) => (
+                <g key={v}>
+                  <line
+                    x1={PAD.izquierda}
+                    x2={ancho - PAD.derecha}
+                    y1={ey(v)}
+                    y2={ey(v)}
+                    stroke={TINTA.reja}
+                  />
+                  {ey(v) < alto - PAD.abajo - 11 && (
+                    <Rotulo x={PAD.izquierda} y={ey(v) - 4} fontSize={10}>
+                      {formatoY(v)}
+                    </Rotulo>
+                  )}
+                </g>
+              ))}
+
+            {referencia && (
+              <>
                 <line
                   x1={PAD.izquierda}
                   x2={ancho - PAD.derecha}
-                  y1={ey(v)}
-                  y2={ey(v)}
-                  stroke={v === 0 ? TINTA.guia : TINTA.reja}
-                  strokeOpacity={v === 0 ? 0.45 : 1}
+                  y1={ey(referencia.valor)}
+                  y2={ey(referencia.valor)}
+                  stroke={TINTA.guia}
+                  strokeOpacity={0.75}
                 />
-                {ey(v) < alto - PAD.abajo - 11 && (
-                  <text x={PAD.izquierda} y={ey(v) - 4} fontSize={10} fill={TINTA.guia}>
-                    {formatoY(v)}
-                  </text>
-                )}
-              </g>
-            ))}
+                <Rotulo x={PAD.izquierda} y={ey(referencia.valor) - 5} letterSpacing={0.7}>
+                  {referencia.texto.toUpperCase()}
+                </Rotulo>
+              </>
+            )}
 
             {marca && (
               <>
@@ -200,16 +277,15 @@ export function GraficaLineas({
                   strokeOpacity={0.7}
                 />
                 {marca.texto && (
-                  <text
+                  <Rotulo
                     x={Math.min(ex(marca.x) + 5, ancho - 4)}
                     y={PAD.arriba - 8}
-                    fontSize={10}
                     fontWeight={600}
                     fill={TINTA.serie}
                     textAnchor={ex(marca.x) > ancho * 0.7 ? 'end' : 'start'}
                   >
                     {marca.texto}
-                  </text>
+                  </Rotulo>
                 )}
               </>
             )}
@@ -218,17 +294,25 @@ export function GraficaLineas({
               <Trazos key={i} serie={s} x={x} ex={ex} ey={ey} />
             ))}
 
+            {nota && principal.datos[nota.indice] != null && (
+              <NotaAlMargen
+                x={ex(x[nota.indice])}
+                y={ey(principal.datos[nota.indice]!)}
+                texto={nota.texto}
+                ancho={ancho}
+              />
+            )}
+
             {indicesEtiqueta(x.length, 5).map((i) => (
-              <text
+              <Rotulo
                 key={i}
                 x={Math.min(Math.max(ex(x[i]), 10), ancho - 10)}
                 y={alto - 4}
                 fontSize={10}
-                fill={TINTA.guia}
                 textAnchor="middle"
               >
                 {etiquetaX(x[i])}
-              </text>
+              </Rotulo>
             ))}
 
             {foco != null && x[foco] != null && (
@@ -260,6 +344,40 @@ export function GraficaLineas({
         )
       }}
     </Lienzo>
+  )
+}
+
+function NotaAlMargen({
+  x,
+  y,
+  texto,
+  ancho,
+}: {
+  x: number
+  y: number
+  texto: string
+  ancho: number
+}) {
+  // El conector sale en horizontal: arriba y abajo del punto es donde pasa la
+  // propia línea. El halo del rótulo la deja pasar por detrás sin estorbar.
+  const anchoTexto = texto.length * 5.6
+  const aLaIzquierda = x + 14 + anchoTexto > ancho
+  const fin = x + (aLaIzquierda ? -12 : 12)
+
+  return (
+    <g className="animate-aparecer">
+      <line x1={x} y1={y} x2={fin} y2={y} stroke={TINTA.texto} strokeOpacity={0.45} />
+      <Rotulo
+        x={fin + (aLaIzquierda ? -3 : 3)}
+        y={y + 3.5}
+        fontSize={10}
+        fontWeight={600}
+        fill={TINTA.texto}
+        textAnchor={aLaIzquierda ? 'end' : 'start'}
+      >
+        {texto}
+      </Rotulo>
+    </g>
   )
 }
 
@@ -304,7 +422,17 @@ function Trazos({
           />
         ))}
       {serie.puntos &&
-        tramos.flat().map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2.5} fill={tono} />)}
+        tramos.flat().map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={3}
+            fill={tono}
+            stroke={TINTA.papel}
+            strokeWidth={1.5}
+          />
+        ))}
     </g>
   )
 }
@@ -312,9 +440,11 @@ function Trazos({
 export function GraficaBarras({
   etiquetas,
   valores,
+  esperados,
   alto = 160,
   tono = 'serie',
   destacar,
+  nota,
   formatoValor,
   foco,
   onFoco,
@@ -323,9 +453,11 @@ export function GraficaBarras({
 }: {
   etiquetas: string[]
   valores: number[]
+  esperados?: number[]
   alto?: number
   tono?: 'serie' | 'aviso'
   destacar?: number
+  nota?: Nota
   formatoValor?: (v: number) => string
   foco?: number
   onFoco?: (i: number | undefined) => void
@@ -337,7 +469,7 @@ export function GraficaBarras({
 
   // Las barras siempre arrancan en cero; con los valores escritos encima la
   // reja sobra y el tope se pega al dato más alto.
-  const tope = Math.max(...valores, 1)
+  const tope = Math.max(...valores, ...(esperados ?? []), 1)
   const escala = formatoValor ? { hasta: tope, marcas: [] as number[] } : escalaY(0, tope)
   const padArriba = formatoValor ? 24 : PAD.arriba
 
@@ -358,12 +490,7 @@ export function GraficaBarras({
           )
 
         return (
-          <svg
-            width={ancho}
-            height={alto}
-            style={{ touchAction: 'pan-y' }}
-            {...arrastre?.(indiceEn)}
-          >
+          <svg width={ancho} height={alto} style={LIENZO} {...arrastre?.(indiceEn)}>
             {escala.marcas.map((v) => (
               <g key={v}>
                 <line
@@ -389,7 +516,7 @@ export function GraficaBarras({
                 <path
                   key={i}
                   className="animate-crecer"
-                  style={{ animationDelay: `${Math.min(i * 18, 360)}ms` }}
+                  style={{ animationDelay: `${Math.min(i * 40, 360)}ms` }}
                   d={barra(
                     ex(i) - anchoBarra / 2,
                     y,
@@ -402,6 +529,29 @@ export function GraficaBarras({
                 />
               )
             })}
+
+            {esperados?.map((v, i) => (
+              <line
+                key={i}
+                x1={ex(i) - anchoBarra / 2 - 3}
+                x2={ex(i) + anchoBarra / 2 + 3}
+                y1={ey(v)}
+                y2={ey(v)}
+                stroke={TINTA.guia}
+                strokeWidth={1.5}
+              />
+            ))}
+
+            {esperados && (
+              <Rotulo
+                x={ancho - PAD.derecha}
+                y={ey(esperados[esperados.length - 1]) - 6}
+                letterSpacing={0.7}
+                textAnchor="end"
+              >
+                LO ESPERADO
+              </Rotulo>
+            )}
 
             {formatoValor &&
               valores.map((v, i) => (
@@ -418,17 +568,25 @@ export function GraficaBarras({
                 </text>
               ))}
 
-            {indicesEtiqueta(etiquetas.length, 5).map((i) => (
-              <text
+            {nota && (
+              <NotaAlMargen
+                x={ex(nota.indice)}
+                y={ey(valores[nota.indice])}
+                texto={nota.texto}
+                ancho={ancho}
+              />
+            )}
+
+            {indicesEtiqueta(etiquetas.length, 6).map((i) => (
+              <Rotulo
                 key={i}
                 x={ex(i)}
                 y={alto - 4}
                 fontSize={valores.length <= 6 ? 12 : 10}
-                fill={TINTA.guia}
                 textAnchor="middle"
               >
                 {etiquetas[i]}
-              </text>
+              </Rotulo>
             ))}
           </svg>
         )
@@ -440,29 +598,4 @@ export function GraficaBarras({
 function barra(x: number, y: number, ancho: number, alto: number, radio: number) {
   const r = Math.min(radio, ancho / 2, alto)
   return `M${x},${y + alto}L${x},${y + r}Q${x},${y} ${x + r},${y}L${x + ancho - r},${y}Q${x + ancho},${y} ${x + ancho},${y + r}L${x + ancho},${y + alto}Z`
-}
-
-export function Leyenda({ series }: { series: Serie[] }) {
-  return (
-    <div className="mt-2.5 flex items-center justify-center gap-5 text-xs text-ink-faint">
-      {series
-        .filter((s) => s.nombre)
-        .map((s) => {
-          const tono = TINTA[s.tono ?? 'serie']
-          return (
-            <span key={s.nombre} className="flex items-center gap-1.5">
-              <span
-                className="w-5"
-                style={
-                  s.punteada
-                    ? { borderTop: `1.5px dashed ${tono}` }
-                    : { height: 2, borderRadius: 2, background: tono }
-                }
-              />
-              {s.nombre}
-            </span>
-          )
-        })}
-    </div>
-  )
 }

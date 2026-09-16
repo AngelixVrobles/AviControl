@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { escalaY, indicesEtiqueta, interpolar, tramosBanda } from './escala'
+import { dominioConReferencia, escalaY, indicesEtiqueta, interpolar, tramosBanda } from './escala'
 
 describe('escalaY', () => {
   it('pega el dominio a los datos y pone las marcas en valores redondos', () => {
@@ -82,5 +82,20 @@ describe('indicesEtiqueta', () => {
     expect(i).toHaveLength(5)
     expect(i[0]).toBe(0)
     expect(i.at(-1)).toBe(42)
+  })
+})
+
+describe('dominioConReferencia', () => {
+  it('deja aire del otro lado aunque todos los datos caigan abajo', () => {
+    const [desde, hasta] = dominioConReferencia([-16, -22, -18], 0)
+    expect(desde).toBeCloseTo(-22, 5)
+    expect(hasta).toBeGreaterThan(0)
+    expect((0 - desde) / (hasta - desde)).toBeLessThan(0.85)
+  })
+
+  it('no recorta los datos cuando ya rodean la referencia', () => {
+    const [desde, hasta] = dominioConReferencia([-60000, 14000], 0)
+    expect(desde).toBeLessThanOrEqual(-60000)
+    expect(hasta).toBeGreaterThanOrEqual(14000)
   })
 })

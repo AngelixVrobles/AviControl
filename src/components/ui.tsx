@@ -29,6 +29,38 @@ export function Card({
   return <div className={clsx('rounded-xl2', SUPERFICIES[tono], className)}>{children}</div>
 }
 
+// El encabezado de la app: una regla, la etiqueta de la sección en versalitas
+// y debajo la conclusión, no el nombre del gráfico. La hoja de control impresa
+// que el avicultor ya conoce, no un dashboard.
+export function Seccion({
+  etiqueta,
+  titulo,
+  nota,
+  accion,
+  className,
+}: {
+  etiqueta: string
+  titulo?: ReactNode
+  nota?: ReactNode
+  accion?: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={clsx('border-t border-line pt-3', className)}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
+          {etiqueta}
+        </span>
+        {accion}
+      </div>
+      {titulo && (
+        <h2 className="mt-1.5 font-display text-xl font-semibold leading-tight">{titulo}</h2>
+      )}
+      {nota && <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{nota}</p>}
+    </div>
+  )
+}
+
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'ghost' | 'soft'
   block?: boolean
