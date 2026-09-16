@@ -5,28 +5,15 @@ import { createPortal } from 'react-dom'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
 import { IconChevron, IconClose } from './icons'
 
-// Cuatro niveles, y la sombra significa uno solo. Cuando todas las tarjetas
-// llevaban sombra no señalaba nada: `elevado` se usa para la que responde la
-// pregunta de la pantalla, una por vista.
-const SUPERFICIES = {
-  plano: 'border border-line bg-paper-raised',
-  elevado: 'border border-line bg-paper-raised shadow-card',
-  hundido: 'bg-sunken',
-  oscuro: 'bg-forest-700 text-paper-raised shadow-card',
-} as const
-
-export type Superficie = keyof typeof SUPERFICIES
-
-export function Card({
-  tono = 'plano',
-  className,
-  children,
-}: {
-  tono?: Superficie
-  className?: string
-  children: ReactNode
-}) {
-  return <div className={clsx('rounded-xl2', SUPERFICIES[tono], className)}>{children}</div>
+// El papel es la superficie, no la tarjeta: una banda a sangre con filete
+// arriba y abajo, como el renglón de una hoja de control impresa. Ya no hay
+// sombra —lo que dice qué importa es el titular de la sección— y lo que sigue
+// siendo caja es lo que de verdad se toca: las tarjetas de ciclo, los botones
+// de acción, las hojas que suben desde abajo.
+export function Banda({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <div className={clsx('-mx-5 border-y border-line bg-paper-raised', className)}>{children}</div>
+  )
 }
 
 // El encabezado de la app: una regla, la etiqueta de la sección en versalitas

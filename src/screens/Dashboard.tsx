@@ -204,7 +204,7 @@ function BloqueFinanciero({
   }, 0)
 
   return (
-    <section className="mt-7 overflow-hidden rounded-xl2 bg-forest-700 p-5 text-paper-raised shadow-card">
+    <section className="mt-8 overflow-hidden rounded-xl2 bg-forest-700 p-5 text-paper-raised">
       <div className="text-sm font-medium text-forest-200">
         Costo por libra ·{' '}
         {conCosto.length === activos.length

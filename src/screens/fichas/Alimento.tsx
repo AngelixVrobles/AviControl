@@ -7,7 +7,7 @@ import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '
 import { precioQuintalReal } from '../../lib/precios'
 import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
 import { db } from '../../db/schema'
-import { Card, Seccion } from '../../components/ui'
+import { Banda, Seccion } from '../../components/ui'
 import { GraficaLineas } from '../../components/chart'
 import { Vacio } from './Vacio'
 
@@ -37,7 +37,7 @@ export function FichaAlimento({
 
   return (
     <div className="space-y-5">
-      <Card tono="elevado" className="p-4">
+      <Banda className="px-5 py-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">Consumido</div>
@@ -66,17 +66,20 @@ export function FichaAlimento({
             </div>
           )}
         </div>
-      </Card>
+      </Banda>
 
       <div>
-        <h3 className="mb-1 font-display text-base font-semibold">Lo que diste en cada fase</h3>
-        <p className="mb-2 text-xs text-ink-faint">Contra lo que tocaba hasta hoy, no la fase entera.</p>
-        <Card className="divide-y divide-line">
+        <Seccion
+          className="mb-3"
+          etiqueta="Lo que diste en cada fase"
+          nota="Contra lo que tocaba hasta hoy, no la fase entera."
+        />
+        <Banda className="divide-y divide-line">
           {fases.map((f) => {
             const dif = f.planALaFechaLb > 0 ? ((f.realLb - f.planALaFechaLb) / f.planALaFechaLb) * 100 : 0
             const notable = Math.abs(dif) >= 5 && f.realLb > 0
             return (
-              <div key={f.nombre} className={'px-4 py-3 ' + (f.enCurso ? 'bg-forest-50' : '')}>
+              <div key={f.nombre} className={'px-5 py-3 ' + (f.enCurso ? 'bg-forest-50' : '')}>
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     {f.nombre}
@@ -119,20 +122,22 @@ export function FichaAlimento({
               </div>
             )
           })}
-        </Card>
+        </Banda>
       </div>
 
       {agua && <Agua resumen={agua} />}
 
       {plan && (
         <div>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="font-display text-base font-semibold">El plan del ciclo</h3>
-            {precioQq ? (
+          <Seccion
+            className="mb-3"
+            etiqueta="El plan del ciclo"
+            accion={
+              precioQq ? (
               <span className="text-xs text-ink-faint tnum">{money(precioQq)} el quintal</span>
-            ) : (
-              <label className="flex items-center gap-1.5 text-xs text-ink-faint">
-                Quintal
+              ) : (
+                <label className="flex items-center gap-1.5 text-xs text-ink-faint">
+                  Quintal
                 <input
                   type="number"
                   inputMode="decimal"
@@ -142,12 +147,13 @@ export function FichaAlimento({
                   }
                   className="h-11 w-24 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
                 />
-              </label>
-            )}
-          </div>
-          <Card className="divide-y divide-line">
+                </label>
+              )
+            }
+          />
+          <Banda className="divide-y divide-line">
             {plan.fases.map((f) => (
-              <div key={f.nombre} className="flex items-center justify-between px-4 py-2.5 text-sm">
+              <div key={f.nombre} className="flex items-center justify-between px-5 py-2.5 text-sm">
                 <div className="min-w-0">
                   <div className="font-medium">{f.nombre}</div>
                   <div className="text-xs text-ink-faint tnum">
@@ -163,7 +169,7 @@ export function FichaAlimento({
                 </div>
               </div>
             ))}
-            <div className="flex items-center justify-between px-4 py-3 text-sm">
+            <div className="flex items-center justify-between px-5 py-3 text-sm">
               <span className="text-ink-faint">Todo el ciclo</span>
               <span className="tnum">
                 <span className="font-display font-semibold">{num(plan.totalQuintales, 1)} qq</span>
@@ -172,7 +178,7 @@ export function FichaAlimento({
                 )}
               </span>
             </div>
-          </Card>
+          </Banda>
           {plan.proximoCambio && (
             <p className="mt-2 text-xs text-ink-faint">
               Cambia a <span className="font-medium text-ink-soft">{plan.proximoCambio.nombre}</span>{' '}
@@ -184,8 +190,8 @@ export function FichaAlimento({
 
       {inv?.completo && (
         <div>
-          <h3 className="mb-2 font-display text-base font-semibold">Existencia</h3>
-          <Card className="p-4">
+          <Seccion className="mb-3" etiqueta="Existencia" />
+          <Banda className="px-5 py-4">
             <div className="flex items-end justify-between">
               <div>
                 <div className="font-display text-xl font-semibold leading-none tnum">
@@ -204,16 +210,16 @@ export function FichaAlimento({
                 </div>
               )}
             </div>
-          </Card>
+          </Banda>
         </div>
       )}
 
       {compras.length > 0 && (
         <div>
-          <h3 className="mb-2 font-display text-base font-semibold">Compras</h3>
-          <Card className="divide-y divide-line">
+          <Seccion className="mb-3" etiqueta="Compras" />
+          <Banda className="divide-y divide-line">
             {compras.map((g) => (
-              <div key={g.id} className="flex items-center justify-between px-4 py-3 text-sm">
+              <div key={g.id} className="flex items-center justify-between px-5 py-3 text-sm">
                 <div className="min-w-0">
                   <div className="font-medium">{g.descripcion || 'Alimento'}</div>
                   <div className="text-xs text-ink-faint tnum">
@@ -231,7 +237,7 @@ export function FichaAlimento({
                 </div>
               </div>
             ))}
-          </Card>
+          </Banda>
           {metrics.biomasaLb != null && metrics.biomasaLb > 0 && (
             <p className="mt-2 text-xs text-ink-faint tnum">
               El alimento va en{' '}
@@ -254,7 +260,7 @@ function Agua({ resumen }: { resumen: ResumenAgua }) {
   return (
     <div>
       <Seccion etiqueta="Agua" titulo={tituloAgua(resumen)} />
-      <Card className="mt-3 p-4">
+      <Banda className="mt-3 px-5 py-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">
@@ -316,7 +322,7 @@ function Agua({ resumen }: { resumen: ResumenAgua }) {
             </p>
           </div>
         )}
-      </Card>
+      </Banda>
       {resumen.caidaPct != null && (
         <p className="mt-2 rounded-xl border-l-4 border-clay bg-clay-tint px-4 py-3 text-sm leading-relaxed text-clay-text">
           Revisa que los bebederos tengan presión y altura, y mira si hay aves decaídas: el agua se

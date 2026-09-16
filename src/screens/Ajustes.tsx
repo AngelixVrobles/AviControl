@@ -6,7 +6,7 @@ import { useSettings } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
-import { Card, DangerButton, Field, Input, Seccion } from '../components/ui'
+import { Banda, DangerButton, Field, Input, Seccion } from '../components/ui'
 import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
 
@@ -182,7 +182,7 @@ export function Ajustes() {
       <AvisoRespaldo ultimo={s.ultimoRespaldo} onRespaldar={exportar} onRestaurar={pickFile} />
 
       <Seccion className="mb-3 mt-8" etiqueta="Producción" />
-      <Card className="divide-y divide-line">
+      <Banda className="divide-y divide-line">
         <FilaEstatica label="Raza que usas" valor={RAZA} sub="Define pesos y consumo esperados" />
         <FilaNumero
           label="Peso objetivo de venta"
@@ -204,12 +204,12 @@ export function Ajustes() {
           value={s.avesPorM2}
           onSave={(v) => saveSettings({ avesPorM2: v || 11 })}
         />
-      </Card>
+      </Banda>
 
       <PlanSanitario plan={s.planSanitario} />
 
       <Seccion className="mb-3 mt-8" etiqueta="Granja" />
-      <Card className="space-y-4 p-4">
+      <Banda className="space-y-4 px-5 py-4">
         <Field label="Nombre de la granja">
           <Input defaultValue={s.granja} onBlur={(e) => saveSettings({ granja: e.target.value.trim() || 'Mi granja' })} />
         </Field>
@@ -236,17 +236,17 @@ export function Ajustes() {
             />
           </Field>
         </div>
-      </Card>
+      </Banda>
 
       <Seccion className="mb-3 mt-8 text-clay-deep" etiqueta="Zona de peligro" />
-      <Card className="space-y-3 p-4">
+      <Banda className="space-y-3 px-5 py-4">
         <p className="text-sm leading-relaxed text-ink-soft">
           Borra {num(conteos?.ciclos ?? 0)} ciclos, {num(conteos?.registros ?? 0)} registros diarios,{' '}
           {num(conteos?.gastos ?? 0)} gastos y {num(conteos?.ventas ?? 0)} ventas. No se puede deshacer
           y no hay copia en internet.
         </p>
         <DangerButton onClick={borrarTodo}>Borrar todo</DangerButton>
-      </Card>
+      </Banda>
 
       <p className="mt-8 text-center text-sm text-ink-soft">AviControl · v{__APP_VERSION__} · datos locales</p>
     </div>
@@ -314,7 +314,7 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
         etiqueta="Plan sanitario"
         nota="Lo que aparece como hito en la barra del ciclo. Ajústalo al plan de tu veterinario."
       />
-      <Card className="space-y-3 p-4">
+      <Banda className="space-y-3 px-5 py-4">
         {items.map((h, i) => (
           <div key={i} className="flex items-center gap-2">
             <Input
@@ -351,14 +351,14 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
         >
           + Agregar al plan
         </button>
-      </Card>
+      </Banda>
     </>
   )
 }
 
 function FilaEstatica({ label, valor, sub }: { label: string; valor: string; sub: string }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
+    <div className="flex items-center justify-between px-5 py-3">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
         <div className="text-sm text-ink-soft">{sub}</div>
@@ -382,7 +382,7 @@ function FilaNumero({
   onSave: (v: number) => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
+    <div className="flex items-center justify-between gap-3 px-5 py-3">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
         <div className="text-sm text-ink-soft">{sub}</div>

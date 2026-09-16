@@ -3,7 +3,7 @@ import type { Lote, Registro } from '../../db/schema'
 import { fecha, num, pct, plural } from '../../lib/format'
 import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from '../../lib/mortalidad'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
-import { Card, Seccion } from '../../components/ui'
+import { Banda, Seccion } from '../../components/ui'
 import { GraficaBarras } from '../../components/chart'
 import { Vacio } from './Vacio'
 
@@ -24,7 +24,7 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
 
   return (
     <div className="space-y-6">
-      <Card tono="elevado" className="p-4">
+      <Banda className="px-5 py-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">Bajas del ciclo</div>
@@ -55,14 +55,14 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
             {num(r.bajas)} muertas y {num(r.descartes)} descartadas
           </div>
         )}
-      </Card>
+      </Banda>
 
       <div>
         <Seccion
           etiqueta="Semana a semana"
           titulo={tituloSemanas(r.semanas[peor], esperados[peor])}
         />
-        <Card className="mt-3 p-4 pt-5">
+        <Banda className="mt-3 px-5 py-4 pt-5">
           <GraficaBarras
             etiquetas={r.semanas.map((s) => `S${s.semana}`)}
             valores={r.semanas.map((s) => s.muertes)}
@@ -86,7 +86,7 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
                 ? `El peor día fue el ${r.peorDia.dia} (${fecha(r.peorDia.fecha)}). Toca cualquier semana para ver sus números.`
                 : 'Toca cualquier semana para ver sus números.'}
           </p>
-        </Card>
+        </Banda>
       </div>
 
       <div>
@@ -98,13 +98,13 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
               : `El arranque se pasó: ${pct(r.primeraSemanaPct, 2)} en los primeros siete días`
           }
         />
-        <Card className={'mt-3 p-4 ' + (arranqueBien ? '' : 'border-l-4 border-l-clay')}>
+        <Banda className={'mt-3 px-5 py-4 ' + (arranqueBien ? '' : 'border-l-4 border-l-clay')}>
           <p className="text-sm leading-relaxed text-ink-soft">
             {arranqueBien
               ? `${num(r.primeraSemana)} aves, por debajo del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. Lo que muere en los primeros siete días viene del pollito y del recibo, no del manejo del resto del ciclo.`
               : `${num(r.primeraSemana)} aves, por encima del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. La mortalidad de los primeros siete días apunta al pollito o al recibo: temperatura de la cama, acceso a agua y calidad del lote que te vendieron.`}
           </p>
-        </Card>
+        </Banda>
       </div>
     </div>
   )
