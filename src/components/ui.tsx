@@ -12,7 +12,7 @@ const SUPERFICIES = {
   plano: 'border border-line bg-paper-raised',
   elevado: 'border border-line bg-paper-raised shadow-card',
   hundido: 'bg-sunken',
-  oscuro: 'bg-forest-deep text-paper-raised shadow-card',
+  oscuro: 'bg-forest-700 text-paper-raised shadow-card',
 } as const
 
 export type Superficie = keyof typeof SUPERFICIES

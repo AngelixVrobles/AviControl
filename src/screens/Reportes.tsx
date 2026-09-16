@@ -188,7 +188,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
         </ResponsiveContainer>
         {attr && (
           <p className="mt-3 border-t border-line pt-3 text-sm leading-relaxed text-ink-soft">
-            <span className="font-semibold text-green-text">▲ {attr.delta} puntos</span> desde{' '}
+            <span className="font-semibold text-forest-600">▲ {attr.delta} puntos</span> desde{' '}
             {attr.desde} — {attr.frase}
           </p>
         )}
@@ -284,7 +284,7 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
           </p>
           <Link
             to={`/lotes/${viejo.lote.id}?reg=1`}
-            className="mt-3 inline-flex rounded-full bg-green-action px-4 py-2.5 text-sm font-semibold text-paper-raised"
+            className="mt-3 inline-flex rounded-full bg-forest-500 px-4 py-2.5 text-sm font-semibold text-paper-raised"
           >
             Ponerme al día
           </Link>
@@ -321,7 +321,7 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
         </span>
       </div>
       <div className="relative h-2.5 rounded-full bg-sunken">
-        <div className="absolute inset-y-0 left-0 rounded-full bg-green-action" style={{ width: pos(dia) }} />
+        <div className="absolute inset-y-0 left-0 rounded-full bg-forest-500" style={{ width: pos(dia) }} />
         {hitos.slice(1, -1).map((h) => (
           <span
             key={h.dia}
@@ -331,7 +331,7 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
         ))}
         {dia < total && (
           <span
-            className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-darkest"
+            className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-800"
             style={{ left: pos(dia), marginLeft: -12 }}
           />
         )}

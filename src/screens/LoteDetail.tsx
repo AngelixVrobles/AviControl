@@ -964,7 +964,7 @@ function PrecioMinimo({
               style={{ animationDelay: `${i * 45}ms` }}
               className={clsx(
                 "animate-rise flex items-center justify-between px-4 py-2.5",
-                e.esActual && "bg-green-tint",
+                e.esActual && "bg-forest-50",
               )}
             >
               <div className="min-w-0">

@@ -284,7 +284,7 @@ function AvisoRespaldo({
       <div className="mt-3 grid grid-cols-2 gap-3">
         <button
           onClick={onRespaldar}
-          className="rounded-full bg-green-action py-3 text-center text-sm font-semibold text-paper-raised transition active:scale-95"
+          className="rounded-full bg-forest-500 py-3 text-center text-sm font-semibold text-paper-raised transition active:scale-95"
         >
           Respaldar ahora
         </button>

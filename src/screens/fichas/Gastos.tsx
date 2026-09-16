@@ -118,7 +118,7 @@ export function FichaGastos({
                   <div
                     className={clsx(
                       'absolute inset-y-0 left-0 rounded-full',
-                      activa ? 'bg-forest-600' : 'bg-green-action',
+                      activa ? 'bg-forest-600' : 'bg-forest-500',
                     )}
                     style={{ width: `${(monto / total) * 100}%` }}
                   />

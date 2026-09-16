@@ -157,7 +157,7 @@ export function RegistroSheet({
                   }}
                   className={clsx(
                     'h-[52px] flex-1 rounded-xl border px-2 text-center font-display text-lg font-semibold transition',
-                    activo ? 'border-2 border-green-action bg-green-tint text-ink' : 'border-line bg-paper-raised text-ink-soft',
+                    activo ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
                   )}
                 >
                   {num(v)}
@@ -172,7 +172,7 @@ export function RegistroSheet({
               }}
               className={clsx(
                 'h-[52px] flex-1 rounded-xl border px-2 text-center text-sm font-semibold transition',
-                feedOtro ? 'border-2 border-green-action bg-green-tint text-ink' : 'border-line bg-paper-raised text-ink-soft',
+                feedOtro ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
               )}
             >
               Otro
@@ -291,7 +291,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (v: number) => 
       </div>
       <button
         onClick={() => onChange(value + 1)}
-        className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-green-tint font-display text-2xl font-semibold text-forest-700 transition active:scale-95"
+        className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-forest-50 font-display text-2xl font-semibold text-forest-700 transition active:scale-95"
         aria-label="Sumar"
       >
         +
@@ -375,7 +375,7 @@ export function PesajeSheet({
   return (
     <Sheet open={open} onClose={onClose} title={editar ? 'Editar pesaje' : `Pesaje del día ${dia}`}>
       <div className="space-y-4">
-        <div className="rounded-xl bg-green-tint px-4 py-3 text-sm leading-relaxed text-forest-darkest">
+        <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
           Pesa <span className="font-semibold tnum">{num(sugeridas)}</span> aves al azar
           {avesVivas > 0 && (
             <span className="text-forest-700"> ({pct((sugeridas / avesVivas) * 100, 1)} del galpón)</span>
@@ -399,7 +399,7 @@ export function PesajeSheet({
           <button
             onClick={agregar}
             disabled={!(Number(entrada.replace(',', '.')) > 0)}
-            className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-green-tint font-display text-2xl font-semibold text-forest-700 transition active:scale-95 disabled:opacity-40"
+            className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-forest-50 font-display text-2xl font-semibold text-forest-700 transition active:scale-95 disabled:opacity-40"
             aria-label="Añadir peso"
           >
             +
@@ -452,7 +452,7 @@ export function PesajeSheet({
               <div
                 className={clsx(
                   'h-full rounded-full transition-all',
-                  faltan === 0 ? 'bg-green-action' : 'bg-amber-400',
+                  faltan === 0 ? 'bg-forest-500' : 'bg-amber-400',
                 )}
                 style={{ width: `${Math.min(100, (muestra.n / Math.max(1, muestra.n + faltan)) * 100)}%` }}
               />
@@ -866,7 +866,7 @@ export function CierreSheet({
           </div>
 
           {pesoPorAve != null && (
-            <div className="flex items-center justify-between rounded-xl bg-green-tint px-4 py-3 text-sm text-forest-darkest">
+            <div className="flex items-center justify-between rounded-xl bg-forest-50 px-4 py-3 text-sm text-forest-800">
               <span>Peso por ave</span>
               <span className="tnum">
                 <span className="font-display text-base font-semibold">{num(pesoPorAve, 2)} lb</span>
@@ -1146,7 +1146,7 @@ export function AplicacionSheet({
                 className={clsx(
                   'rounded-full border px-3 py-2 text-sm font-medium transition',
                   via === v
-                    ? 'border-2 border-green-action bg-green-tint text-ink'
+                    ? 'border-2 border-forest-500 bg-forest-50 text-ink'
                     : 'border-line bg-paper-raised text-ink-soft',
                 )}
               >

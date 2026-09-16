@@ -59,7 +59,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                           width={14}
                           height={14}
                           strokeWidth={2}
-                          className="shrink-0 text-green-text"
+                          className="shrink-0 text-forest-600"
                           aria-label="Mejor ciclo"
                         />
                       )}
@@ -99,7 +99,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                         key={i}
                         className={clsx(
                           'px-3 py-2.5 text-right',
-                          v != null && v === best ? 'font-semibold text-green-text' : 'text-ink-soft',
+                          v != null && v === best ? 'font-semibold text-forest-600' : 'text-ink-soft',
                         )}
                       >
                         {v != null ? met.format(v) : '—'}

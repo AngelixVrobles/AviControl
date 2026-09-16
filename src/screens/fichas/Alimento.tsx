@@ -110,7 +110,7 @@ export function FichaAlimento({
                 </div>
                 <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
                   <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-green-action"
+                    className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
                     style={{
                       width: `${Math.min(100, f.planTotalLb > 0 ? (f.realLb / f.planTotalLb) * 100 : 0)}%`,
                     }}
