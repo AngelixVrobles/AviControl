@@ -1,13 +1,14 @@
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
+import { useState } from 'react'
 import type { Lote, Registro } from '../../db/schema'
-import { fecha, num, pct } from '../../lib/format'
-import { reduceMotion } from '../../lib/motion'
+import { fecha, num, pct, plural } from '../../lib/format'
 import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from '../../lib/mortalidad'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
 import { Card } from '../../components/ui'
+import { GraficaBarras } from '../../components/chart'
 import { Vacio } from './Vacio'
 
 export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Registro[] }) {
+  const [foco, setFoco] = useState<number>()
   const r = resumenMortalidad(lote, registros)
   if (!r) return <Vacio texto="Todavía no has registrado ningún día de este ciclo." />
 
@@ -15,6 +16,8 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
   const sobreEsperado = r.pct > r.esperadoPct
   const barras = r.dias.map((d) => ({ dia: d.dia, bajas: d.muertes + d.descartes }))
   const maxBajas = Math.max(...barras.map((b) => b.bajas), 1)
+  const peor = maxBajas > 1 ? barras.findIndex((b) => b.bajas === maxBajas) : undefined
+  const enfocada = foco != null ? barras[foco] : undefined
 
   return (
     <div className="space-y-5">
@@ -71,38 +74,23 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
       <div>
         <h3 className="mb-2 font-display text-base font-semibold">Bajas día a día</h3>
         <Card className="p-4 pt-5">
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={barras} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <XAxis
-                dataKey="dia"
-                tick={{ fontSize: 11, fill: '#5F6D64' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                cursor={{ fill: '#EDE9DD' }}
-                labelFormatter={(d) => `Día ${d}`}
-                formatter={(v) => [`${num(Number(v))} aves`, 'Bajas']}
-                contentStyle={{
-                  borderRadius: 12,
-                  border: '1px solid #DCD6C7',
-                  background: '#FFFEFA',
-                  fontSize: 13,
-                }}
-              />
-              <Bar dataKey="bajas" radius={[3, 3, 0, 0]} isAnimationActive={!reduceMotion}>
-                {barras.map((b) => (
-                  <Cell key={b.dia} fill={b.bajas === maxBajas && maxBajas > 1 ? '#A03A16' : '#C9A18C'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          {r.peorDia && (
-            <p className="mt-2 text-xs text-ink-faint tnum">
-              El peor fue el día {r.peorDia.dia} ({fecha(r.peorDia.fecha)}) con{' '}
-              {num(r.peorDia.muertes + r.peorDia.descartes)} aves.
-            </p>
-          )}
+          <GraficaBarras
+            etiquetas={barras.map((b) => `d${b.dia}`)}
+            valores={barras.map((b) => b.bajas)}
+            alto={150}
+            tono="aviso"
+            destacar={peor}
+            foco={foco}
+            onFoco={setFoco}
+            resumen={`Bajas por día, del día ${barras[0]?.dia ?? 0} al ${barras.at(-1)?.dia ?? 0}.`}
+          />
+          <p className="mt-2 text-xs text-ink-faint tnum">
+            {enfocada
+              ? `Día ${enfocada.dia} · ${num(enfocada.bajas)} ${plural(enfocada.bajas, 'ave', 'aves')}`
+              : r.peorDia
+                ? `El peor fue el día ${r.peorDia.dia} (${fecha(r.peorDia.fecha)}) con ${num(r.peorDia.muertes + r.peorDia.descartes)} aves.`
+                : 'Arrastra el dedo por la gráfica para ver cualquier día.'}
+          </p>
         </Card>
       </div>
 

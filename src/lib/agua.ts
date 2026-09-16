@@ -28,6 +28,9 @@ export interface ResumenAgua {
 
 export const aguaEsperadaL = (alimentoLb: number) => alimentoLb * LITROS_POR_LB_ALIMENTO
 
+export const estadoAgua = (litrosPorLb: number): ResumenAgua['estado'] =>
+  litrosPorLb < BANDA_BAJA ? 'bajo' : litrosPorLb > BANDA_ALTA ? 'alto' : 'normal'
+
 export function resumenAgua(lote: Lote, registros: Registro[]): ResumenAgua | null {
   const conAgua = registros
     .filter((r) => Number.isFinite(r.aguaL) && (r.aguaL as number) > 0)
@@ -54,12 +57,11 @@ export function resumenAgua(lote: Lote, registros: Registro[]): ResumenAgua | nu
 
   // El estado se juzga por el último día, no por el promedio del ciclo: un
   // promedio sano esconde que hoy dejaron de beber.
-  const hoy = ultimo.litrosPorLb
   return {
     dias,
     ultimo,
     promedioLitrosPorLb: litrosPorLb,
-    estado: hoy < BANDA_BAJA ? 'bajo' : hoy > BANDA_ALTA ? 'alto' : 'normal',
+    estado: estadoAgua(ultimo.litrosPorLb),
     totalL,
     caidaPct: caidaDeAgua(dias),
   }

@@ -8,16 +8,6 @@ import {
 import { clsx } from "clsx";
 import { motion } from "motion/react";
 import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   db,
   type Gasto,
   type Ingreso,
@@ -52,13 +42,13 @@ import {
   fcaEstandar,
   pesoEstandarLb,
 } from "../lib/standards";
-import { reduceMotion } from "../lib/motion";
 import type { Settings } from "../lib/settings";
 import { AlertaChip } from "../components/AlertaChip";
 import { FichasNav } from "../components/FichasNav";
 import { confirmar } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Button, Card, Pill } from "../components/ui";
+import { GraficaLineas, Leyenda, type Serie } from "../components/chart";
 import {
   IconBack,
   IconMoney,
@@ -1014,6 +1004,7 @@ function PuntoOptimo({
   gastos: Gasto[];
   metrics: LoteMetrics;
 }) {
+  const [foco, setFoco] = useState<number>();
   if (lote.estado !== "activo") return null;
   const a = analizarPuntoOptimo(lote, registros, gastos, metrics);
   if (!a)
@@ -1030,8 +1021,8 @@ function PuntoOptimo({
     );
 
   const faltan = a.optimo.dia - metrics.dias;
-  const datos = a.puntos.map((p) => ({ x: p.dia, g: Math.round(p.ganancia) }));
   const marginalHoy = a.puntos[1]?.costoLbMarginal ?? 0;
+  const punto = a.puntos[foco ?? 0];
 
   return (
     <>
@@ -1072,51 +1063,22 @@ function PuntoOptimo({
         </div>
 
         <div className="mt-4">
-          <ResponsiveContainer width="100%" height={150}>
-            <LineChart
-              data={datos}
-              margin={{ top: 4, right: 6, left: -14, bottom: 0 }}
-            >
-              <CartesianGrid stroke="#EEEBE2" vertical={false} />
-              <XAxis
-                dataKey="x"
-                tick={{ fontSize: 11, fill: "#5C6A61" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                width={44}
-                tick={{ fontSize: 11, fill: "#5C6A61" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => numCompacto(Number(v))}
-              />
-              <Tooltip
-                labelFormatter={(x) => `día ${x}`}
-                formatter={(v) => [money(Number(v)), "Ganancia"]}
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid #E3DFD3",
-                  background: "#FCFBF7",
-                  fontSize: 13,
-                  boxShadow: "0 8px 24px -12px rgba(27,43,34,0.2)",
-                }}
-              />
-              <ReferenceLine
-                x={a.optimo.dia}
-                stroke="#1E7340"
-                strokeDasharray="4 3"
-              />
-              <Line
-                dataKey="g"
-                stroke="#2F8A4C"
-                strokeWidth={2.5}
-                dot={false}
-                animationDuration={600}
-                isAnimationActive={!reduceMotion}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <GraficaLineas
+            x={a.puntos.map((p) => p.dia)}
+            series={[{ datos: a.puntos.map((p) => Math.round(p.ganancia)) }]}
+            alto={160}
+            marca={{ x: a.optimo.dia, texto: "el mejor día" }}
+            formatoY={(v) => numCompacto(v)}
+            etiquetaX={(v) => `d${v}`}
+            foco={foco}
+            onFoco={setFoco}
+            resumen={`Ganancia proyectada del día ${a.puntos[0].dia} al ${a.puntos[a.puntos.length - 1].dia}; el máximo cae el día ${a.optimo.dia}.`}
+          />
+          <p className="mt-1 text-center text-xs text-ink-faint tnum">
+            {foco != null
+              ? `Día ${punto.dia} · ${num(punto.pesoLb, 2)} lb · ${money(punto.ganancia)}`
+              : "Arrastra el dedo por la gráfica para ver cualquier día"}
+          </p>
         </div>
       </Card>
 
@@ -1463,8 +1425,10 @@ function CurvaEstandar({
   lote: Lote;
   registros: Registro[];
 }) {
+  const [foco, setFoco] = useState<number>();
   const conPeso = registros.filter((r) => r.pesoPromedio != null);
   if (conPeso.length === 0) return null;
+
   const reales = new Map(
     conPeso.map((r) => [diasEntre(lote.fechaInicio, r.fecha), r.pesoPromedio!]),
   );
@@ -1478,73 +1442,69 @@ function CurvaEstandar({
       real: reales.get(d),
       std: Number(pesoEstandarLb(d).toFixed(2)),
     }));
-  const titulo = `Curva de peso vs. ${RAZA} (lb)`;
-  const unidadX = "día";
+
+  const series: Serie[] = [
+    { datos: puntos.map((p) => p.std), tono: "guia", punteada: true, nombre: RAZA },
+    { datos: puntos.map((p) => p.real), conectar: true, puntos: true, nombre: "Tu lote" },
+  ];
+
+  const ultimo = puntos.reduce((acc, p, i) => (p.real != null ? i : acc), 0);
+  const punto = puntos[foco ?? ultimo];
+  const desvio =
+    punto.real != null ? (punto.real / punto.std - 1) * 100 : undefined;
 
   return (
     <>
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">{titulo}</h2>
-      <Card tono="elevado" className="p-4 pt-5">
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart
-            data={puntos}
-            margin={{ top: 4, right: 8, left: -18, bottom: 0 }}
-          >
-            <CartesianGrid stroke="#EEEBE2" vertical={false} />
-            <XAxis
-              dataKey="x"
-              tick={{ fontSize: 11, fill: "#5C6A61" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "#5C6A61" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              labelFormatter={(x) => `${unidadX} ${x}`}
-              contentStyle={{
-                borderRadius: 12,
-                border: "1px solid #E3DFD3",
-                background: "#FCFBF7",
-                fontSize: 13,
-                boxShadow: "0 8px 24px -12px rgba(27,43,34,0.2)",
-              }}
-            />
-            <Line
-              dataKey="std"
-              name="Estándar"
-              stroke="#5C6A61"
-              strokeDasharray="5 4"
-              strokeWidth={1.5}
-              dot={false}
-              animationDuration={600}
-              animationEasing="ease-out"
-              isAnimationActive={!reduceMotion}
-            />
-            <Line
-              dataKey="real"
-              name="Tu lote"
-              stroke="#2F8A4C"
-              strokeWidth={2.5}
-              dot={{ r: 3, fill: "#2F8A4C" }}
-              connectNulls
-              animationDuration={600}
-              animationEasing="ease-out"
-              isAnimationActive={!reduceMotion}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-        <div className="mt-2 flex items-center justify-center gap-5 text-xs text-ink-faint">
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-5 rounded bg-forest-500" /> Tu lote
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-5 rounded border-b border-dashed border-ink-faint" />{" "}
-            Estándar
-          </span>
+      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">
+        Curva de peso vs. {RAZA} (lb)
+      </h2>
+      <Card tono="elevado" className="p-4">
+        <div className="flex items-end justify-between">
+          <div>
+            <div className="text-xs text-ink-faint">
+              {foco != null
+                ? `Día ${punto.x}`
+                : `Último pesaje · día ${punto.x}`}
+            </div>
+            <div className="font-display text-2xl font-semibold leading-none tnum">
+              {punto.real != null ? `${num(punto.real, 2)} lb` : "sin pesar"}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-ink-faint">Le toca</div>
+            <div className="font-display text-xl font-semibold leading-none tnum text-ink-soft">
+              {num(punto.std, 2)} lb
+            </div>
+            {desvio != null && (
+              <div
+                className={clsx(
+                  "mt-0.5 text-xs font-medium tnum",
+                  desvio >= 0 ? "text-forest-600" : "text-clay-deep",
+                )}
+              >
+                {desvio >= 0 ? "▲" : "▼"} {pct(Math.abs(desvio), 0)}
+              </div>
+            )}
+          </div>
         </div>
+
+        <div className="mt-4">
+          <GraficaLineas
+            x={puntos.map((p) => p.x)}
+            series={series}
+            alto={190}
+            banda="signo"
+            etiquetaX={(v) => `d${v}`}
+            foco={foco}
+            onFoco={setFoco}
+            resumen={`Peso del lote contra el estándar ${RAZA}, del día ${puntos[0].x} al ${maxDia}.`}
+          />
+        </div>
+        <Leyenda series={series} />
+        <p className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
+          Arrastra el dedo por la gráfica para ver cualquier día. Lo verde es lo
+          que llevas de sobra sobre el estándar; lo rojizo, lo que te falta.
+        </p>
       </Card>
     </>
   );
