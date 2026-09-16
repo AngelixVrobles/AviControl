@@ -4,6 +4,7 @@ import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num } from '../../lib/format'
 import { agendaSanitaria, type EventoSanitario } from '../../lib/sanidad'
 import { useSettings } from '../../lib/hooks'
+import { AnimatedNumber } from '../../components/AnimatedNumber'
 import { Button, Card, Pill } from '../../components/ui'
 import { AplicacionSheet } from '../../components/sheets'
 import { sumarDias } from '../../lib/format'
@@ -48,7 +49,7 @@ export function FichaSanidad({
           <div>
             <div className="text-xs text-ink-faint">Aplicaciones anotadas</div>
             <div className="font-display text-2xl font-semibold leading-none tnum">
-              {num(aplicadas)}
+              <AnimatedNumber value={aplicadas} format={(n) => num(n)} />
             </div>
             {pendientes.length > 0 && (
               <div className="mt-1 text-sm text-clay-text">

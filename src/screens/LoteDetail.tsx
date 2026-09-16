@@ -935,7 +935,7 @@ function PrecioMinimo({
         </div>
         <div className="flex items-baseline gap-2">
           <span className="font-display text-3xl font-semibold leading-none tnum">
-            {porLb(a.precioEquilibrioLb)}
+            <AnimatedNumber value={a.precioEquilibrioLb} format={porLb} />
           </span>
           <span className="text-sm text-ink-soft">/ lb</span>
         </div>
@@ -958,11 +958,12 @@ function PrecioMinimo({
       <Card className="mt-3 divide-y divide-line">
         {[...a.escalones, ...(a.actual ? [a.actual] : [])]
           .sort((x, y) => x.precioLb - y.precioLb)
-          .map((e) => (
+          .map((e, i) => (
             <div
               key={e.etiqueta}
+              style={{ animationDelay: `${i * 45}ms` }}
               className={clsx(
-                "flex items-center justify-between px-4 py-2.5",
+                "animate-rise flex items-center justify-between px-4 py-2.5",
                 e.esActual && "bg-green-tint",
               )}
             >

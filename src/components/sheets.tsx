@@ -12,8 +12,8 @@ import {
   type TipoAplicacion,
 } from '../db/schema'
 import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
-import { confirmar } from './confirm'
-import { CATEGORIAS } from '../lib/labels'
+import { confirmar, toast } from './confirm'
+import { CATEGORIAS, categoriaLabel } from '../lib/labels'
 import { diasEntre, hoyISO, money, num, pct, porLb } from '../lib/format'
 import type { LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
@@ -118,6 +118,7 @@ export function RegistroSheet({
     }
     if (existente) await db.registros.update(existente.id, datos)
     else await db.registros.add({ ...datos, creado: Date.now() })
+    toast(existente ? `Día ${dia} corregido` : `Día ${dia} anotado`)
     onClose()
   }
 
@@ -341,6 +342,7 @@ export function PesajeSheet({
     const datos = { loteId: lote.id, fecha, pesos }
     if (editar) await db.pesajes.update(editar.id, datos)
     else await db.pesajes.add({ ...datos, creado: Date.now() })
+    toast(`${num(muestra.n)} aves pesadas · promedio ${num(muestra.promedioLb, 2)} lb`)
 
     // El muestreo manda el peso del día: de ahí salen la curva, el FCA y la
     // proyección de venta.
@@ -551,6 +553,7 @@ export function GastoSheet({
     }
     if (editar) await db.gastos.update(editar.id, datos)
     else await db.gastos.add({ ...datos, creado: Date.now() })
+    toast(`${categoriaLabel(categoria)} · ${money(datos.monto)}`)
     onClose()
   }
 
@@ -671,6 +674,7 @@ export function IngresoSheet({
     }
     if (editar) await db.ingresos.update(editar.id, datos)
     else await db.ingresos.add({ ...datos, creado: Date.now() })
+    toast(`Venta anotada · ${money(datos.monto)}`)
     onClose()
   }
 
@@ -822,6 +826,7 @@ export function CierreSheet({
         await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: fecha, cierre: snap })
       }
     })
+    toast(parcial ? `${num(nAves)} aves vendidas` : `Ciclo cerrado · ${money(ganancia)}`)
     onClose()
   }
 
@@ -1083,6 +1088,7 @@ export function AplicacionSheet({
     }
     if (editar) await db.aplicaciones.update(editar.id, datos)
     else await db.aplicaciones.add({ ...datos, creado: Date.now() })
+    toast(`${datos.nombre} anotada`)
     onClose()
   }
 

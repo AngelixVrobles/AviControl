@@ -4,6 +4,7 @@ import type { Gasto, Lote } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, pct, porLb } from '../../lib/format'
 import { categoriaLabel } from '../../lib/labels'
+import { AnimatedNumber } from '../../components/AnimatedNumber'
 import { Card } from '../../components/ui'
 import { GastoSheet } from '../../components/sheets'
 import { Vacio } from './Vacio'
@@ -71,7 +72,9 @@ export function FichaGastos({
     <div className="space-y-5">
       <Card tono="elevado" className="p-4">
         <div className="text-xs text-ink-faint">Gastado en el ciclo</div>
-        <div className="font-display text-2xl font-semibold leading-none tnum">{money(total)}</div>
+        <div className="font-display text-2xl font-semibold leading-none tnum">
+          <AnimatedNumber value={total} format={(n) => money(n)} />
+        </div>
         <div className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">
           <div>
             <div className="font-display text-lg font-semibold leading-none tnum">
