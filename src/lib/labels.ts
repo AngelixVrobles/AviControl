@@ -25,10 +25,3 @@ export const tipoIngresoLabel = (id: string) =>
 
 export const tipoLoteLabel = (_t: TipoLote) => 'Pollos de engorde'
 
-// Rampa de un solo tono (forest 700 → 500 → 400 → 200 → line). Bajo sol los
-// dos últimos escalones no se distinguen: el orden y el monto son el canal
-// real, la barra solo acompaña.
-export const CHART_RAMP = ['#153F27', '#1E7340', '#4FA968', '#B9DCC3', '#DCD6C7']
-export const CHART_INK = '#3A4840'
-export const CHART_LINE = '#DCD6C7'
-export const CHART_RAISED = '#FFFEFA'

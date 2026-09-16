@@ -59,8 +59,15 @@ export function PantallaError({ detalle }: { detalle?: string }) {
 // React Router atrapa lo que revienta dentro de una ruta antes de que llegue al
 // boundary de arriba, así que necesita el suyo propio.
 export function ErrorDeRuta() {
-  const error = useRouteError()
-  return <PantallaError detalle={error instanceof Error ? error.message : String(error)} />
+  return <PantallaError detalle={detalle(useRouteError())} />
+}
+
+// `String(error)` deja «[object Object]» en todo lo que no sea un Error, que es
+// justo cuando hace falta el detalle.
+function detalle(error: unknown): string {
+  if (error instanceof Error) return error.stack ?? error.message
+  if (error && typeof error === 'object') return JSON.stringify(error, null, 2)
+  return String(error)
 }
 
 interface Estado {
@@ -78,6 +85,6 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, Estado> {
   render() {
     const { error } = this.state
     if (!error) return this.props.children
-    return <PantallaError detalle={error.message} />
+    return <PantallaError detalle={error.stack ?? error.message} />
   }
 }

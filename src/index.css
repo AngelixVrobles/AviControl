@@ -116,3 +116,47 @@
     animation-delay: 0ms !important;
   }
 }
+
+/* La línea se dibuja sola: pathLength="1" normaliza el largo del trazo, así
+   la misma animación sirve para cualquier curva. */
+@keyframes trazo {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-trazo {
+  stroke-dasharray: 1;
+  animation: trazo 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes crecer {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.animate-crecer {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: crecer 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-aparecer {
+  animation: aparecer 0.6s ease-out both;
+}

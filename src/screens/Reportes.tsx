@@ -1,11 +1,10 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { Bar, BarChart, LabelList, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import type { LoteConMetrics } from '../lib/hooks'
 import { useResumen } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
-import { CHART_INK } from '../lib/labels'
 import { Card } from '../components/ui'
+import { GraficaBarras } from '../components/chart'
 import { ComparacionLotes } from '../components/Comparacion'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
 
@@ -157,7 +156,6 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
     nombre: r.lote.nombre.replace(/^Lote\s*/i, ''),
     iep: Math.round(r.metrics.iep!),
   }))
-  const maxIep = Math.max(...datos.map((d) => d.iep))
   const attr = atribucionIEP(conIep)
 
   return (
@@ -167,25 +165,13 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
         Índice de eficiencia (IEP) de cada ciclo. Más alto es mejor.
       </p>
       <Card className="p-4 pt-6">
-        <ResponsiveContainer width="100%" height={190}>
-          <BarChart data={datos} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
-            <YAxis hide domain={[0, Math.ceil((maxIep + 30) / 50) * 50]} />
-            <XAxis
-              dataKey="nombre"
-              tick={{ fontSize: 13, fill: CHART_INK }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Bar dataKey="iep" fill="#1E7340" radius={[6, 6, 0, 0]} maxBarSize={56} isAnimationActive={false}>
-              <LabelList
-                dataKey="iep"
-                position="top"
-                formatter={(v) => (typeof v === 'number' ? num(v) : '')}
-                style={{ fill: CHART_INK, fontSize: 13, fontWeight: 600 }}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <GraficaBarras
+          etiquetas={datos.map((d) => d.nombre)}
+          valores={datos.map((d) => d.iep)}
+          alto={180}
+          formatoValor={(v) => num(v)}
+          resumen={`Índice de eficiencia de ${datos.length} ciclos, de ${datos[0].nombre} a ${datos.at(-1)!.nombre}.`}
+        />
         {attr && (
           <p className="mt-3 border-t border-line pt-3 text-sm leading-relaxed text-ink-soft">
             <span className="font-semibold text-forest-600">▲ {attr.delta} puntos</span> desde{' '}
