@@ -111,6 +111,34 @@ export interface Ingreso {
   creado: number
 }
 
+export type CategoriaDeuda = 'estructura' | 'equipo' | 'terreno' | 'otros'
+
+// Lo que se debe por la granja en sí —el galpón, el equipo, el terreno— y no
+// por un ciclo. No se salda de un golpe con una crianza: se va abonando, así
+// que vive fuera del resultado del ciclo para no ensuciar la comparación entre
+// crianzas.
+export interface Deuda {
+  id: number
+  concepto: string
+  categoria: CategoriaDeuda
+  monto: number
+  fecha: string
+  acreedor?: string
+  socios?: Socio[]
+  notas?: string
+  creado: number
+}
+
+export interface Abono {
+  id: number
+  deudaId: number
+  fecha: string
+  monto: number
+  pagadoPor?: number
+  nota?: string
+  creado: number
+}
+
 export const db = new Dexie('avicontrol') as Dexie & {
   lotes: EntityTable<Lote, 'id'>
   registros: EntityTable<Registro, 'id'>
@@ -118,6 +146,8 @@ export const db = new Dexie('avicontrol') as Dexie & {
   ingresos: EntityTable<Ingreso, 'id'>
   pesajes: EntityTable<Pesaje, 'id'>
   aplicaciones: EntityTable<Aplicacion, 'id'>
+  deudas: EntityTable<Deuda, 'id'>
+  abonos: EntityTable<Abono, 'id'>
 }
 
 db.version(1).stores({
@@ -133,4 +163,9 @@ db.version(2).stores({
 
 db.version(3).stores({
   aplicaciones: '++id, loteId, fecha',
+})
+
+db.version(4).stores({
+  deudas: '++id, fecha',
+  abonos: '++id, deudaId, fecha',
 })

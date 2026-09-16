@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Gasto, type Ingreso, type Lote, type Pesaje, type Registro } from '../db/schema'
+import {
+  db,
+  type Abono,
+  type Aplicacion,
+  type Deuda,
+  type Gasto,
+  type Ingreso,
+  type Lote,
+  type Pesaje,
+  type Registro,
+} from '../db/schema'
 import { saveSettings, type Settings } from '../lib/settings'
 import { useSettings } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
@@ -11,7 +21,7 @@ import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
 
 const KG_A_LB = 2.20462
-const VERSION_ACTUAL = 2
+const VERSION_ACTUAL = 3
 
 interface Respaldo {
   version?: number
@@ -21,6 +31,9 @@ interface Respaldo {
   gastos?: Gasto[]
   ingresos?: Ingreso[]
   pesajes?: Pesaje[]
+  aplicaciones?: Aplicacion[]
+  deudas?: Deuda[]
+  abonos?: Abono[]
 }
 
 // Los respaldos anteriores a la migración a libras traen alimentoKg/pesoKg.
@@ -56,15 +69,25 @@ export function Ajustes() {
   }, [])
 
   async function exportar() {
-    const [lotes, registros, gastos, ingresos, pesajes] = await Promise.all([
-      db.lotes.toArray(),
-      db.registros.toArray(),
-      db.gastos.toArray(),
-      db.ingresos.toArray(),
-      db.pesajes.toArray(),
-    ])
+    const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos] =
+      await Promise.all([
+        db.lotes.toArray(),
+        db.registros.toArray(),
+        db.gastos.toArray(),
+        db.ingresos.toArray(),
+        db.pesajes.toArray(),
+        db.aplicaciones.toArray(),
+        db.deudas.toArray(),
+        db.abonos.toArray(),
+      ])
     const blob = new Blob(
-      [JSON.stringify({ version: VERSION_ACTUAL, settings: s, lotes, registros, gastos, ingresos, pesajes }, null, 2)],
+      [
+        JSON.stringify(
+          { version: VERSION_ACTUAL, settings: s, lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos },
+          null,
+          2,
+        ),
+      ],
       { type: 'application/json' },
     )
     const url = URL.createObjectURL(blob)
@@ -111,20 +134,30 @@ export function Ajustes() {
 
     migrarUnidades(data)
     try {
-      await db.transaction('rw', db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, async () => {
-        await Promise.all([
-          db.lotes.clear(),
-          db.registros.clear(),
-          db.gastos.clear(),
-          db.ingresos.clear(),
-          db.pesajes.clear(),
-        ])
-        await db.lotes.bulkAdd(data.lotes!)
-        await db.registros.bulkAdd(data.registros!)
-        await db.gastos.bulkAdd(data.gastos!)
-        await db.ingresos.bulkAdd(data.ingresos!)
-        await db.pesajes.bulkAdd(data.pesajes ?? [])
-      })
+      await db.transaction(
+        'rw',
+        [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.aplicaciones, db.deudas, db.abonos],
+        async () => {
+          await Promise.all([
+            db.lotes.clear(),
+            db.registros.clear(),
+            db.gastos.clear(),
+            db.ingresos.clear(),
+            db.pesajes.clear(),
+            db.aplicaciones.clear(),
+            db.deudas.clear(),
+            db.abonos.clear(),
+          ])
+          await db.lotes.bulkAdd(data.lotes!)
+          await db.registros.bulkAdd(data.registros!)
+          await db.gastos.bulkAdd(data.gastos!)
+          await db.ingresos.bulkAdd(data.ingresos!)
+          await db.pesajes.bulkAdd(data.pesajes ?? [])
+          await db.aplicaciones.bulkAdd(data.aplicaciones ?? [])
+          await db.deudas.bulkAdd(data.deudas ?? [])
+          await db.abonos.bulkAdd(data.abonos ?? [])
+        },
+      )
     } catch {
       toast('No se pudo restaurar. Tus datos actuales no cambiaron.')
       return

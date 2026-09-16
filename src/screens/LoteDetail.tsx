@@ -24,7 +24,7 @@ import { analizarPuntoOptimo } from "../lib/optimo";
 import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
-import { computeLiquidacion } from "../lib/sociedad";
+import { computeLiquidacion, gananciaPorSocio } from "../lib/sociedad";
 import { compartirReporte } from "../lib/reporte";
 import {
   diasEntre,
@@ -745,6 +745,7 @@ function ComoSalio({
   const r = resultadoCiclo(lote, metrics, ingresos);
   if (!r) return null;
   const positivo = r.ganancia >= 0;
+  const reparto = gananciaPorSocio([{ socios: lote.socios, ganancia: r.ganancia }]);
 
   return (
     <>
@@ -764,6 +765,26 @@ function ComoSalio({
         <div className="mt-1.5 text-sm text-ink-soft tnum">
           {money(r.gananciaPorAve)} por ave · margen {pct(r.margenPct)}
         </div>
+
+        {reparto.socios.length > 0 && (
+          <div className="mt-4 divide-y divide-line border-t border-line">
+            {reparto.socios.map((s) => (
+              <div key={s.nombre} className="flex items-baseline justify-between py-2.5">
+                <span className="text-sm">
+                  {s.nombre} <span className="text-ink-faint tnum">{pct(s.pct, 0)}</span>
+                </span>
+                <span
+                  className={clsx(
+                    "font-display text-lg font-semibold tnum",
+                    s.monto >= 0 ? "text-forest-600" : "text-clay-deep",
+                  )}
+                >
+                  {money(s.monto)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4">
           <div>
             <div className="font-display text-base font-semibold leading-none tnum">

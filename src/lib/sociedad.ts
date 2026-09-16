@@ -85,3 +85,36 @@ function liquidar(balances: SocioBalance[]): Traspaso[] {
   }
   return out
 }
+
+export interface GananciaSocio {
+  nombre: string
+  pct: number
+  monto: number
+}
+
+/** Reparte la ganancia de uno o varios ciclos entre quienes la llevan. */
+export function gananciaPorSocio(ciclos: { socios?: Socio[]; ganancia: number }[]): {
+  socios: GananciaSocio[]
+  sinSociedad: number
+} {
+  const acumulado = new Map<string, GananciaSocio>()
+  let sinSociedad = 0
+
+  for (const c of ciclos) {
+    if (!c.socios || c.socios.length < 2) {
+      sinSociedad += c.ganancia
+      continue
+    }
+    const fr = norm(c.socios)
+    c.socios.forEach((s, i) => {
+      const previo = acumulado.get(s.nombre)
+      acumulado.set(s.nombre, {
+        nombre: s.nombre,
+        pct: fr[i] * 100,
+        monto: (previo?.monto ?? 0) + fr[i] * c.ganancia,
+      })
+    })
+  }
+
+  return { socios: [...acumulado.values()], sinSociedad }
+}

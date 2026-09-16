@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeLiquidacion } from './sociedad'
+import { computeLiquidacion, gananciaPorSocio } from './sociedad'
 import { computeMetrics } from './metrics'
 import { gasto, ingreso, lote, registro } from '../test/fixtures'
 
@@ -96,5 +96,39 @@ describe('computeLiquidacion', () => {
       { de: 'Ana', a: 'Beto', monto: 30000 },
       { de: 'Ana', a: 'Cid', monto: 20000 },
     ])
+  })
+})
+
+describe('gananciaPorSocio', () => {
+  const socios = [
+    { nombre: 'Yo', pct: 60 },
+    { nombre: 'Socio', pct: 40 },
+  ]
+
+  it('reparte la ganancia de un ciclo según el acuerdo', () => {
+    const r = gananciaPorSocio([{ socios, ganancia: 100000 }])
+    expect(r.socios).toEqual([
+      { nombre: 'Yo', pct: 60, monto: 60000 },
+      { nombre: 'Socio', pct: 40, monto: 40000 },
+    ])
+    expect(r.sinSociedad).toBe(0)
+  })
+
+  it('acumula varios ciclos bajo el mismo nombre', () => {
+    const r = gananciaPorSocio([
+      { socios, ganancia: 100000 },
+      { socios, ganancia: 50000 },
+    ])
+    expect(r.socios[0].monto).toBe(90000)
+  })
+
+  it('las pérdidas también se reparten', () => {
+    expect(gananciaPorSocio([{ socios, ganancia: -10000 }]).socios[0].monto).toBe(-6000)
+  })
+
+  it('aparta lo que sale de ciclos que no son en sociedad', () => {
+    const r = gananciaPorSocio([{ socios, ganancia: 100000 }, { ganancia: 30000 }])
+    expect(r.sinSociedad).toBe(30000)
+    expect(r.socios).toHaveLength(2)
   })
 })

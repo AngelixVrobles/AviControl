@@ -4,6 +4,7 @@ import { db, type Lote } from '../db/schema'
 import { computeAlertas, type Alerta } from './alerts'
 import { computeMetrics, type LoteMetrics } from './metrics'
 import { getSettings, type Settings } from './settings'
+import { resumenDeudas } from './deudas'
 
 export function useLotes(estado?: 'activo' | 'cerrado') {
   return useLiveQuery(async () => {
@@ -74,4 +75,11 @@ export function useSettings(): Settings {
     return () => window.removeEventListener('settings-changed', h)
   }, [])
   return s
+}
+
+export function useDeudas() {
+  return useLiveQuery(async () => {
+    const [deudas, abonos] = await Promise.all([db.deudas.toArray(), db.abonos.toArray()])
+    return resumenDeudas(deudas, abonos)
+  }, [])
 }
