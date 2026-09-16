@@ -3,7 +3,7 @@ import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
 import { useResumen } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
-import { Card } from '../components/ui'
+import { Card, Seccion } from '../components/ui'
 import { GraficaBarras } from '../components/chart'
 import { ComparacionLotes } from '../components/Comparacion'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
@@ -160,11 +160,17 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
 
   return (
     <>
-      <h2 className="mb-1 mt-7 font-display text-lg font-semibold">¿Vas mejorando?</h2>
-      <p className="mb-3 text-sm text-ink-soft">
-        Índice de eficiencia (IEP) de cada ciclo. Más alto es mejor.
-      </p>
-      <Card className="p-4 pt-6">
+      <Seccion
+        className="mt-8"
+        etiqueta="Ciclo contra ciclo"
+        titulo={
+          attr
+            ? `Subiste ${attr.delta} puntos de eficiencia desde ${attr.desde}`
+            : 'Índice de eficiencia de cada ciclo'
+        }
+        nota="El IEP junta peso, conversión, mortalidad y días en un solo número. Más alto es mejor."
+      />
+      <Card className="mt-3 p-4 pt-6">
         <GraficaBarras
           etiquetas={datos.map((d) => d.nombre)}
           valores={datos.map((d) => d.iep)}
@@ -174,8 +180,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
         />
         {attr && (
           <p className="mt-3 border-t border-line pt-3 text-sm leading-relaxed text-ink-soft">
-            <span className="font-semibold text-forest-600">▲ {attr.delta} puntos</span> desde{' '}
-            {attr.desde} — {attr.frase}
+            {attr.frase}
           </p>
         )}
       </Card>
@@ -224,11 +229,11 @@ function atribucionIEP(cerrados: LoteConMetrics[]): Atribucion | null {
 
   const [d1, d2] = factores
   const desde = mesCorto(peor.lote.fechaInicio)
-  if (d1.w === 0) return { delta, desde, frase: 'mejoró parejo en todo.' }
+  if (d1.w === 0) return { delta, desde, frase: 'Mejoró parejo en todo.' }
   const frase =
     d2.w / d1.w >= 0.85
-      ? `mitad y mitad entre ${d1.frase} y ${d2.frase}.`
-      : `casi todo por ${d1.frase}.`
+      ? `La mitad viene de ${d1.frase} y la otra mitad, de ${d2.frase}.`
+      : `Casi todo viene de ${d1.frase}.`
   return { delta, desde, frase }
 }
 

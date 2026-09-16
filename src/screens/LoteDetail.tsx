@@ -47,8 +47,8 @@ import { AlertaChip } from "../components/AlertaChip";
 import { FichasNav } from "../components/FichasNav";
 import { confirmar } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
-import { Button, Card, Pill } from "../components/ui";
-import { GraficaLineas, Leyenda, type Serie } from "../components/chart";
+import { Button, Card, Pill, Seccion } from "../components/ui";
+import { GraficaLineas } from "../components/chart";
 import {
   IconBack,
   IconMoney,
@@ -284,9 +284,7 @@ export function LoteDetail() {
           <GuiaDelDia lote={lote} metrics={metrics} />
           <FaseActual lote={lote} gastos={gastos} metrics={metrics} />
 
-          <h2 className="mb-1 mt-7 font-display text-lg font-semibold">
-            Historial
-          </h2>
+          <Seccion className="mb-3 mt-8" etiqueta="Historial" />
           {registros.length === 0 ? (
             <p className="rounded-xl2 border border-dashed border-line bg-paper-raised/60 px-6 py-12 text-center text-sm text-ink-faint">
               Sin registros aún. Toca “Registrar día” para empezar.
@@ -345,7 +343,7 @@ export function LoteDetail() {
 
       {tab === "crecimiento" && (
         <div className="animate-rise">
-          <CurvaEstandar lote={lote} registros={registros} />
+          <Desvio lote={lote} registros={registros} />
           <GridCrecimiento metrics={metrics} />
           <Muestreo
             lote={lote}
@@ -466,9 +464,7 @@ export function LoteDetail() {
 
           {ingresos.length > 0 && (
             <>
-              <h2 className="mb-1 mt-7 font-display text-lg font-semibold">
-                Ventas
-              </h2>
+              <Seccion className="mb-3 mt-8" etiqueta="Ventas" />
               <p className="mb-3 text-xs text-ink-faint">
                 Toca una para corregirla.
               </p>
@@ -588,15 +584,15 @@ function Muestreo({
 
   return (
     <>
-      <div className="mb-3 mt-7 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold">Muestreo de peso</h2>
-        <button
-          onClick={onNuevo}
-          className="text-sm font-semibold text-forest-600"
-        >
-          Pesar aves →
-        </button>
-      </div>
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Muestreo de peso"
+        accion={
+          <button onClick={onNuevo} className="text-sm font-semibold text-forest-600">
+            Pesar aves →
+          </button>
+        }
+      />
 
       {!m || !ultimo ? (
         <Card className="p-4">
@@ -880,9 +876,7 @@ function PrecioMinimo({
   if (!a)
     return (
       <>
-        <h2 className="mb-3 mt-7 font-display text-lg font-semibold">
-          ¿A cómo vender?
-        </h2>
+        <Seccion className="mb-3 mt-8" etiqueta="A cómo vender" />
         <Card className="p-4 text-sm text-ink-faint">
           Pesa unas aves para saber cuántas libras vas a vender; con eso se
           calcula el precio mínimo por libra.
@@ -1010,10 +1004,12 @@ function PuntoOptimo({
   if (!a)
     return (
       <>
-        <h2 className="mb-3 mt-7 font-display text-lg font-semibold">
-          ¿Hasta qué día conviene?
-        </h2>
-        <Card className="p-4 text-sm text-ink-faint">
+        <Seccion
+          className="mt-8"
+          etiqueta="Punto de venta"
+          titulo="Todavía no se puede calcular hasta qué día conviene"
+        />
+        <Card className="mt-3 p-4 text-sm text-ink-faint">
           Necesita tu precio de venta por libra, el precio del quintal y al
           menos un pesaje para decirte hasta qué día vale la pena engordar.
         </Card>
@@ -1026,15 +1022,18 @@ function PuntoOptimo({
 
   return (
     <>
-      <h2 className="mb-1 mt-7 font-display text-lg font-semibold">
-        ¿Hasta qué día conviene?
-      </h2>
-      <p className="mb-3 text-xs text-ink-faint">
-        Cada día extra el pollo convierte peor. Aquí está el día en que la
-        ganancia deja de subir.
-      </p>
+      <Seccion
+        className="mt-8"
+        etiqueta="Punto de venta"
+        titulo={
+          faltan > 0
+            ? `Te conviene esperar hasta el día ${a.optimo.dia}`
+            : `El mejor día era el ${a.optimo.dia} y ya pasó`
+        }
+        nota="Cada día extra el pollo convierte peor. Este es el día en que la ganancia deja de subir."
+      />
 
-      <Card className="p-4">
+      <Card className="mt-3 p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-xs text-ink-faint">Mejor día para vender</div>
@@ -1068,6 +1067,7 @@ function PuntoOptimo({
             series={[{ datos: a.puntos.map((p) => Math.round(p.ganancia)) }]}
             alto={160}
             marca={{ x: a.optimo.dia, texto: "el mejor día" }}
+            referencia={{ valor: 0, texto: "Equilibrio" }}
             formatoY={(v) => numCompacto(v)}
             etiquetaX={(v) => `d${v}`}
             foco={foco}
@@ -1264,9 +1264,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
   ];
   return (
     <>
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">
-        Guía del día {g.dia}
-      </h2>
+      <Seccion className="mb-3 mt-8" etiqueta="Hoy" titulo={`Guía del día ${g.dia}`} />
       <Card tono="elevado" className="p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
@@ -1360,7 +1358,7 @@ function Sociedad({
 
   return (
     <>
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Sociedad</h2>
+      <Seccion className="mb-3 mt-8" etiqueta="Sociedad" />
       <Card className="divide-y divide-line">
         {liq.socios.map((s, i) => (
           <div key={i} className="px-4 py-3">
@@ -1418,56 +1416,45 @@ function Sociedad({
   );
 }
 
-function CurvaEstandar({
-  lote,
-  registros,
-}: {
-  lote: Lote;
-  registros: Registro[];
-}) {
+function Desvio({ lote, registros }: { lote: Lote; registros: Registro[] }) {
   const [foco, setFoco] = useState<number>();
-  const conPeso = registros.filter((r) => r.pesoPromedio != null);
+  const conPeso = registros
+    .filter((r) => r.pesoPromedio != null)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
   if (conPeso.length === 0) return null;
 
-  const reales = new Map(
-    conPeso.map((r) => [diasEntre(lote.fechaInicio, r.fecha), r.pesoPromedio!]),
-  );
-  const maxDia = Math.max(...reales.keys(), 21);
-  const dias = new Set<number>(reales.keys());
-  for (let d = 0; d <= maxDia; d += 7) dias.add(d);
-  const puntos = [...dias]
-    .sort((a, b) => a - b)
-    .map((d) => ({
-      x: d,
-      real: reales.get(d),
-      std: Number(pesoEstandarLb(d).toFixed(2)),
-    }));
+  const puntos = conPeso.map((r) => {
+    const dia = diasEntre(lote.fechaInicio, r.fecha);
+    const std = pesoEstandarLb(dia);
+    return { dia, peso: r.pesoPromedio!, std, desvio: (r.pesoPromedio! / std - 1) * 100 };
+  });
+  const ultimo = puntos[puntos.length - 1];
+  const punto = puntos[foco ?? puntos.length - 1];
 
-  const series: Serie[] = [
-    { datos: puntos.map((p) => p.std), tono: "guia", punteada: true, nombre: RAZA },
-    { datos: puntos.map((p) => p.real), conectar: true, puntos: true, nombre: "Tu lote" },
-  ];
-
-  const ultimo = puntos.reduce((acc, p, i) => (p.real != null ? i : acc), 0);
-  const punto = puntos[foco ?? ultimo];
-  const desvio =
-    punto.real != null ? (punto.real / punto.std - 1) * 100 : undefined;
+  const peor = puntos.reduce((p, q, i) => (q.desvio < puntos[p].desvio ? i : p), 0);
+  const nota =
+    peor !== puntos.length - 1 && Math.abs(puntos[peor].desvio) >= 5
+      ? {
+          indice: peor,
+          texto: `${pct(puntos[peor].desvio, 0)} el día ${puntos[peor].dia}`,
+        }
+      : undefined;
 
   return (
     <>
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">
-        Curva de peso vs. {RAZA} (lb)
-      </h2>
-      <Card tono="elevado" className="p-4">
+      <Seccion
+        etiqueta="Crecimiento"
+        titulo={tituloDesvio(puntos)}
+        className="mt-8"
+      />
+      <Card tono="elevado" className="mt-3 p-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">
-              {foco != null
-                ? `Día ${punto.x}`
-                : `Último pesaje · día ${punto.x}`}
+              {foco != null ? `Día ${punto.dia}` : `Último pesaje · día ${punto.dia}`}
             </div>
             <div className="font-display text-2xl font-semibold leading-none tnum">
-              {punto.real != null ? `${num(punto.real, 2)} lb` : "sin pesar"}
+              {num(punto.peso, 2)} lb
             </div>
           </div>
           <div className="text-right">
@@ -1475,37 +1462,53 @@ function CurvaEstandar({
             <div className="font-display text-xl font-semibold leading-none tnum text-ink-soft">
               {num(punto.std, 2)} lb
             </div>
-            {desvio != null && (
-              <div
-                className={clsx(
-                  "mt-0.5 text-xs font-medium tnum",
-                  desvio >= 0 ? "text-forest-600" : "text-clay-deep",
-                )}
-              >
-                {desvio >= 0 ? "▲" : "▼"} {pct(Math.abs(desvio), 0)}
-              </div>
-            )}
+            <div
+              className={clsx(
+                "mt-0.5 text-xs font-medium tnum",
+                punto.desvio >= 0 ? "text-forest-600" : "text-clay-deep",
+              )}
+            >
+              {punto.desvio >= 0 ? "▲" : "▼"} {pct(Math.abs(punto.desvio), 0)}
+            </div>
           </div>
         </div>
 
         <div className="mt-4">
           <GraficaLineas
-            x={puntos.map((p) => p.x)}
-            series={series}
+            x={puntos.map((p) => p.dia)}
+            series={[{ datos: puntos.map((p) => p.desvio), puntos: true }]}
             alto={190}
             banda="signo"
+            referencia={{ valor: 0, texto: RAZA }}
+            nota={nota}
+            formatoY={(v) => `${v > 0 ? "+" : ""}${num(v, 0)}%`}
             etiquetaX={(v) => `d${v}`}
             foco={foco}
             onFoco={setFoco}
-            resumen={`Peso del lote contra el estándar ${RAZA}, del día ${puntos[0].x} al ${maxDia}.`}
+            resumen={`Desvío del peso contra el estándar ${RAZA}, del día ${puntos[0].dia} al ${ultimo.dia}.`}
           />
         </div>
-        <Leyenda series={series} />
         <p className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
-          Arrastra el dedo por la gráfica para ver cualquier día. Lo verde es lo
-          que llevas de sobra sobre el estándar; lo rojizo, lo que te falta.
+          La línea del centro es el {RAZA}. Arriba es lo que le sacas de ventaja;
+          abajo, lo que le falta. Arrastra el dedo para ver cualquier pesaje.
         </p>
       </Card>
     </>
   );
+}
+
+// El titular dice la conclusión, no el nombre del gráfico: en libras absolutas
+// un 18 % de atraso el día 7 son 0.07 lb y el día 34 son 0.97 lb, así que la
+// curva de peso hacía ver como creciente un problema que venía igual desde el
+// principio.
+function tituloDesvio(puntos: { dia: number; desvio: number }[]) {
+  const ultimo = puntos[puntos.length - 1];
+  if (Math.abs(ultimo.desvio) < 3) return `Vas al día con el ${RAZA}`;
+  const frase = `${pct(Math.abs(ultimo.desvio), 0)} por ${ultimo.desvio > 0 ? "encima" : "debajo"} del ${RAZA}`;
+  const primero = puntos[0];
+  const vieneDeAntes =
+    puntos.length > 1 &&
+    Math.abs(primero.desvio) >= 3 &&
+    primero.desvio > 0 === ultimo.desvio > 0;
+  return vieneDeAntes ? `${frase} desde el día ${primero.dia}` : frase;
 }

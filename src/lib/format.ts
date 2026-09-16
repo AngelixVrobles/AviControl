@@ -30,6 +30,7 @@ export function numCompacto(value: number): string {
   return new Intl.NumberFormat('es-DO', { notation: 'compact', maximumFractionDigits: 1 })
     .format(value)
     .replace('K', 'k')
+    .replace('-', '−')
 }
 
 export const plural = (n: number, singular: string, plural: string) =>
@@ -39,7 +40,11 @@ export function num(value: number, decimals = 0): string {
   return new Intl.NumberFormat('es-DO', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value)
+    // El guion de restar es más corto que el menos y desalinea una columna de
+    // cifras tabulares; `money` ya usaba el menos de verdad.
+  })
+    .format(value)
+    .replace('-', '−')
 }
 
 export function pct(value: number, decimals = 1): string {

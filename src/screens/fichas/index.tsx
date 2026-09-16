@@ -9,7 +9,7 @@ import { FichaMortalidad } from './Mortalidad'
 import { FichaSanidad } from './Sanidad'
 
 export const FICHAS = {
-  aves: { titulo: 'Aves', sub: 'Bajas día a día contra lo esperado' },
+  aves: { titulo: 'Aves', sub: 'Semana a semana contra lo esperado' },
   alimento: { titulo: 'Alimento', sub: 'Lo que diste contra lo que tocaba' },
   sanidad: { titulo: 'Sanidad', sub: 'Plan de vacunas y lo que aplicaste' },
   gastos: { titulo: 'Gastos', sub: 'Cada peso, por categoría' },

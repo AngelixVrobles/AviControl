@@ -6,7 +6,7 @@ import { useSettings } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
-import { Card, DangerButton, Field, Input } from '../components/ui'
+import { Card, DangerButton, Field, Input, Seccion } from '../components/ui'
 import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
 
@@ -181,7 +181,7 @@ export function Ajustes() {
 
       <AvisoRespaldo ultimo={s.ultimoRespaldo} onRespaldar={exportar} onRestaurar={pickFile} />
 
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Producción</h2>
+      <Seccion className="mb-3 mt-8" etiqueta="Producción" />
       <Card className="divide-y divide-line">
         <FilaEstatica label="Raza que usas" valor={RAZA} sub="Define pesos y consumo esperados" />
         <FilaNumero
@@ -208,7 +208,7 @@ export function Ajustes() {
 
       <PlanSanitario plan={s.planSanitario} />
 
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold">Granja</h2>
+      <Seccion className="mb-3 mt-8" etiqueta="Granja" />
       <Card className="space-y-4 p-4">
         <Field label="Nombre de la granja">
           <Input defaultValue={s.granja} onBlur={(e) => saveSettings({ granja: e.target.value.trim() || 'Mi granja' })} />
@@ -238,7 +238,7 @@ export function Ajustes() {
         </div>
       </Card>
 
-      <h2 className="mb-3 mt-7 font-display text-lg font-semibold text-clay-deep">Zona de peligro</h2>
+      <Seccion className="mb-3 mt-8 text-clay-deep" etiqueta="Zona de peligro" />
       <Card className="space-y-3 p-4">
         <p className="text-sm leading-relaxed text-ink-soft">
           Borra {num(conteos?.ciclos ?? 0)} ciclos, {num(conteos?.registros ?? 0)} registros diarios,{' '}
@@ -309,10 +309,11 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
 
   return (
     <>
-      <h2 className="mb-1 mt-7 font-display text-lg font-semibold">Plan sanitario</h2>
-      <p className="mb-3 text-sm text-ink-soft">
-        Lo que aparece como hito en la barra del ciclo. Ajústalo al plan de tu veterinario.
-      </p>
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Plan sanitario"
+        nota="Lo que aparece como hito en la barra del ciclo. Ajústalo al plan de tu veterinario."
+      />
       <Card className="space-y-3 p-4">
         {items.map((h, i) => (
           <div key={i} className="flex items-center gap-2">

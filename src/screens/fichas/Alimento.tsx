@@ -7,8 +7,8 @@ import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '
 import { precioQuintalReal } from '../../lib/precios'
 import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
 import { db } from '../../db/schema'
-import { Card } from '../../components/ui'
-import { GraficaLineas, Leyenda, type Serie } from '../../components/chart'
+import { Card, Seccion } from '../../components/ui'
+import { GraficaLineas } from '../../components/chart'
 import { Vacio } from './Vacio'
 
 export function FichaAlimento({
@@ -250,19 +250,11 @@ function Agua({ resumen }: { resumen: ResumenAgua }) {
   const [foco, setFoco] = useState<number>()
   const dia = resumen.dias[foco ?? resumen.dias.length - 1]
   const estado = estadoAgua(dia.litrosPorLb)
-  const series: Serie[] = [
-    { datos: resumen.dias.map((d) => d.esperadoL), tono: 'guia', punteada: true, nombre: 'Lo normal' },
-    { datos: resumen.dias.map((d) => d.litros), nombre: 'Bebieron' },
-  ]
 
   return (
     <div>
-      <h3 className="mb-1 font-display text-base font-semibold">Agua</h3>
-      <p className="mb-2 text-xs text-ink-faint">
-        Un pollo bebe cerca del doble de lo que come. Cuando el agua cae, cae antes que cualquier
-        síntoma.
-      </p>
-      <Card className="p-4">
+      <Seccion etiqueta="Agua" titulo={tituloAgua(resumen)} />
+      <Card className="mt-3 p-4">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">
@@ -295,26 +287,50 @@ function Agua({ resumen }: { resumen: ResumenAgua }) {
           <div className="mt-4 border-t border-line pt-4">
             <GraficaLineas
               x={resumen.dias.map((d) => d.dia)}
-              series={series}
-              alto={140}
+              series={[
+                {
+                  datos: resumen.dias.map((d) => d.esperadoL),
+                  tono: 'guia',
+                  punteada: true,
+                },
+                { datos: resumen.dias.map((d) => d.litros) },
+              ]}
+              alto={150}
               banda="neutro"
               formatoY={(v) => numCompacto(v)}
               etiquetaX={(v) => `d${v}`}
+              nota={
+                resumen.caidaPct != null
+                  ? {
+                      indice: resumen.dias.length - 1,
+                      texto: `${pct(resumen.caidaPct, 0)} menos`,
+                    }
+                  : undefined
+              }
               foco={foco}
               onFoco={setFoco}
               resumen={`Agua bebida por día contra lo esperado, del día ${resumen.dias[0].dia} al ${resumen.ultimo.dia}.`}
             />
-            <Leyenda series={series} />
+            <p className="mt-2 text-center text-xs text-ink-faint">
+              La punteada es lo que les tocaba beber ese día.
+            </p>
           </div>
         )}
       </Card>
       {resumen.caidaPct != null && (
         <p className="mt-2 rounded-xl border-l-4 border-clay bg-clay-tint px-4 py-3 text-sm leading-relaxed text-clay-text">
-          El último día bebieron {pct(resumen.caidaPct, 0)} menos que los anteriores. Revisa que los
-          bebederos tengan presión y altura, y mira si hay aves decaídas: el agua se cae un día antes
-          que todo lo demás.
+          Revisa que los bebederos tengan presión y altura, y mira si hay aves decaídas: el agua se
+          cae un día antes que todo lo demás.
         </p>
       )}
     </div>
   )
+}
+
+function tituloAgua(resumen: ResumenAgua) {
+  if (resumen.caidaPct != null)
+    return `El último día bebieron ${pct(resumen.caidaPct, 0)} menos que los anteriores`
+  if (resumen.estado === 'bajo') return 'Están bebiendo por debajo de lo normal'
+  if (resumen.estado === 'alto') return 'Están bebiendo más de lo normal'
+  return 'Beben lo que les toca'
 }

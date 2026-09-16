@@ -4,7 +4,7 @@ import { AlertaChip } from '../components/AlertaChip'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { LoteCard } from '../components/LoteCard'
 import type { LoteConMetrics } from '../lib/hooks'
-import { Button, EmptyState } from '../components/ui'
+import { Button, EmptyState, Seccion } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
 import { fechaLarga, hoyISO, money, num, plural, porLb } from '../lib/format'
 import { useResumen, useSettings } from '../lib/hooks'
@@ -58,12 +58,15 @@ export function Dashboard() {
 
           <Alertas activos={activos} />
 
-          <div className="mt-7 flex items-center justify-between">
-            <h2 className="font-display text-lg font-semibold">Ciclos en curso</h2>
-            <Link to="/lotes" className="-m-2 p-2 text-sm font-medium text-forest-600">
-              Ver todos
-            </Link>
-          </div>
+          <Seccion
+            className="mt-8"
+            etiqueta="Ciclos en curso"
+            accion={
+              <Link to="/lotes" className="-m-2 p-2 text-sm font-medium text-forest-600">
+                Ver todos
+              </Link>
+            }
+          />
           <div className="mt-3 space-y-3">
             {activos.map((d, i) => (
               <div key={d.lote.id} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
@@ -90,7 +93,7 @@ function Alertas({ activos }: { activos: LoteConMetrics[] }) {
 
   return (
     <section className="mt-7">
-      <h2 className="mb-3 font-display text-lg font-semibold">Alertas</h2>
+      <Seccion className="mb-3" etiqueta="Alertas" />
       <div className="space-y-2">
         {visibles.map(({ a, lote }, i) => (
           <AlertaChip key={`${lote.id}-${i}`} alerta={a} titulo={lote.nombre} to={`/lotes/${lote.id}`} />
