@@ -34,7 +34,7 @@ export function BottomNav() {
           >
             <IconLapiz width={24} height={24} />
           </button>
-          <span className="-mt-1.5 text-[11px] font-semibold text-forest-600">Registrar</span>
+          <span className="-mt-1.5 text-xs font-semibold text-forest-600">Registrar</span>
         </div>
         {items.slice(2).map((it) => (
           <Tab key={it.to} {...it} />
@@ -61,7 +61,7 @@ function Tab({
       end={end}
       className={({ isActive }) =>
         clsx(
-          'flex flex-col items-center gap-1 py-2 text-[11px] font-medium transition',
+          'flex flex-col items-center gap-1 py-2 text-xs font-medium transition',
           isActive ? 'text-forest-600' : 'text-ink-faint',
         )
       }

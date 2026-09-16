@@ -28,8 +28,8 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
     >
       <div className="flex items-start justify-between">
         <div className="min-w-0">
-          <div className="truncate font-display text-[19px] font-semibold leading-tight">{lote.nombre}</div>
-          <div className="mt-0.5 text-[13px] text-ink-soft tnum">
+          <div className="truncate font-display text-lg font-semibold leading-tight">{lote.nombre}</div>
+          <div className="mt-0.5 text-sm text-ink-soft tnum">
             {cerrado
               ? `${num(metrics.vendidas)} ${plural(metrics.vendidas, 'ave vendida', 'aves vendidas')}`
               : `${num(metrics.avesVivas)} ${plural(metrics.avesVivas, 'ave', 'aves')}`}{' '}
@@ -37,8 +37,8 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
           </div>
         </div>
         <div className="shrink-0 pl-3 text-right">
-          <div className="font-display text-[26px] font-semibold leading-none tnum">{metrics.dias}</div>
-          <div className="mt-0.5 text-[12px] text-ink-faint tnum">
+          <div className="font-display text-2xl font-semibold leading-none tnum">{metrics.dias}</div>
+          <div className="mt-0.5 text-xs text-ink-faint tnum">
             {cerrado ? plural(metrics.dias, 'día', 'días') : `de ${total} días`}
           </div>
         </div>
@@ -64,7 +64,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             />
           )}
         </div>
-        <div className="mt-2 flex justify-between text-[11px] font-semibold text-forest-600">
+        <div className="mt-2 flex justify-between text-xs font-semibold text-forest-600">
           <span>día 1 · recibo</span>
           <span>{total} · venta</span>
         </div>
@@ -86,7 +86,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             >
               <span
                 className={clsx(
-                  'text-[13px] font-medium',
+                  'text-sm font-medium',
                   metrics.ganancia >= 0 ? 'text-forest-darkest' : 'text-clay-text',
                 )}
               >
@@ -94,7 +94,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
               </span>
               <span
                 className={clsx(
-                  'text-[13px] font-bold tnum',
+                  'text-sm font-bold tnum',
                   metrics.ganancia >= 0 ? 'text-forest-darkest' : 'text-clay-text',
                 )}
               >
@@ -105,8 +105,8 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             metrics.fechaVentaEstimada &&
             metrics.diaVentaEstimado != null && (
               <div className="mt-3 flex items-center justify-between rounded-xl bg-green-tint px-3.5 py-2.5">
-                <span className="text-[13px] font-medium text-forest-darkest">Venta estimada</span>
-                <span className="text-[13px] font-bold text-forest-darkest tnum">
+                <span className="text-sm font-medium text-forest-darkest">Venta estimada</span>
+                <span className="text-sm font-bold text-forest-darkest tnum">
                   {metrics.diaVentaEstimado <= metrics.dias
                     ? 'lista para vender'
                     : `${fecha(metrics.fechaVentaEstimada)} · ${enDias(metrics.diaVentaEstimado - metrics.dias)}`}
@@ -117,11 +117,11 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
         </>
       ) : (
         <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
-          <span className="text-[13px] text-ink-soft">
+          <span className="text-sm text-ink-soft">
             Invertido {money(metrics.costos, { compact: true })}
           </span>
           {proximo && (
-            <span className="rounded-full bg-amber-tint px-3 py-1 text-[12px] font-semibold text-amber-text">
+            <span className="rounded-full bg-amber-tint px-3 py-1 text-xs font-semibold text-amber-text">
               {proximo.etiqueta} {enDias(proximo.dia - metrics.dias)}
             </span>
           )}
@@ -140,10 +140,10 @@ function enDias(n: number) {
 function Estado({ dev }: { dev: ReturnType<typeof desviaciones>['peso'] }) {
   return (
     <div>
-      <div className="font-display text-[20px] font-semibold leading-none tnum">{dev.valor}</div>
+      <div className="font-display text-xl font-semibold leading-none tnum">{dev.valor}</div>
       <div
         className={clsx(
-          'mt-1 text-[12px] font-semibold tnum',
+          'mt-1 text-xs font-semibold tnum',
           dev.estado === 'mal' ? 'text-clay-text' : 'text-green-text',
         )}
       >

@@ -21,10 +21,10 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">Bajas del ciclo</div>
-            <div className="font-display text-[30px] font-semibold leading-none tnum">
+            <div className="font-display text-2xl font-semibold leading-none tnum">
               {num(r.bajas + r.descartes)}
             </div>
-            <div className="mt-1 text-[13px] text-ink-soft tnum">
+            <div className="mt-1 text-sm text-ink-soft tnum">
               de {num(lote.cantidadInicial)} · quedan {num(r.vivas)}
             </div>
           </div>
@@ -32,19 +32,19 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
             <div className="text-xs text-ink-faint">Acumulada</div>
             <div
               className={
-                'font-display text-[22px] font-semibold leading-none tnum ' +
+                'font-display text-xl font-semibold leading-none tnum ' +
                 (sobreEsperado ? 'text-clay-deep' : 'text-forest-600')
               }
             >
               {pct(r.pct, 1)}
             </div>
-            <div className="mt-0.5 text-[11px] text-ink-faint tnum">
+            <div className="mt-0.5 text-xs text-ink-faint tnum">
               {sobreEsperado ? '▲' : '✓'} esperado {pct(r.esperadoPct, 1)}
             </div>
           </div>
         </div>
         {r.descartes > 0 && (
-          <div className="mt-3 border-t border-line pt-3 text-[13px] text-ink-soft tnum">
+          <div className="mt-3 border-t border-line pt-3 text-sm text-ink-soft tnum">
             {num(r.bajas)} muertas y {num(r.descartes)} descartadas
           </div>
         )}
@@ -54,12 +54,12 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
         <h3 className="mb-2 font-display text-base font-semibold">La primera semana</h3>
         <Card className={'p-4 ' + (arranqueBien ? '' : 'border-l-4 border-l-clay')}>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-[26px] font-semibold tnum leading-none">
+            <span className="font-display text-2xl font-semibold tnum leading-none">
               {num(r.primeraSemana)}
             </span>
             <span className="text-sm text-ink-soft tnum">aves · {pct(r.primeraSemanaPct, 2)}</span>
           </div>
-          <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
             {arranqueBien
               ? `Buen arranque: por debajo del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. Lo que muere en los primeros siete días viene del pollito y del recibo, no del manejo del resto del ciclo.`
               : `Por encima del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. La mortalidad de los primeros siete días apunta al pollito o al recibo: temperatura de la cama, acceso a agua y calidad del lote que te vendieron.`}
@@ -110,7 +110,7 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-ink-faint">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-faint">
                 <th className="px-4 py-2.5 font-medium">Sem</th>
                 <th className="px-2 py-2.5 text-right font-medium">Bajas</th>
                 <th className="px-2 py-2.5 text-right font-medium">% del lote</th>

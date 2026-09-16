@@ -64,7 +64,7 @@ export function NuevoLote() {
         </button>
         <div>
           <h1 className="font-display text-xl font-semibold leading-tight">Nuevo ciclo</h1>
-          <p className="text-[13px] text-ink-faint">Pollo de engorde {RAZA}</p>
+          <p className="text-sm text-ink-faint">Pollo de engorde {RAZA}</p>
         </div>
       </header>
 

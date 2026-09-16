@@ -27,10 +27,10 @@ async function respaldar() {
 export function PantallaError({ detalle }: { detalle?: string }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-10 safe-t">
-      <h1 className="font-display text-[26px] font-semibold leading-tight">
+      <h1 className="font-display text-2xl font-semibold leading-tight">
         La app se quedó trabada
       </h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+      <p className="mt-2 text-base leading-relaxed text-ink-soft">
         Tus datos no se tocaron: siguen guardados en este teléfono. Baja el respaldo por si acaso y
         vuelve a abrir.
       </p>
@@ -46,8 +46,8 @@ export function PantallaError({ detalle }: { detalle?: string }) {
 
       {detalle && (
         <details className="mt-8">
-          <summary className="cursor-pointer text-[13px] text-ink-faint">Detalle del error</summary>
-          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl border border-line bg-paper-raised p-3 text-[11px] text-ink-soft">
+          <summary className="cursor-pointer text-sm text-ink-faint">Detalle del error</summary>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl border border-line bg-paper-raised p-3 text-xs text-ink-soft">
             {detalle}
           </pre>
         </details>

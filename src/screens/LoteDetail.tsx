@@ -198,10 +198,10 @@ export function LoteDetail() {
             {lote.nombre}
           </h1>
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-[13px] text-ink-soft tnum">
+            <span className="text-sm text-ink-soft tnum">
               Día {metrics.dias}
             </span>
-            <span className="text-[13px] text-ink-soft">· {RAZA}</span>
+            <span className="text-sm text-ink-soft">· {RAZA}</span>
             {lote.estado === "cerrado" && <Pill tone="neutral">Cerrado</Pill>}
           </div>
         </div>
@@ -334,7 +334,7 @@ export function LoteDetail() {
               {!todoHistorial && registros.length > 5 && (
                 <button
                   onClick={() => setTodoHistorial(true)}
-                  className="mt-2 w-full py-2 text-center text-[13px] font-medium text-forest-600"
+                  className="mt-2 w-full py-2 text-center text-sm font-medium text-forest-600"
                 >
                   Ver los {num(registros.length)} registros
                 </button>
@@ -373,13 +373,13 @@ export function LoteDetail() {
               <div className="flex-1 p-4">
                 <div className="flex items-center gap-1.5 text-ink-faint">
                   <IconTrend width={16} height={16} />
-                  <span className="text-[12px] font-medium">
+                  <span className="text-xs font-medium">
                     {positivo ? "Ganancia" : "Pérdida"}
                   </span>
                 </div>
                 <div
                   className={
-                    "mt-1 font-display text-[28px] font-semibold tracking-tight tnum leading-none " +
+                    "mt-1 font-display text-2xl font-semibold tracking-tight tnum leading-none " +
                     (positivo ? "text-forest-600" : "text-clay-deep")
                   }
                 >
@@ -396,13 +396,13 @@ export function LoteDetail() {
               <div className="grid flex-1 grid-rows-2">
                 <div className="border-b border-line px-4 py-2.5">
                   <div className="text-xs text-ink-faint">Ingresos</div>
-                  <div className="font-display text-[17px] font-semibold tnum leading-tight">
+                  <div className="font-display text-lg font-semibold tnum leading-tight">
                     {money(metrics.ingresos)}
                   </div>
                 </div>
                 <div className="px-4 py-2.5">
                   <div className="text-xs text-ink-faint">Costos</div>
-                  <div className="font-display text-[17px] font-semibold tnum leading-tight">
+                  <div className="font-display text-lg font-semibold tnum leading-tight">
                     {money(metrics.costos)}
                   </div>
                 </div>
@@ -428,20 +428,20 @@ export function LoteDetail() {
             className="mt-7 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 shadow-card transition active:scale-[0.99]"
           >
             <div>
-              <div className="font-display text-[17px] font-semibold leading-tight">
+              <div className="font-display text-lg font-semibold leading-tight">
                 A dónde se fue el dinero
               </div>
-              <div className="text-[13px] text-ink-soft">
+              <div className="text-sm text-ink-soft">
                 {gastosCat.length > 0
                   ? `${categoriaLabel(gastosCat[0].categoria)} se lleva ${pct((gastosCat[0].total / Math.max(1, metrics.costos)) * 100, 0)}`
                   : "Cada categoría, con su detalle"}
               </div>
             </div>
             <span className="shrink-0 text-right">
-              <span className="block font-display text-[17px] font-semibold tnum">
+              <span className="block font-display text-lg font-semibold tnum">
                 {money(metrics.costos, { compact: true })}
               </span>
-              <span className="text-[11px] text-ink-faint">ver desglose ›</span>
+              <span className="text-xs text-ink-faint">ver desglose ›</span>
             </span>
           </Link>
 
@@ -581,7 +581,7 @@ function Muestreo({
         <h2 className="font-display text-lg font-semibold">Muestreo de peso</h2>
         <button
           onClick={onNuevo}
-          className="text-[13px] font-semibold text-forest-600"
+          className="text-sm font-semibold text-forest-600"
         >
           Pesar aves →
         </button>
@@ -611,10 +611,10 @@ function Muestreo({
                   {fecha(ultimo.fecha)} · día{" "}
                   {diasEntre(lote.fechaInicio, ultimo.fecha)}
                 </div>
-                <div className="font-display text-[28px] font-semibold leading-none tnum">
+                <div className="font-display text-2xl font-semibold leading-none tnum">
                   {num(m.promedioLb, 2)} lb
                 </div>
-                <div className="mt-1 text-[12px] text-ink-soft tnum">
+                <div className="mt-1 text-xs text-ink-soft tnum">
                   ± {num(m.margenLb, 2)} lb · {num(m.n)} aves (
                   {pct(m.pctLote, 1)} del galpón)
                 </div>
@@ -623,7 +623,7 @@ function Muestreo({
                 <div className="text-xs text-ink-faint">del estándar Cobb</div>
                 <div
                   className={clsx(
-                    "font-display text-[22px] font-semibold leading-none tnum",
+                    "font-display text-xl font-semibold leading-none tnum",
                     m.promedioLb >=
                       pesoEstandarLb(
                         diasEntre(lote.fechaInicio, ultimo.fecha),
@@ -647,33 +647,33 @@ function Muestreo({
 
             <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4">
               <div>
-                <div className="font-display text-[17px] font-semibold leading-none tnum">
+                <div className="font-display text-lg font-semibold leading-none tnum">
                   {pct(m.uniformidadPct, 0)}
                 </div>
-                <div className="mt-1 text-[11px] text-ink-faint">
+                <div className="mt-1 text-xs text-ink-faint">
                   Uniformidad
                 </div>
-                <div className="text-[11px] text-ink-soft">{m.uniformidad}</div>
+                <div className="text-xs text-ink-soft">{m.uniformidad}</div>
               </div>
               <div>
-                <div className="font-display text-[17px] font-semibold leading-none tnum">
+                <div className="font-display text-lg font-semibold leading-none tnum">
                   {pct(m.cvPct, 1)}
                 </div>
-                <div className="mt-1 text-[11px] text-ink-faint">
+                <div className="mt-1 text-xs text-ink-faint">
                   Desparejo (CV)
                 </div>
-                <div className="text-[11px] text-ink-soft tnum">
+                <div className="text-xs text-ink-soft tnum">
                   {num(m.minLb, 2)}–{num(m.maxLb, 2)} lb
                 </div>
               </div>
               <div>
-                <div className="font-display text-[17px] font-semibold leading-none tnum">
+                <div className="font-display text-lg font-semibold leading-none tnum">
                   {num(m.biomasaLb ?? 0)}
                 </div>
-                <div className="mt-1 text-[11px] text-ink-faint">
+                <div className="mt-1 text-xs text-ink-faint">
                   Libras vivas
                 </div>
-                <div className="text-[11px] text-ink-soft tnum">
+                <div className="text-xs text-ink-soft tnum">
                   ±{num((m.biomasaMaxLb ?? 0) - (m.biomasaLb ?? 0))} lb
                 </div>
               </div>
@@ -750,35 +750,35 @@ function ComoSalio({
         </div>
         <div
           className={clsx(
-            "font-display text-[32px] font-semibold leading-none tnum",
+            "font-display text-3xl font-semibold leading-none tnum",
             positivo ? "text-forest-600" : "text-clay-deep",
           )}
         >
           {money(r.ganancia)}
         </div>
-        <div className="mt-1.5 text-[13px] text-ink-soft tnum">
+        <div className="mt-1.5 text-sm text-ink-soft tnum">
           {money(r.gananciaPorAve)} por ave · margen {pct(r.margenPct)}
         </div>
         <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4">
           <div>
-            <div className="font-display text-[15px] font-semibold leading-none tnum">
+            <div className="font-display text-base font-semibold leading-none tnum">
               {num(r.avesVendidas)}
             </div>
-            <div className="mt-1 text-[11px] text-ink-faint">Aves vendidas</div>
+            <div className="mt-1 text-xs text-ink-faint">Aves vendidas</div>
           </div>
           <div>
-            <div className="font-display text-[15px] font-semibold leading-none tnum">
+            <div className="font-display text-base font-semibold leading-none tnum">
               {r.pesoPromedioLb != null
                 ? `${num(r.pesoPromedioLb, 2)} lb`
                 : "—"}
             </div>
-            <div className="mt-1 text-[11px] text-ink-faint">Peso por ave</div>
+            <div className="mt-1 text-xs text-ink-faint">Peso por ave</div>
           </div>
           <div>
-            <div className="font-display text-[15px] font-semibold leading-none tnum">
+            <div className="font-display text-base font-semibold leading-none tnum">
               {r.precioLogradoLb != null ? porLb(r.precioLogradoLb) : "—"}
             </div>
-            <div className="mt-1 text-[11px] text-ink-faint">
+            <div className="mt-1 text-xs text-ink-faint">
               Precio logrado
             </div>
           </div>
@@ -830,7 +830,7 @@ function Contrastada({ c }: { c: Contraste }) {
         {notable && buena != null && (
           <span
             className={clsx(
-              "ml-1.5 text-[11px] font-semibold tnum",
+              "ml-1.5 text-xs font-semibold tnum",
               buena ? "text-forest-600" : "text-clay-text",
             )}
           >
@@ -839,10 +839,10 @@ function Contrastada({ c }: { c: Contraste }) {
         )}
       </span>
       <span className="flex shrink-0 gap-4 tnum">
-        <span className="w-[74px] text-right text-ink-faint">
+        <span className="w-[84px] text-right text-ink-faint">
           {valor(c.proyectado)}
         </span>
-        <span className="w-[74px] text-right font-display font-semibold">
+        <span className="w-[84px] text-right font-display font-semibold">
           {valor(c.real)}
         </span>
       </span>
@@ -913,15 +913,15 @@ function PrecioMinimo({
           Precio mínimo para no perder
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="font-display text-[32px] font-semibold leading-none tnum">
+          <span className="font-display text-3xl font-semibold leading-none tnum">
             {porLb(a.precioEquilibrioLb)}
           </span>
           <span className="text-sm text-ink-soft">/ lb</span>
         </div>
-        <div className="mt-1.5 text-[13px] text-ink-soft tnum">
+        <div className="mt-1.5 text-sm text-ink-soft tnum">
           = {money(a.precioEquilibrioAve)} por pollo de {num(lbPorAve, 2)} lb
         </div>
-        <div className="mt-3 border-t border-line pt-3 text-[12px] leading-relaxed text-ink-faint">
+        <div className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
           De cada libra que vendas, {porLb(a.costoAlimento / a.lbEnPie)} son
           alimento ({pct(a.alimentoPctDelCosto, 0)} del costo),{" "}
           {porLb(a.costoAves / a.lbEnPie)} el pollito y{" "}
@@ -947,20 +947,20 @@ function PrecioMinimo({
             >
               <div className="min-w-0">
                 <div className="text-sm font-medium">{e.etiqueta}</div>
-                <div className="text-[11px] text-ink-faint tnum">
+                <div className="text-xs text-ink-faint tnum">
                   {money(e.precioPorAve)} por pollo
                 </div>
               </div>
               <div className="flex items-center gap-4 text-right">
-                <span className="font-display text-[15px] font-semibold tnum">
+                <span className="font-display text-base font-semibold tnum">
                   {porLb(e.precioLb)}
-                  <span className="text-[11px] font-normal text-ink-faint">
+                  <span className="text-xs font-normal text-ink-faint">
                     /lb
                   </span>
                 </span>
                 <span
                   className={clsx(
-                    "w-[74px] font-display text-[15px] font-semibold tnum",
+                    "w-[84px] font-display text-base font-semibold tnum",
                     e.ganancia >= 0 ? "text-forest-600" : "text-clay-deep",
                   )}
                 >
@@ -1025,10 +1025,10 @@ function PuntoOptimo({
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-xs text-ink-faint">Mejor día para vender</div>
-            <div className="font-display text-[30px] font-semibold leading-none tnum">
+            <div className="font-display text-2xl font-semibold leading-none tnum">
               Día {a.optimo.dia}
             </div>
-            <div className="mt-1 text-[13px] text-ink-soft tnum">
+            <div className="mt-1 text-sm text-ink-soft tnum">
               {fecha(a.optimo.fecha)} ·{" "}
               {faltan > 0
                 ? `en ${faltan} ${plural(faltan, "día", "días")}`
@@ -1040,7 +1040,7 @@ function PuntoOptimo({
             <div className="text-xs text-ink-faint">Ganancia</div>
             <div
               className={clsx(
-                "font-display text-[19px] font-semibold leading-none tnum",
+                "font-display text-lg font-semibold leading-none tnum",
                 a.optimo.ganancia >= 0 ? "text-forest-600" : "text-clay-deep",
               )}
             >
@@ -1181,10 +1181,10 @@ function GridCrecimiento({ metrics: m }: { metrics: LoteMetrics }) {
     <Card className="mt-4 grid grid-cols-3 gap-3 p-4">
       {celdas.map((c) => (
         <div key={c.label}>
-          <div className="font-display text-[19px] font-semibold tnum leading-none">
+          <div className="font-display text-lg font-semibold tnum leading-none">
             {c.value}
           </div>
-          <div className="mt-1 text-[11px] text-ink-faint">{c.label}</div>
+          <div className="mt-1 text-xs text-ink-faint">{c.label}</div>
         </div>
       ))}
     </Card>
@@ -1196,10 +1196,10 @@ function Diagnostico({ metrics: m }: { metrics: LoteMetrics }) {
   if (m.dias < 21 || m.fca == null || m.fca <= std + 0.15) return null;
   return (
     <div className="mt-6 rounded-xl2 border-l-4 border-amber-400 bg-amber-tint p-4">
-      <div className="font-display text-[15px] font-semibold text-amber-text">
+      <div className="font-display text-base font-semibold text-amber-text">
         La conversión va por encima del estándar
       </div>
-      <p className="mt-1 text-[13px] leading-relaxed text-amber-text">
+      <p className="mt-1 text-sm leading-relaxed text-amber-text">
         Con FCA {num(m.fca, 2)} (Cobb 500 al día {m.dias}: {num(std, 2)}) las
         aves comen de más por cada libra que ganan. Revisa desperdicio en
         comederos, densidad y temperatura del galpón antes del día 35.
@@ -1230,10 +1230,10 @@ function FaseActual({
     >
       <div className="min-w-0">
         <div className="text-xs text-ink-faint">Alimento de esta fase</div>
-        <div className="font-display text-[19px] font-semibold leading-tight">
+        <div className="font-display text-lg font-semibold leading-tight">
           {f.nombre}
         </div>
-        <div className="text-[13px] text-ink-soft">
+        <div className="text-sm text-ink-soft">
           {f.proteinaPct}% proteína · {f.presentacion.toLowerCase()}
           {plan.proximoCambio
             ? ` · cambia en ${plan.proximoCambio.enDias} ${plan.proximoCambio.enDias === 1 ? "día" : "días"}`
@@ -1244,13 +1244,13 @@ function FaseActual({
         <div className="shrink-0 text-right">
           <div
             className={
-              "font-display text-[17px] font-semibold leading-none tnum " +
+              "font-display text-lg font-semibold leading-none tnum " +
               (inv!.diasQueAlcanza <= 3 ? "text-clay-deep" : "")
             }
           >
             {num(Math.max(0, quedan), 1)} qq
           </div>
-          <div className="mt-0.5 text-[11px] text-ink-faint">en el galpón</div>
+          <div className="mt-0.5 text-xs text-ink-faint">en el galpón</div>
         </div>
       )}
     </Link>
@@ -1284,7 +1284,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-xs text-ink-faint">Peso ideal hoy</div>
-            <div className="font-display text-[26px] font-semibold tnum leading-none">
+            <div className="font-display text-2xl font-semibold tnum leading-none">
               {num(g.pesoObjetivoLb, 2)} lb
             </div>
           </div>
@@ -1311,7 +1311,7 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
                 {pct(desv, 0)}
               </div>
               {g.pesoEstimado && (
-                <div className="text-[11px] text-ink-faint tnum">
+                <div className="text-xs text-ink-faint tnum">
                   pesado hace {g.diasDesdePeso} días
                 </div>
               )}
@@ -1321,10 +1321,10 @@ function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
         <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3 border-t border-line pt-4">
           {stats.map((s) => (
             <div key={s.label}>
-              <div className="font-display text-[15px] font-semibold tnum leading-none">
+              <div className="font-display text-base font-semibold tnum leading-none">
                 {s.value}
               </div>
-              <div className="mt-1 text-[11px] text-ink-faint">{s.label}</div>
+              <div className="mt-1 text-xs text-ink-faint">{s.label}</div>
             </div>
           ))}
         </div>
@@ -1414,7 +1414,7 @@ function Sociedad({
             {liq.traspasos.map((t, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-forest-400/30 bg-forest-50 px-3.5 py-2.5 text-[13px] font-medium text-forest-700"
+                className="rounded-xl border border-forest-400/30 bg-forest-50 px-3.5 py-2.5 text-sm font-medium text-forest-700"
               >
                 <span className="font-semibold">{t.de}</span> le paga{" "}
                 <span className="font-semibold tnum">{money(t.monto)}</span> a{" "}

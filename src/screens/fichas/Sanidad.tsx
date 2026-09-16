@@ -47,22 +47,22 @@ export function FichaSanidad({
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-ink-faint">Aplicaciones anotadas</div>
-            <div className="font-display text-[30px] font-semibold leading-none tnum">
+            <div className="font-display text-2xl font-semibold leading-none tnum">
               {num(aplicadas)}
             </div>
             {pendientes.length > 0 && (
-              <div className="mt-1 text-[13px] text-clay-text">
+              <div className="mt-1 text-sm text-clay-text">
                 {num(pendientes.length)} del plan sin anotar
               </div>
             )}
           </div>
           <div className="text-right">
             <div className="text-xs text-ink-faint">Medicina y vacunas</div>
-            <div className="font-display text-[20px] font-semibold leading-none tnum">
+            <div className="font-display text-xl font-semibold leading-none tnum">
               {money(gastoSanitario)}
             </div>
             {metrics.cantidadInicial > 0 && (
-              <div className="mt-0.5 text-[11px] text-ink-faint tnum">
+              <div className="mt-0.5 text-xs text-ink-faint tnum">
                 {money(gastoSanitario / metrics.cantidadInicial)} por ave
               </div>
             )}
@@ -73,7 +73,7 @@ export function FichaSanidad({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="font-display text-base font-semibold">Agenda del ciclo</h3>
-          <button onClick={() => anotar()} className="text-[13px] font-semibold text-forest-600">
+          <button onClick={() => anotar()} className="text-sm font-semibold text-forest-600">
             Anotar →
           </button>
         </div>

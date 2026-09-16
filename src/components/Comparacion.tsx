@@ -53,7 +53,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
               {lotes.map((l, i) => (
                 <th key={l.lote.id} scope="col" className="min-w-[124px] px-3 py-3 text-right align-top">
                   <Link to={`/lotes/${l.lote.id}`} className="block">
-                    <div className="flex items-center justify-end gap-1 font-display text-[13px] font-semibold leading-tight">
+                    <div className="flex items-center justify-end gap-1 font-display text-sm font-semibold leading-tight">
                       {i === 0 && (
                         <IconTrofeo
                           width={14}
@@ -65,7 +65,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                       )}
                       <span className="max-w-[13ch] truncate">{l.lote.nombre}</span>
                     </div>
-                    <div className="mt-0.5 text-[13px] font-normal text-ink-soft">
+                    <div className="mt-0.5 text-sm font-normal text-ink-soft">
                       {fecha(l.lote.fechaInicio)}
                       {l.lote.estado === 'cerrado' ? ' · cerrado' : ' · en curso'}
                     </div>
@@ -88,7 +88,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                 <tr key={met.label}>
                   <th
                     scope="row"
-                    className="sticky left-0 z-10 whitespace-nowrap border-r border-line bg-paper-raised px-4 py-2.5 text-left text-[13px] font-normal text-ink-faint"
+                    className="sticky left-0 z-10 whitespace-nowrap border-r border-line bg-paper-raised px-4 py-2.5 text-left text-sm font-normal text-ink-faint"
                   >
                     {met.label}
                   </th>
@@ -104,7 +104,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
                       >
                         {v != null ? met.format(v) : '—'}
                         {parcial && v != null && (
-                          <span className="ml-1 text-[11px] font-normal text-ink-soft">hoy</span>
+                          <span className="ml-1 text-xs font-normal text-ink-soft">hoy</span>
                         )}
                       </td>
                     )
@@ -115,7 +115,7 @@ export function ComparacionLotes({ resumen }: { resumen: LoteConMetrics[] }) {
           </tbody>
         </table>
       </Card>
-      <p className="mt-2 text-[13px] text-ink-soft">
+      <p className="mt-2 text-sm text-ink-soft">
         En verde, el mejor valor de cada indicador. «hoy» marca lo que aún no es final. Toca un ciclo para abrirlo.
       </p>
     </>
