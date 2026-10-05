@@ -6,7 +6,7 @@ import { LoteCard } from '../components/LoteCard'
 import type { LoteConMetrics } from '../lib/hooks'
 import { Button, EmptyState, Seccion } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
-import { fechaLarga, hoyISO, money, num, plural, porLb } from '../lib/format'
+import { alimentoEn, fechaLarga, hoyISO, money, num, plural, porLb } from '../lib/format'
 import { useResumen, useSettings } from '../lib/hooks'
 
 export function Dashboard() {
@@ -113,6 +113,7 @@ function Alertas({ activos }: { activos: LoteConMetrics[] }) {
 
 function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
   const nav = useNavigate()
+  const { unidadAlimento } = useSettings()
   const listos = activos.filter((r) => r.metrics.registroHoy).length
 
   return (
@@ -129,7 +130,7 @@ function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
           if (rh) {
             const resumen = [
               rh.pesoPromedio != null ? `${num(rh.pesoPromedio, 2)} lb` : null,
-              rh.alimentoLb > 0 ? `${num(rh.alimentoLb)} lb alim.` : null,
+              rh.alimentoLb > 0 ? `${alimentoEn(rh.alimentoLb, unidadAlimento)} de alimento` : null,
               rh.mortalidad > 0 ? `${num(rh.mortalidad)} bajas` : null,
             ]
               .filter(Boolean)

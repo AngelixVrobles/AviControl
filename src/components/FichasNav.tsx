@@ -20,7 +20,7 @@ export function FichasNav({
       tipo: 'alimento',
       titulo: 'Alimento',
       valor: `${num(metrics.alimentoTotalLb / LB_POR_QUINTAL, 1)} qq`,
-      pie: 'consumidos',
+      pie: metrics.alimentoTotalLb > 0 ? 'consumidos' : 'falta anotarlo',
     },
     {
       tipo: 'sanidad',

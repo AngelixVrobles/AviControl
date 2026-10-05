@@ -1,11 +1,10 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
-import type { LoteMetrics } from './metrics'
+import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, sumarDias } from './format'
 import { precioAlimentoLb } from './precios'
 import {
   PESO_OBJETIVO_DEFAULT,
   alimentoAcumEstandarLb,
-  fcaEstandar,
   mortalidadEsperadaPct,
   pesoEstandarLb,
 } from './standards'
@@ -51,7 +50,7 @@ export function analizarPuntoOptimo(
   if (!precioVentaLb || !precioAlim || !conPeso.length || m.avesVivas <= 0) return null
 
   const diaUltimo = diasEntre(lote.fechaInicio, conPeso[conPeso.length - 1].fecha)
-  const factorEf = m.fca && m.fca > 0.5 ? m.fca / fcaEstandar(diaUltimo) : 1
+  const factorEf = eficienciaAlimento(m)
   const desde = Math.max(m.dias, diaUltimo)
 
   const puntos: PuntoVenta[] = []

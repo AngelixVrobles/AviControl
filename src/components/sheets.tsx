@@ -15,11 +15,14 @@ import {
   type Socio,
   type TipoAplicacion,
 } from '../db/schema'
-import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
+import { Button, DangerButton, Field, Input, Segmentado, Select, Sheet } from './ui'
 import { confirmar, toast } from './confirm'
 import { CATEGORIAS, categoriaLabel } from '../lib/labels'
 import { CATEGORIAS_DEUDA } from '../lib/deudas'
-import { diasEntre, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
+import { diasEntre, fecha as fechaCorta, hoyISO, money, num, numCorto, pct, plural, porLb } from '../lib/format'
+import { comprasAlimento } from '../lib/precios'
+import { useSettings } from '../lib/hooks'
+import { saveSettings } from '../lib/settings'
 import { borrarBorrador, guardarBorrador, leerBorrador, pesoSospechoso } from '../lib/borrador'
 import type { LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
@@ -42,10 +45,12 @@ export function RegistroSheet({
   editar?: Registro
   registros?: Registro[]
 }) {
+  const { unidadAlimento: unidad } = useSettings()
   const [fecha, setFecha] = useState(hoyISO())
   const [mortalidad, setMortalidad] = useState(0)
   const [descarte, setDescarte] = useState(0)
-  const [alimentoLb, setAlimentoLb] = useState('')
+  // En la unidad que el productor eligió (sacos o libras); al guardar pasa a lb.
+  const [alimento, setAlimento] = useState('')
   const [aguaL, setAguaL] = useState('')
   const [feedOtro, setFeedOtro] = useState(false)
   const [peso, setPeso] = useState('')
@@ -60,35 +65,39 @@ export function RegistroSheet({
         .sort((a, b) => b.fecha.localeCompare(a.fecha)),
     [registros, editar],
   )
-  const ayer = previos[0]?.alimentoLb
+  const ayer = previos.length ? enUnidad(previos[0].alimentoLb, unidad) : undefined
   const chips = useMemo(() => {
     if (!previos.length) return []
     const prom = previos.slice(0, 5).reduce((a, r) => a + r.alimentoLb, 0) / Math.min(5, previos.length)
-    const raw = [ayer, Math.round(prom), Math.round(prom * 1.08)].filter((v): v is number => !!v)
+    const raw = [ayer, redondearChip(prom, unidad), redondearChip(prom * 1.08, unidad)].filter(
+      (v): v is number => !!v && v > 0,
+    )
     return [...new Set(raw)].slice(0, 3)
-  }, [previos, ayer])
+  }, [previos, ayer, unidad])
 
-  const cargar = useCallback(
-    (r?: Registro) => {
-      setMortalidad(r?.mortalidad ?? 0)
-      setDescarte(r?.descarte ?? 0)
-      setAlimentoLb(r?.alimentoLb ? String(r.alimentoLb) : '')
-      setAguaL(r?.aguaL ? String(r.aguaL) : '')
-      setFeedOtro(!!r?.alimentoLb && !chips.includes(r.alimentoLb))
-      setPeso(r?.pesoPromedio != null ? String(r.pesoPromedio) : '')
-      setSinPesar(!!r && r.pesoPromedio == null)
-      setNota(r?.nota ?? '')
-      setMasOpciones(!!r?.descarte || !!r?.nota)
-    },
-    [chips],
-  )
-
-  // Por referencia: la lista cambia con cada escritura en la base y no debe
-  // recargar el formulario mientras la hoja está abierta.
+  // Por referencia: la lista y los chips cambian con cada escritura en la base
+  // y no deben recargar el formulario mientras la hoja está abierta.
   const registrosRef = useRef(registros)
+  const chipsRef = useRef(chips)
+  const unidadRef = useRef(unidad)
   useEffect(() => {
     registrosRef.current = registros
+    chipsRef.current = chips
+    unidadRef.current = unidad
   })
+
+  const cargar = useCallback((r?: Registro) => {
+    const valor = r?.alimentoLb ? enUnidad(r.alimentoLb, unidadRef.current) : undefined
+    setMortalidad(r?.mortalidad ?? 0)
+    setDescarte(r?.descarte ?? 0)
+    setAlimento(valor != null ? String(valor) : '')
+    setAguaL(r?.aguaL ? String(r.aguaL) : '')
+    setFeedOtro(valor != null && !chipsRef.current.includes(valor))
+    setPeso(r?.pesoPromedio != null ? String(r.pesoPromedio) : '')
+    setSinPesar(!!r && r.pesoPromedio == null)
+    setNota(r?.nota ?? '')
+    setMasOpciones(!!r?.descarte || !!r?.nota)
+  }, [])
 
   // Un día no puede tener dos registros: si ya está anotado, la hoja lo trae y
   // lo corrige. Duplicarlo sumaba el alimento dos veces, y de ahí salían mal el
@@ -105,9 +114,21 @@ export function RegistroSheet({
     cargar(registros.find((r) => r.fecha === f))
   }
 
+  // Cambiar de unidad no borra lo escrito: 2.5 sacos pasan a ser 250 lb.
+  function cambiarUnidad(nueva: 'qq' | 'lb') {
+    if (nueva === unidad) return
+    const lb = aLibras(alimento, unidad)
+    if (lb > 0) {
+      setAlimento(String(enUnidad(lb, nueva)))
+      setFeedOtro(true)
+    }
+    saveSettings({ unidadAlimento: nueva })
+  }
+
   const dia = diasEntre(lote.fechaInicio, fecha)
   const existente = editar ?? registros.find((r) => r.fecha === fecha)
-  const esperadaL = aguaEsperadaL(Number(alimentoLb) || 0)
+  const alimentoLb = aLibras(alimento, unidad)
+  const esperadaL = aguaEsperadaL(alimentoLb)
   const litros = Number(aguaL.replace(',', '.')) || 0
   const desvioAgua = litros > 0 && esperadaL > 0 ? ((litros - esperadaL) / esperadaL) * 100 : undefined
 
@@ -117,7 +138,7 @@ export function RegistroSheet({
       fecha,
       mortalidad,
       descarte,
-      alimentoLb: Number(alimentoLb) || 0,
+      alimentoLb,
       aguaL: Number(aguaL.replace(',', '.')) > 0 ? Number(aguaL.replace(',', '.')) : undefined,
       pesoPromedio: !sinPesar && Number(peso.replace(',', '.')) > 0 ? Number(peso.replace(',', '.')) : undefined,
       nota: nota.trim() || undefined,
@@ -150,15 +171,26 @@ export function RegistroSheet({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-ink-soft">Alimento (lb)</span>
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-ink-soft">Alimento que se dio</span>
+            <Segmentado
+              etiqueta="Unidad del alimento"
+              valor={unidad}
+              onCambio={cambiarUnidad}
+              opciones={[
+                { id: 'qq', label: 'Sacos' },
+                { id: 'lb', label: 'Libras' },
+              ]}
+            />
+          </div>
           <div className="flex flex-wrap gap-2">
             {chips.map((v) => {
-              const activo = !feedOtro && Number(alimentoLb) === v
+              const activo = !feedOtro && Number(alimento) === v
               return (
                 <button
                   key={v}
                   onClick={() => {
-                    setAlimentoLb(String(v))
+                    setAlimento(String(v))
                     setFeedOtro(false)
                   }}
                   className={clsx(
@@ -166,35 +198,44 @@ export function RegistroSheet({
                     activo ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
                   )}
                 >
-                  {num(v)}
+                  {numCorto(v)}
                   {v === ayer && <span className="block text-xs font-sans font-medium text-ink-faint">ayer</span>}
                 </button>
               )
             })}
-            <button
-              onClick={() => {
-                setFeedOtro(true)
-                if (chips.includes(Number(alimentoLb))) setAlimentoLb('')
-              }}
-              className={clsx(
-                'h-[52px] flex-1 rounded-xl border px-2 text-center text-sm font-semibold transition',
-                feedOtro ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
-              )}
-            >
-              Otro
-            </button>
+            {chips.length > 0 && (
+              <button
+                onClick={() => {
+                  setFeedOtro(true)
+                  if (chips.includes(Number(alimento))) setAlimento('')
+                }}
+                className={clsx(
+                  'h-[52px] flex-1 rounded-xl border px-2 text-center text-sm font-semibold transition',
+                  feedOtro ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
+                )}
+              >
+                Otro
+              </button>
+            )}
           </div>
           {(feedOtro || chips.length === 0) && (
             <Input
               type="number"
               inputMode="decimal"
-              value={alimentoLb}
-              onChange={(e) => setAlimentoLb(e.target.value)}
-              placeholder="Libras de alimento"
-              className="mt-2"
+              value={alimento}
+              onChange={(e) => setAlimento(e.target.value)}
+              placeholder={unidad === 'qq' ? 'Sacos de 100 lb (ej. 2.5)' : 'Libras de alimento'}
+              className={clsx(chips.length > 0 && 'mt-2')}
               autoFocus={feedOtro}
             />
           )}
+          <p className="mt-1 text-xs text-ink-faint tnum">
+            {alimentoLb > 0
+              ? unidad === 'qq'
+                ? `${num(alimentoLb)} lb. Con esto salen la conversión y el consumo por fase.`
+                : `${numCorto(alimentoLb / LB_POR_QUINTAL)} sacos de 100 lb. Con esto salen la conversión y el consumo por fase.`
+              : 'Sin esto no hay conversión (FCA). Si no lo mides cada día, cuenta los sacos que quedan en la ficha de Alimento.'}
+          </p>
         </div>
 
         <div>
@@ -215,8 +256,8 @@ export function RegistroSheet({
               )}
             >
               {desvioAgua != null && Math.abs(desvioAgua) >= 20
-                ? `${desvioAgua > 0 ? 'Bastante más' : 'Bastante menos'} de lo normal para ${num(Number(alimentoLb))} lb de alimento (${num(esperadaL)} L).`
-                : `Para ${num(Number(alimentoLb))} lb de alimento lo normal son ${num(esperadaL)} L.`}
+                ? `${desvioAgua > 0 ? 'Bastante más' : 'Bastante menos'} de lo normal para ${num(alimentoLb)} lb de alimento (${num(esperadaL)} L).`
+                : `Para ${num(alimentoLb)} lb de alimento lo normal son ${num(esperadaL)} L.`}
             </p>
           )}
         </div>
@@ -279,6 +320,26 @@ export function RegistroSheet({
       </div>
     </Sheet>
   )
+}
+
+// Libras a la unidad del productor, con dos decimales como mucho: 1.8 sacos.
+function enUnidad(lb: number, unidad: 'qq' | 'lb') {
+  const v = unidad === 'qq' ? lb / LB_POR_QUINTAL : lb
+  return Math.round(v * 100) / 100
+}
+
+function aLibras(texto: string, unidad: 'qq' | 'lb') {
+  const v = Number(texto.replace(',', '.'))
+  if (!(v > 0) || !Number.isFinite(v)) return 0
+  return Math.round((unidad === 'qq' ? v * LB_POR_QUINTAL : v) * 10) / 10
+}
+
+// Los chips sugeridos van en pasos que se puedan dar: medio saco cuando ya se
+// dan varios, décimas cuando el pollito come menos de dos sacos, libras enteras.
+function redondearChip(lb: number, unidad: 'qq' | 'lb') {
+  if (unidad === 'lb') return Math.round(lb)
+  const sacos = lb / LB_POR_QUINTAL
+  return sacos >= 2 ? Math.round(sacos * 2) / 2 : Math.round(sacos * 10) / 10
 }
 
 function Stepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -1629,6 +1690,162 @@ export function AbonoSheet({
           {editar ? 'Guardar' : 'Anotar abono'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar abono</DangerButton>}
+      </div>
+    </Sheet>
+  )
+}
+
+// Contar los sacos que quedan es como se lleva el alimento en la mayoría de las
+// granjas: nadie pesa lo que echa cada día, pero los sacos del almacén sí se
+// cuentan. Con las compras anotadas en quintales, lo que falta es lo que se dio.
+export function ConteoSheet({
+  lote,
+  gastos,
+  open,
+  onClose,
+}: {
+  lote: Lote
+  gastos: Gasto[]
+  open: boolean
+  onClose: () => void
+}) {
+  const [fecha, setFecha] = useState(hoyISO())
+  const [quedan, setQuedan] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setFecha(hoyISO())
+    setQuedan('')
+  }, [open])
+
+  const compras = comprasAlimento(gastos)
+  const sinCantidad = compras.filter((g) => !((g.cantidadQq ?? 0) > 0)).length
+  const compradoQq = compras
+    .filter((g) => g.fecha <= fecha)
+    .reduce((a, g) => a + (g.cantidadQq ?? 0), 0)
+  const qq = Number(quedan.replace(',', '.'))
+  const valido = quedan.trim() !== '' && Number.isFinite(qq) && qq >= 0
+  const dadoQq = compradoQq - qq
+  const conteos = [...(lote.conteosAlimento ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha))
+  const yaContado = conteos.some((c) => c.fecha === fecha)
+  const antesDelCiclo = fecha < lote.fechaInicio
+
+  async function guardar() {
+    const resto = (lote.conteosAlimento ?? []).filter((c) => c.fecha !== fecha)
+    await db.lotes.update(lote.id, {
+      conteosAlimento: [...resto, { fecha, qq: Math.round(qq * 100) / 100 }],
+    })
+    toast(
+      dadoQq >= 0
+        ? `Conteo guardado · se han dado ${numCorto(dadoQq, 1)} qq en el ciclo`
+        : 'Conteo guardado · no cuadra con las compras',
+    )
+    onClose()
+  }
+
+  async function quitar(f: string) {
+    if (!(await confirmar({ titulo: 'Quitar conteo', mensaje: `Se borra el conteo del ${fechaCorta(f)}.`, confirmar: 'Quitar', peligro: true }))) return
+    await db.lotes.update(lote.id, {
+      conteosAlimento: (lote.conteosAlimento ?? []).filter((c) => c.fecha !== f),
+    })
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Contar sacos">
+      <div className="space-y-4">
+        <p className="text-sm leading-relaxed text-ink-soft">
+          Cuenta los sacos de alimento que quedan en el galpón y en el almacén. Los empezados cuentan
+          por lo que tienen: medio saco es 0.5.
+        </p>
+
+        {compras.length === 0 ? (
+          <p className="rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-sm leading-relaxed text-amber-text">
+            Primero anota las compras de alimento con sus quintales (Gasto → Alimento). Lo que
+            compraste menos lo que queda es lo que se dio.
+          </p>
+        ) : sinCantidad > 0 ? (
+          <p className="rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-sm leading-relaxed text-amber-text">
+            {sinCantidad === 1 ? 'Una compra' : `${num(sinCantidad)} compras`} de alimento no{' '}
+            {sinCantidad === 1 ? 'tiene' : 'tienen'} los quintales anotados. El conteo se guarda,
+            pero no cuenta hasta que los anotes en la ficha de Gastos.
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Sacos que quedan">
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={quedan}
+              onChange={(e) => setQuedan(e.target.value)}
+              placeholder="0"
+              className="h-14 text-lg"
+              autoFocus
+            />
+          </Field>
+          <Field label="Fecha">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="h-14" />
+          </Field>
+        </div>
+
+        {valido && compras.length > 0 && !antesDelCiclo && (
+          <div
+            className={clsx(
+              'rounded-xl px-4 py-3 text-sm leading-relaxed',
+              dadoQq >= 0 ? 'bg-forest-50 text-forest-800' : 'border-l-4 border-clay bg-clay-tint text-clay-text',
+            )}
+          >
+            {dadoQq >= 0 ? (
+              <>
+                Compraste <span className="font-semibold tnum">{numCorto(compradoQq, 1)} qq</span>{' '}
+                hasta ese día. Si quedan {numCorto(qq, 1)}, se han dado{' '}
+                <span className="font-semibold tnum">{numCorto(dadoQq, 1)} qq</span> ({num(dadoQq * LB_POR_QUINTAL)} lb)
+                desde que empezó el ciclo. Lo que no anotaste día por día se reparte con la curva
+                de consumo.
+              </>
+            ) : (
+              <>
+                Quedan más sacos de los {numCorto(compradoQq, 1)} qq que anotaste como comprados
+                hasta ese día. ¿Falta anotar una compra o le pusiste otra fecha?
+              </>
+            )}
+          </div>
+        )}
+        {antesDelCiclo && (
+          <p className="text-sm text-clay-text">La fecha es anterior al inicio del ciclo.</p>
+        )}
+
+        <Button block className="h-14" disabled={!valido || antesDelCiclo} onClick={guardar}>
+          {yaContado ? `Corregir el conteo del ${fechaCorta(fecha)}` : 'Guardar conteo'}
+        </Button>
+
+        {conteos.length > 0 && (
+          <div>
+            <div className="mb-2 text-sm font-medium text-ink-soft">Conteos de este ciclo</div>
+            <div className="divide-y divide-line overflow-hidden rounded-xl2 border border-line bg-paper-raised">
+              {conteos.map((c) => (
+                <div key={c.fecha} className="flex items-center justify-between gap-3 py-1.5 pl-4 pr-1.5 text-sm">
+                  <span>
+                    {fechaCorta(c.fecha)}
+                    <span className="ml-2 text-ink-faint tnum">día {diasEntre(lote.fechaInicio, c.fecha)}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="font-display font-semibold tnum">
+                      {numCorto(c.qq, 2)} {c.qq === 1 ? 'saco' : 'sacos'}
+                    </span>
+                    <button
+                      onClick={() => quitar(c.fecha)}
+                      className="grid h-11 w-11 place-items-center rounded-full text-ink-faint active:bg-paper-sunken"
+                      aria-label={`Quitar el conteo del ${fechaCorta(c.fecha)}`}
+                    >
+                      <IconClose width={16} height={16} />
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Sheet>
   )

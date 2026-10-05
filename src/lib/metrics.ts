@@ -1,6 +1,7 @@
 import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
+import { consumoAlimento, type ConsumoAlimento } from './consumo'
 import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
-import { KG_POR_LB, PESO_OBJETIVO_DEFAULT, diaParaPeso, pesoEstandarLb } from './standards'
+import { KG_POR_LB, PESO_OBJETIVO_DEFAULT, diaParaPeso, fcaEstandar, pesoEstandarLb } from './standards'
 
 export interface LoteMetrics {
   dias: number
@@ -11,6 +12,10 @@ export interface LoteMetrics {
   avesVivas: number
   mortalidadPct: number
   alimentoTotalLb: number
+  // De dónde sale el alimento: lo anotado cada día más lo que dicen los conteos
+  // de sacos. `diaAlimento` es el último día con dato, y a ese día se mide el FCA.
+  alimento: ConsumoAlimento
+  diaAlimento?: number
   costos: number
   ingresos: number
   ganancia: number
@@ -52,7 +57,8 @@ export function computeMetrics(
   const avesVivas = Math.max(0, lote.cantidadInicial - bajas - descartes - vendidas)
   const mortalidadPct = lote.cantidadInicial > 0 ? (bajas / lote.cantidadInicial) * 100 : 0
 
-  const alimentoTotalLb = sum(registros.map((r) => r.alimentoLb ?? 0))
+  const alimento = consumoAlimento(lote, registros, gastos)
+  const alimentoTotalLb = alimento.totalLb
   const costos = lote.costoInicial + sum(gastos.map((g) => g.monto))
   const ingresosTot = sum(ingresos.map((i) => i.monto))
   const ganancia = ingresosTot - costos
@@ -78,6 +84,8 @@ export function computeMetrics(
     avesVivas,
     mortalidadPct,
     alimentoTotalLb,
+    alimento,
+    diaAlimento: alimento.hastaDia,
     costos,
     ingresos: ingresosTot,
     ganancia,
@@ -106,15 +114,27 @@ export function computeMetrics(
   // salen disparados sin que nada haya pasado.
   const fechaCorte = lote.fechaCierre ?? hoyISO()
   const diasDesdePeso = ultimoPeso ? diasEntre(ultimoPeso.fecha, fechaCorte) : undefined
-  const pesoEstimadoLb =
-    pesoPromedioLb != null
-      ? Math.max(pesoPromedioLb, pesoEstandarLb(dias) * factorCurva)
-      : undefined
+  const diaPeso = ultimoPeso ? diasEntre(lote.fechaInicio, ultimoPeso.fecha) : 0
+  const pesoEnDia = (d: number) =>
+    pesoPromedioLb == null
+      ? undefined
+      : d >= diaPeso
+        ? Math.max(pesoPromedioLb, pesoEstandarLb(d) * factorCurva)
+        : pesoEstandarLb(d) * factorCurva
+  const pesoEstimadoLb = pesoEnDia(dias)
 
   const pesoVendidoLb = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.pesoLb ?? 0))
   const biomasaViva = pesoEstimadoLb ? avesVivas * pesoEstimadoLb : 0
   const biomasaLb = biomasaViva + pesoVendidoLb
-  const fca = biomasaLb > 0 ? alimentoTotalLb / biomasaLb : undefined
+
+  // Sin alimento anotado no hay conversión: antes salía 0.00, que se lee como
+  // un lote perfecto. Y si el último dato de alimento es de hace días, el FCA se
+  // mide contra el peso de ese día: dividir el alimento de hasta el día 14 entre
+  // el peso del día 20 da una conversión que no existe.
+  const pesoAlimentoLb =
+    alimento.hastaDia != null ? pesoEnDia(Math.min(alimento.hastaDia, dias)) : undefined
+  const biomasaAlimento = (pesoAlimentoLb ? avesVivas * pesoAlimentoLb : 0) + pesoVendidoLb
+  const fca = alimentoTotalLb > 0 && biomasaAlimento > 0 ? alimentoTotalLb / biomasaAlimento : undefined
   const costoPorLb = biomasaLb > 0 ? costos / biomasaLb : undefined
   const gananciaPorLb = biomasaLb > 0 ? ganancia / biomasaLb : undefined
 
@@ -155,6 +175,14 @@ export function computeMetrics(
     diaVentaEstimado,
     fechaVentaEstimada,
   }
+}
+
+// Qué tanto peor (o mejor) que el estándar convierte el lote, para escalar el
+// consumo que viene. El FCA se mide al último día con dato de alimento, así que
+// se compara contra el estándar de ese mismo día y no contra el de hoy.
+export function eficienciaAlimento(m: LoteMetrics): number {
+  if (!m.fca || m.fca <= 0.5) return 1
+  return m.fca / fcaEstandar(Math.min(m.diaAlimento ?? m.dias, m.dias))
 }
 
 export interface SemanaResumen {
