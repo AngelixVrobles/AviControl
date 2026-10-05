@@ -37,14 +37,14 @@ describe('consumoPorFase', () => {
       registro(10, { alimentoLb: 100 }),
       registro(11, { alimentoLb: 200 }),
     ]
-    const fases = consumoPorFase(lote(), registros, m(lote(), registros))
+    const fases = consumoPorFase(lote(), m(lote(), registros))
     expect(fases.find((f) => f.nombre === 'Pre-inicio')!.realLb).toBe(100)
     expect(fases.find((f) => f.nombre === 'Iniciador')!.realLb).toBe(200)
   })
 
   it('compara contra lo que tocaba hasta hoy, no contra la fase entera', () => {
     const registros = [registro(26, { alimentoLb: 100 })]
-    const crecimiento = consumoPorFase(lote(), registros, m(lote(), registros)).find(
+    const crecimiento = consumoPorFase(lote(), m(lote(), registros)).find(
       (f) => f.nombre === 'Crecimiento',
     )!
     expect(crecimiento.enCurso).toBe(true)
@@ -53,7 +53,8 @@ describe('consumoPorFase', () => {
 })
 
 describe('computeInventarioAlimento', () => {
-  const registros = [registro(1, { alimentoLb: 1000 })]
+  // Alimento anotado hasta hoy (día 30): no hay días sin dato que estimar.
+  const registros = [registro(30, { alimentoLb: 1000 })]
   const met = m(lote(), registros)
 
   it('no hay existencia que mostrar sin compras', () => {
@@ -97,5 +98,29 @@ describe('computeInventarioAlimento', () => {
     // Medio quintal no cubre un día del día 30 en adelante.
     expect(conStock(10.5).diasQueAlcanza).toBe(0)
     expect(conStock(10).existenciaQq).toBe(0)
+  })
+
+  // Los sacos no siguen en el almacén solo porque nadie anotó que se dieron:
+  // los días sin dato se cuentan con el consumo esperado.
+  it('descuenta lo que se comió en los días sin dato de alimento', () => {
+    const conHueco = m(lote(), [registro(20, { alimentoLb: 1000 })])
+    const inv = computeInventarioAlimento(
+      [gasto({ categoria: 'alimento', monto: 1, cantidadQq: 60 })],
+      conHueco,
+      80,
+    )!
+    expect(inv.diasSinAnotar).toBe(9)
+    expect(inv.sinAnotarQq).toBeGreaterThan(0)
+    expect(inv.existenciaQq).toBeCloseTo(60 - 10 - inv.sinAnotarQq, 5)
+  })
+
+  it('el consumo por fase sale también de lo que dicen los conteos', () => {
+    const l = lote({ conteosAlimento: [{ fecha: registro(14).fecha, qq: 7 }] })
+    const met2 = computeMetrics(l, [], [gasto({ categoria: 'alimento', monto: 1, cantidadQq: 20 })], [])
+    const fases = consumoPorFase(l, met2)
+    const total = fases.reduce((a, f) => a + f.realLb, 0)
+    expect(total).toBeCloseTo(1300, 5)
+    expect(fases.find((f) => f.nombre === 'Pre-inicio')!.porConteoLb).toBeGreaterThan(0)
+    expect(fases.find((f) => f.nombre === 'Iniciador')!.porConteoLb).toBeGreaterThan(0)
   })
 })

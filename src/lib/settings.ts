@@ -11,6 +11,8 @@ export interface Settings {
   pesoObjetivoLb: number
   precioMercadoLb?: number
   avesPorM2: number
+  // Cómo se anota el alimento del día: en sacos de 100 lb o en libras.
+  unidadAlimento: 'qq' | 'lb'
   planSanitario: HitoSanitario[]
   ultimoRespaldo: string | null
 }
@@ -20,6 +22,7 @@ const defaults: Settings = {
   granja: 'Mi granja',
   pesoObjetivoLb: PESO_OBJETIVO_DEFAULT,
   avesPorM2: AVES_POR_M2,
+  unidadAlimento: 'qq',
   planSanitario: PLAN_SANITARIO_DEFAULT,
   ultimoRespaldo: null,
 }

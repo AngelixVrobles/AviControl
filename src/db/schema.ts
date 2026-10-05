@@ -21,6 +21,14 @@ export interface CierreCiclo {
   gananciaProyectada?: number
 }
 
+// Sacos contados en el almacén en una fecha. Con las compras anotadas en
+// quintales, lo que falta es lo que se dio: así se saca el consumo sin pesar el
+// alimento cada día, que es como lo lleva la mayoría.
+export interface ConteoAlimento {
+  fecha: string
+  qq: number
+}
+
 export interface Lote {
   id: number
   tipo: TipoLote
@@ -36,6 +44,7 @@ export interface Lote {
   costoInicialPagadoPor?: number
   fechaCierre?: string
   cierre?: CierreCiclo
+  conteosAlimento?: ConteoAlimento[]
   notas?: string
   creado: number
 }

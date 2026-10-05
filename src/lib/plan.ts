@@ -1,13 +1,12 @@
-import type { Gasto, Lote, Registro } from '../db/schema'
-import type { LoteMetrics } from './metrics'
-import { diasEntre, hoyISO, sumarDias } from './format'
+import type { Gasto, Lote } from '../db/schema'
+import { eficienciaAlimento, type LoteMetrics } from './metrics'
+import { hoyISO, sumarDias } from './format'
 import { comprasAlimento, precioQuintalReal } from './precios'
 import {
   FASES_ALIMENTO,
   LB_POR_QUINTAL,
   alimentoAcumEstandarLb,
   alimentoDiaEstandarLb,
-  fcaEstandar,
 } from './standards'
 
 export interface FasePlan {
@@ -42,6 +41,11 @@ export interface InventarioAlimento {
   comprasSinCantidad: number
   compradoQq: number
   consumidoQq: number
+  // Lo que se habrá comido en los días sin dato de alimento, según la curva. No
+  // entra en el FCA, pero sí en lo que queda: decir que los sacos siguen ahí
+  // porque nadie los anotó es como se queda uno sin alimento un domingo.
+  sinAnotarQq: number
+  diasSinAnotar: number
   existenciaQq: number
   diasQueAlcanza: number
   fechaSeAcaba: string
@@ -64,11 +68,21 @@ export function computeInventarioAlimento(
   const comprasSinCantidad = compras.filter((g) => !(g.cantidadQq && g.cantidadQq > 0)).length
   const compradoQq = compras.reduce((a, g) => a + (g.cantidadQq ?? 0), 0)
   const consumidoQq = m.alimentoTotalLb / LB_POR_QUINTAL
-  const existenciaQq = compradoQq - consumidoQq
+
+  const factorEf = eficienciaAlimento(m)
+  const aves = m.avesVivas > 0 ? m.avesVivas : m.cantidadInicial
+
+  // Hoy no cuenta como día sin dato: el alimento de hoy se anota al final.
+  let sinAnotarLb = 0
+  let diasSinAnotar = 0
+  for (let d = (m.diaAlimento ?? -1) + 1; d < m.dias; d++) {
+    sinAnotarLb += alimentoDiaEstandarLb(d) * aves * factorEf
+    diasSinAnotar++
+  }
+  const sinAnotarQq = sinAnotarLb / LB_POR_QUINTAL
+  const existenciaQq = compradoQq - consumidoQq - sinAnotarQq
   const existenciaLb = existenciaQq * LB_POR_QUINTAL
 
-  const factorEf = m.fca && m.fca > 0.5 ? m.fca / fcaEstandar(m.dias) : 1
-  const aves = m.avesVivas > 0 ? m.avesVivas : m.cantidadInicial
   let acumulado = 0
   let diasQueAlcanza = 0
   for (let d = m.dias + 1; d <= 70 && existenciaLb > 0; d++) {
@@ -85,6 +99,8 @@ export function computeInventarioAlimento(
     comprasSinCantidad,
     compradoQq,
     consumidoQq,
+    sinAnotarQq,
+    diasSinAnotar,
     existenciaQq,
     diasQueAlcanza,
     fechaSeAcaba: sumarDias(hoyISO(), diasQueAlcanza),
@@ -101,33 +117,35 @@ export interface ConsumoFase {
   planALaFechaLb: number
   planTotalLb: number
   realLb: number
+  porConteoLb: number
   diasRegistrados: number
   enCurso: boolean
 }
 
 // Lo que de verdad se dio en cada fase, contra lo que tocaba. El plan completo
 // no sirve para juzgar una fase a medias, así que se compara contra lo que
-// correspondía hasta hoy.
-export function consumoPorFase(lote: Lote, registros: Registro[], m: LoteMetrics): ConsumoFase[] {
+// correspondía hasta el último día con dato de alimento: comparar lo anotado
+// hasta el día 14 contra lo que tocaba hasta el 20 inventa un faltante.
+export function consumoPorFase(lote: Lote, m: LoteMetrics): ConsumoFase[] {
   const aves = lote.cantidadInicial
   const diaFinal = m.diaObjetivo
+  const corte = Math.min(m.dias, m.diaAlimento ?? m.dias)
 
   return FASES_ALIMENTO.map((f) => {
     const hasta = Math.min(f.hasta, diaFinal)
-    const hastaHoy = Math.min(hasta, m.dias)
-    const delaFase = registros.filter((r) => {
-      const d = diasEntre(lote.fechaInicio, r.fecha)
-      return d >= f.desde && d <= hasta
-    })
+    const hastaCorte = Math.min(hasta, corte)
+    const delaFase = m.alimento.dias.filter((d) => d.dia >= f.desde && d.dia <= hasta)
     const base = alimentoAcumEstandarLb(f.desde - 1)
+    const realLb = delaFase.reduce((a, d) => a + d.lb, 0)
     return {
       nombre: f.nombre,
       desde: f.desde,
       hasta,
-      planALaFechaLb: Math.max(0, (alimentoAcumEstandarLb(hastaHoy) - base) * aves),
+      planALaFechaLb: Math.max(0, (alimentoAcumEstandarLb(hastaCorte) - base) * aves),
       planTotalLb: Math.max(0, (alimentoAcumEstandarLb(hasta) - base) * aves),
-      realLb: delaFase.reduce((a, r) => a + (r.alimentoLb ?? 0), 0),
-      diasRegistrados: delaFase.length,
+      realLb,
+      porConteoLb: realLb - delaFase.reduce((a, d) => a + d.anotadoLb, 0),
+      diasRegistrados: delaFase.filter((d) => d.anotadoLb > 0).length,
       enCurso: m.dias >= f.desde && m.dias <= hasta,
     }
   }).filter((f) => f.hasta >= f.desde && f.planTotalLb > 0)

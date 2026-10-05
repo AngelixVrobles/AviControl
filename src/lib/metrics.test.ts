@@ -102,4 +102,47 @@ describe('computeMetrics', () => {
     expect(m.fca).toBeUndefined()
     expect(m.factorCurva).toBe(1)
   })
+
+  // El caso del productor que anota la mortalidad pero no el alimento: la app
+  // mostraba «Conversión 0.00», que se lee como un lote perfecto.
+  it('sin alimento no hay conversión, aunque haya peso', () => {
+    const m = computeMetrics(
+      lote(),
+      [registro(10), registro(14, { pesoPromedio: pesoEstandarLb(14) })],
+      [],
+      [],
+    )
+    expect(m.alimentoTotalLb).toBe(0)
+    expect(m.fca).toBeUndefined()
+    expect(m.iep).toBeUndefined()
+  })
+
+  it('el conteo de sacos llena el alimento y la conversión', () => {
+    const l = lote({ conteosAlimento: [{ fecha: hace(0), qq: 30 }] })
+    const m = computeMetrics(
+      l,
+      [registro(28, { pesoPromedio: pesoEstandarLb(28) })],
+      [gasto({ categoria: 'alimento', monto: 100000, cantidadQq: 60 })],
+      [],
+    )
+    expect(m.alimentoTotalLb).toBeCloseTo(3000, 5)
+    expect(m.diaAlimento).toBe(30)
+    expect(m.fca).toBeCloseTo(3000 / (500 * pesoEstandarLb(30)), 5)
+  })
+
+  // Contar los sacos el día 14 y no volver a anotar: el día 20 el alimento sigue
+  // siendo el de hasta el 14, y dividirlo entre el peso del 20 daba una
+  // conversión mejor que la real.
+  it('mide la conversión al último día con dato de alimento', () => {
+    const l = lote({ conteosAlimento: [{ fecha: hace(16), qq: 10 }] })
+    const m = computeMetrics(
+      l,
+      [registro(14, { pesoPromedio: pesoEstandarLb(14) })],
+      [gasto({ categoria: 'alimento', monto: 1, cantidadQq: 20 })],
+      [],
+    )
+    expect(m.diaAlimento).toBe(14)
+    expect(m.fca).toBeCloseTo(1000 / (500 * pesoEstandarLb(14)), 5)
+    expect(m.pesoEstimadoLb).toBeCloseTo(pesoEstandarLb(30), 5)
+  })
 })

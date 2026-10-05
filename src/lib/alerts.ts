@@ -77,20 +77,38 @@ export function computeAlertas(
     })
   }
 
+  // Sin alimento no hay conversión: el productor que anota la mortalidad cada día
+  // pero no el alimento veía «FCA 0.00» y no sabía por qué.
+  const diasSinAlimento = m.dias - 1 - (m.diaAlimento ?? 0)
+  if (m.alimentoTotalLb === 0 && m.dias >= 3) {
+    alertas.push({
+      nivel: 'warn',
+      texto: 'Sin alimento anotado no hay conversión: cuenta los sacos que quedan o anota el del día',
+    })
+  } else if (m.alimentoTotalLb > 0 && diasSinAlimento >= 4) {
+    alertas.push({
+      nivel: 'warn',
+      texto: `Hace ${diasSinAlimento} ${plural(diasSinAlimento, 'día', 'días')} que no anotas alimento: la conversión se quedó en el día ${m.diaAlimento}`,
+    })
+  }
+
   const inv = computeInventarioAlimento(gastos, m, computePlanAlimento(lote, m)?.totalQuintales ?? 0)
   if (inv?.completo) {
-    if (inv.existenciaQq < -1) {
+    // Lo anotado contra lo comprado, sin la estimación de los días sin dato:
+    // una estimación no puede acusar una compra perdida.
+    if (inv.compradoQq - inv.consumidoQq < -1) {
       alertas.push({
         nivel: 'warn',
         texto: `Diste ${num(inv.consumidoQq, 1)} qq y solo hay ${num(inv.compradoQq, 1)} comprados: falta anotar una compra`,
       })
     } else if (inv.existenciaQq > 0 && inv.diasQueAlcanza <= 3) {
+      const aprox = inv.diasSinAnotar > 0 ? ' (aprox., cuenta los sacos)' : ''
       alertas.push({
         nivel: 'bad',
         texto:
           inv.diasQueAlcanza === 0
-            ? `Te quedan ${num(inv.existenciaQq, 1)} qq: no alcanzan para mañana`
-            : `Te queda alimento para ${inv.diasQueAlcanza} ${inv.diasQueAlcanza === 1 ? 'día' : 'días'}`,
+            ? `Te quedan ${num(inv.existenciaQq, 1)} qq: no alcanzan para mañana${aprox}`
+            : `Te queda alimento para ${inv.diasQueAlcanza} ${inv.diasQueAlcanza === 1 ? 'día' : 'días'}${aprox}`,
       })
     }
   }
