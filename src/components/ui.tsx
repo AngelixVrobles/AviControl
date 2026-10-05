@@ -1,8 +1,8 @@
 import { clsx } from 'clsx'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode, SelectHTMLAttributes } from 'react'
 import { IconChevron, IconClose } from './icons'
 
 // El papel es la superficie, no la tarjeta: una banda a sangre con filete
@@ -103,7 +103,9 @@ export function Field({
 const inputBase =
   'w-full rounded-xl border border-line bg-paper-raised px-4 py-3 text-ink outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100'
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+// ComponentProps y no InputHTMLAttributes: en React 19 el ref viaja como prop y
+// así llega al <input> de verdad, que es lo que hace falta para devolverle el foco.
+export function Input(props: ComponentProps<'input'>) {
   return <input {...props} className={clsx(inputBase, props.className)} />
 }
 
@@ -154,6 +156,8 @@ export function Sheet({
   title: string
   children: ReactNode
 }) {
+  const arrastre = useDragControls()
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -178,34 +182,48 @@ export function Sheet({
           exit={{ opacity: 0 }}
         >
           <div className="absolute inset-0 bg-ink/30 backdrop-blur-[2px]" onClick={onClose} />
+          {/* La hoja tiene techo y su contenido corre por dentro: antes crecía
+              hacia arriba sin límite, lo de arriba quedaba fuera de la pantalla
+              y el gesto de bajar para alcanzarlo era el mismo que la cerraba.
+              Ahora solo se arrastra desde el asa y el título. */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="relative w-full max-w-md rounded-t-xl3 border-t border-line bg-paper px-5 pb-8 pt-3 shadow-pop safe-b"
+            className="sheet-max-h relative flex w-full max-w-md flex-col rounded-t-xl3 border-t border-line bg-paper shadow-pop"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 38 }}
             drag="y"
+            dragControls={arrastre}
+            dragListener={false}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.6 }}
             onDragEnd={(_, info) => {
               if (info.offset.y > 90 || info.velocity.y > 600) onClose()
             }}
           >
-            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line" />
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-xl font-semibold">{title}</h2>
-              <button
-                onClick={onClose}
-                className="grid h-11 w-11 place-items-center rounded-full bg-paper-sunken text-ink-soft"
-                aria-label="Cerrar"
-              >
-                <IconClose width={19} height={19} />
-              </button>
+            <div
+              className="shrink-0 touch-none px-5 pt-3"
+              onPointerDown={(e) => arrastre.start(e)}
+            >
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line" />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="min-w-0 font-display text-xl font-semibold">{title}</h2>
+                <button
+                  onClick={onClose}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken text-ink-soft"
+                  aria-label="Cerrar"
+                >
+                  <IconClose width={19} height={19} />
+                </button>
+              </div>
             </div>
-            {children}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+              {children}
+            </div>
           </motion.div>
         </motion.div>
       )}
