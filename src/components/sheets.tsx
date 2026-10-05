@@ -19,7 +19,8 @@ import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
 import { confirmar, toast } from './confirm'
 import { CATEGORIAS, categoriaLabel } from '../lib/labels'
 import { CATEGORIAS_DEUDA } from '../lib/deudas'
-import { diasEntre, hoyISO, money, num, pct, porLb } from '../lib/format'
+import { diasEntre, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
+import { borrarBorrador, guardarBorrador, leerBorrador, pesoSospechoso } from '../lib/borrador'
 import type { LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
 import { construirContrastes, snapshotCierre, type Contraste, type RealCiclo } from '../lib/cierre'
@@ -321,25 +322,44 @@ export function PesajeSheet({
   const [fecha, setFecha] = useState(hoyISO())
   const [pesos, setPesos] = useState<number[]>([])
   const [entrada, setEntrada] = useState('')
+  const [recuperados, setRecuperados] = useState(0)
+  const entradaRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
-    setFecha(editar?.fecha ?? hoyISO())
-    setPesos(editar?.pesos ?? [])
+    const borrador = leerBorrador(lote.id, editar?.id)
+    setFecha(borrador?.fecha ?? editar?.fecha ?? hoyISO())
+    setPesos(borrador?.pesos ?? editar?.pesos ?? [])
+    setRecuperados(borrador?.pesos.length ?? 0)
     setEntrada('')
-  }, [open, editar])
+  }, [open, editar, lote.id])
 
   const dia = diasEntre(lote.fechaInicio, fecha)
   const muestra = analizarMuestra(pesos, avesVivas)
   const sugeridas = tamanoMuestra(avesVivas)
   const faltan = muestra ? faltanPorPesar(muestra, avesVivas) : sugeridas
   const stdLb = pesoEstandarLb(dia)
+  const valorEntrada = Number(entrada.replace(',', '.'))
+
+  // Cada cambio queda en el teléfono en el mismo momento: si la hoja se cierra
+  // con 42 aves pesadas, al abrirla otra vez siguen ahí.
+  function cambiar(nuevos: number[], nuevaFecha = fecha) {
+    setPesos(nuevos)
+    setFecha(nuevaFecha)
+    guardarBorrador(lote.id, editar?.id, { fecha: nuevaFecha, pesos: nuevos })
+  }
 
   function agregar() {
-    const v = Number(entrada.replace(',', '.'))
-    if (!(v > 0)) return
-    setPesos((p) => [...p, Math.round(v * 100) / 100])
+    if (!(valorEntrada > 0)) return
+    cambiar([...pesos, Math.round(valorEntrada * 100) / 100])
     setEntrada('')
+    entradaRef.current?.focus()
+  }
+
+  function cerrar() {
+    if (pesos.length > 0 && !(editar && mismosPesos(editar.pesos, pesos) && editar.fecha === fecha))
+      toast(`Los ${num(pesos.length)} pesos quedan guardados: al abrir el pesaje siguen ahí`)
+    onClose()
   }
 
   async function guardar() {
@@ -347,6 +367,7 @@ export function PesajeSheet({
     const datos = { loteId: lote.id, fecha, pesos }
     if (editar) await db.pesajes.update(editar.id, datos)
     else await db.pesajes.add({ ...datos, creado: Date.now() })
+    borrarBorrador(lote.id, editar?.id)
     toast(`${num(muestra.n)} aves pesadas · promedio ${num(muestra.promedioLb, 2)} lb`)
 
     // El muestreo manda el peso del día: de ahí salen la curva, el FCA y la
@@ -374,55 +395,133 @@ export function PesajeSheet({
   async function eliminar() {
     if (!(await confirmar({ titulo: 'Eliminar pesaje', mensaje: 'El peso que quedó anotado en el día no se borra.', confirmar: 'Eliminar', peligro: true }))) return
     await db.pesajes.delete(editar!.id)
+    borrarBorrador(lote.id, editar!.id)
     onClose()
   }
 
-  return (
-    <Sheet open={open} onClose={onClose} title={editar ? 'Editar pesaje' : `Pesaje del día ${dia}`}>
-      <div className="space-y-4">
-        <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
-          Pesa <span className="font-semibold tnum">{num(sugeridas)}</span> aves al azar
-          {avesVivas > 0 && (
-            <span className="text-forest-700"> ({pct((sugeridas / avesVivas) * 100, 1)} del galpón)</span>
-          )}{' '}
-          para que el promedio valga para todas. Tómalas de esquinas distintas, no solo las que se
-          dejan agarrar.
-        </div>
+  const ultimo = pesos.length ? pesos[pesos.length - 1] : undefined
 
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            inputMode="decimal"
-            value={entrada}
-            onChange={(e) => setEntrada(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') agregar()
-            }}
-            placeholder={`Peso del ave ${pesos.length + 1} (lb)`}
-            className="h-14 flex-1 text-lg"
-          />
-          <button
-            onClick={agregar}
-            disabled={!(Number(entrada.replace(',', '.')) > 0)}
-            className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-forest-50 font-display text-2xl font-semibold text-forest-700 transition active:scale-95 disabled:opacity-40"
-            aria-label="Añadir peso"
-          >
-            +
-          </button>
+  return (
+    <Sheet open={open} onClose={cerrar} title={editar ? 'Editar pesaje' : `Pesaje del día ${dia}`}>
+      <div className="space-y-4">
+        {recuperados > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-sm text-amber-text">
+            <span className="min-w-0">
+              Recuperé {num(recuperados)} {plural(recuperados, 'peso', 'pesos')} que no se habían
+              guardado.
+            </span>
+            <button
+              onClick={() => {
+                cambiar([], editar?.fecha ?? hoyISO())
+                setRecuperados(0)
+              }}
+              className="shrink-0 font-semibold underline underline-offset-2"
+            >
+              Empezar de cero
+            </button>
+          </div>
+        )}
+
+        {pesos.length === 0 && (
+          <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
+            Pesa <span className="font-semibold tnum">{num(sugeridas)}</span> aves al azar
+            {avesVivas > 0 && (
+              <span className="text-forest-700"> ({pct((sugeridas / avesVivas) * 100, 1)} del galpón)</span>
+            )}{' '}
+            para que el promedio valga para todas. Tómalas de esquinas distintas, no solo las que se
+            dejan agarrar.
+          </div>
+        )}
+
+        {/* Fija arriba mientras la lista crece: el + nunca se va de la pantalla. */}
+        <div className="sticky top-0 z-10 -mx-5 border-b border-line bg-paper px-5 pb-3 pt-1">
+          <div className="flex gap-2">
+            <Input
+              ref={entradaRef}
+              type="number"
+              inputMode="decimal"
+              enterKeyHint="next"
+              value={entrada}
+              onChange={(e) => setEntrada(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') agregar()
+              }}
+              placeholder={`Peso del ave ${pesos.length + 1} (lb)`}
+              aria-label={`Peso del ave ${pesos.length + 1} en libras`}
+              className="h-14 flex-1 text-lg"
+            />
+            <button
+              onClick={agregar}
+              // Que el botón no se robe el foco: así el teclado no se cierra entre
+              // un ave y la siguiente.
+              onMouseDown={(e) => e.preventDefault()}
+              disabled={!(valorEntrada > 0)}
+              className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-forest-600 font-display text-2xl font-semibold text-paper-raised transition active:scale-95 disabled:bg-forest-50 disabled:text-forest-700 disabled:opacity-60"
+              aria-label="Añadir peso"
+            >
+              +
+            </button>
+          </div>
+          <div className="mt-2 flex min-h-[1.75rem] items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate text-ink-soft tnum">
+              {muestra ? (
+                <>
+                  <span className="font-semibold text-ink">{num(muestra.n)}</span>{' '}
+                  {plural(muestra.n, 'ave', 'aves')} · prom.{' '}
+                  <span className="font-semibold text-ink">{num(muestra.promedioLb, 2)} lb</span>
+                  {faltan === 0 ? ' · ✓ basta' : ` · faltan ${num(faltan)}`}
+                </>
+              ) : (
+                'Escribe el peso y toca +'
+              )}
+            </span>
+            {ultimo != null && (
+              <button
+                onClick={() => cambiar(pesos.slice(0, -1))}
+                onMouseDown={(e) => e.preventDefault()}
+                aria-label={`Deshacer el último peso, ${num(ultimo, 2)} libras`}
+                className="-mr-2 shrink-0 rounded-full px-2 py-1 text-sm font-semibold text-forest-600 active:bg-paper-sunken"
+              >
+                Deshacer
+              </button>
+            )}
+          </div>
         </div>
 
         {pesos.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {pesos.map((p, i) => (
-              <button
-                key={i}
-                onClick={() => setPesos((prev) => prev.filter((_, j) => j !== i))}
-                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper-raised py-1.5 pl-3 pr-2 text-sm font-semibold tnum transition active:bg-paper-sunken"
-              >
-                {num(p, 2)}
-                <IconClose width={14} height={14} className="text-ink-faint" />
-              </button>
-            ))}
+          <div>
+            <div className="flex flex-wrap gap-2">
+              {pesos
+                .map((p, i) => ({ p, i }))
+                .reverse()
+                .map(({ p, i }) => {
+                  const raro = pesoSospechoso(p, pesos)
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => cambiar(pesos.filter((_, j) => j !== i))}
+                      aria-label={`Quitar el ave ${i + 1}: ${num(p, 2)} libras${raro ? ', se sale de lo normal' : ''}`}
+                      className={clsx(
+                        'inline-flex items-center gap-1.5 rounded-full border py-1.5 pl-3 pr-2 text-sm font-semibold tnum transition active:bg-paper-sunken',
+                        raro
+                          ? 'border-clay-line bg-clay-tint text-clay-text'
+                          : i === pesos.length - 1
+                            ? 'border-forest-400 bg-forest-50'
+                            : 'border-line bg-paper-raised',
+                      )}
+                    >
+                      {num(p, 2)}
+                      <IconClose width={14} height={14} className="text-ink-faint" />
+                    </button>
+                  )
+                })}
+            </div>
+            <p className="mt-2 text-xs text-ink-faint">
+              El último va primero. Toca uno para quitarlo
+              {pesos.some((p) => pesoSospechoso(p, pesos))
+                ? '; los marcados en rojo se salen mucho del resto, revisa si fue un error al escribir.'
+                : '.'}
+            </p>
           </div>
         )}
 
@@ -493,7 +592,7 @@ export function PesajeSheet({
         )}
 
         <Field label="Fecha">
-          <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Input type="date" value={fecha} onChange={(e) => cambiar(pesos, e.target.value)} />
         </Field>
 
         <Button block className="h-14" disabled={!muestra} onClick={guardar}>
@@ -504,6 +603,8 @@ export function PesajeSheet({
     </Sheet>
   )
 }
+
+const mismosPesos = (a: number[], b: number[]) => a.length === b.length && a.every((x, i) => x === b[i])
 
 function Dato({ label, valor, nota }: { label: string; valor: string; nota?: string }) {
   return (

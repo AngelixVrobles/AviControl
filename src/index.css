@@ -81,6 +81,13 @@
     padding-top: env(safe-area-inset-top);
   }
 
+  /* Techo de las hojas. La segunda línea gana donde existe dvh, que sigue a la
+     barra de Safari; donde no, el navegador la descarta y queda la primera. */
+  .sheet-max-h {
+    max-height: calc(92vh - env(safe-area-inset-top));
+    max-height: calc(100dvh - 2.5rem - env(safe-area-inset-top));
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
