@@ -4,9 +4,11 @@ import { clsx } from 'clsx'
 import { db, type Socio } from '../db/schema'
 import { Button, Field, Input, Select } from '../components/ui'
 import { IconBack, IconClose } from '../components/icons'
-import { hoyISO } from '../lib/format'
+import { hoyISO, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
 import { RAZA } from '../lib/labels'
+import { equipoDeLaGranja, resumenEquipo } from '../lib/equipo'
+import { diaParaPeso } from '../lib/standards'
 
 export function NuevoLote() {
   const nav = useNavigate()
@@ -112,6 +114,8 @@ export function NuevoLote() {
             />
           </Field>
         </div>
+
+        {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} />}
 
         <Field label="Precio de venta por libra" hint="Opcional. Con esto se proyecta la ganancia.">
           <Input
@@ -225,4 +229,41 @@ export function NuevoLote() {
 
 function autoNombre(fecha: string) {
   return `Lote ${fecha}`
+}
+
+// Antes de recibir los pollitos: lo que hace falta montar en el galpón para esa
+// cantidad, con el equipo que la granja tiene anotado, y si caben.
+function EquipoNecesario({ aves }: { aves: number }) {
+  const settings = useSettings()
+  const plan = equipoDeLaGranja(
+    aves,
+    settings.pesoObjetivoLb,
+    diaParaPeso(settings.pesoObjetivoLb),
+    settings,
+  )
+  if (!plan) return null
+  const g = plan.galpon
+  return (
+    <div className="rounded-xl2 border border-line bg-paper-raised p-4">
+      <div className="text-sm font-medium text-ink-soft">Para {num(aves)} pollitos vas a necesitar</div>
+      <p className="mt-1 text-sm leading-relaxed text-ink tnum">{resumenEquipo(plan)}</p>
+      {g && (
+        <p
+          className={clsx(
+            'mt-2 text-sm leading-relaxed tnum',
+            g.sobrepoblado ? 'font-medium text-clay-text' : 'text-ink-soft',
+          )}
+        >
+          {g.sobrepoblado
+            ? `Tu galpón aguanta ${num(g.avesMaximas)} aves al peso de venta: con ${num(aves)} quedan apretadas.`
+            : `Tu galpón aguanta ${num(g.avesMaximas)} aves al peso de venta.`}
+        </p>
+      )}
+      <p className="mt-2 text-xs text-ink-faint">
+        {g
+          ? 'El detalle y cómo repartirlos está en la ficha Galpón del ciclo.'
+          : 'Pon las medidas del galpón en Ajustes y te digo si caben.'}
+      </p>
+    </div>
+  )
 }
