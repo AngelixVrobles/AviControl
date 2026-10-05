@@ -1,4 +1,5 @@
 import { getSettings } from './settings'
+import { LB_POR_QUINTAL } from './standards'
 
 export function money(value: number, opts: { compact?: boolean; decimales?: number } = {}): string {
   const { moneda } = getSettings()
@@ -45,6 +46,21 @@ export function num(value: number, decimals = 0): string {
   })
     .format(value)
     .replace('-', '−')
+}
+
+// Hasta `max` decimales y sin ceros de relleno: 2 sacos, 2.5 sacos, 1.75 sacos.
+export function numCorto(value: number, max = 2): string {
+  return new Intl.NumberFormat('es-DO', { maximumFractionDigits: max })
+    .format(value)
+    .replace('-', '−')
+}
+
+// El alimento se piensa en sacos de 100 lb (un quintal) o en libras, según
+// cómo lo lleve cada quien; por dentro siempre se guarda en libras.
+export function alimentoEn(lb: number, unidad: 'qq' | 'lb'): string {
+  if (unidad === 'lb') return `${num(lb)} lb`
+  const sacos = lb / LB_POR_QUINTAL
+  return `${numCorto(sacos)} ${Math.abs(sacos) === 1 ? 'saco' : 'sacos'}`
 }
 
 export function pct(value: number, decimals = 1): string {

@@ -123,6 +123,46 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   )
 }
 
+// Para elegir entre dos o tres cosas que se excluyen (sacos o libras, metros o
+// pies, Plasson o niples). Alto de dedo, no de cursor: se usa con las manos
+// sucias en el galpón.
+export function Segmentado<T extends string>({
+  valor,
+  opciones,
+  onCambio,
+  etiqueta,
+  className,
+}: {
+  valor: T
+  opciones: { id: T; label: string }[]
+  onCambio: (v: T) => void
+  etiqueta: string
+  className?: string
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={etiqueta}
+      className={clsx('flex shrink-0 rounded-full bg-sunken p-0.5', className)}
+    >
+      {opciones.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onCambio(o.id)}
+          aria-pressed={valor === o.id}
+          className={clsx(
+            'h-10 flex-1 rounded-full px-3.5 text-sm font-semibold transition',
+            valor === o.id ? 'bg-paper-raised text-ink shadow-card' : 'text-ink-soft',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function Pill({
   children,
   tone = 'neutral',

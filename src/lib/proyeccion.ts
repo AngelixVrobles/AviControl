@@ -1,12 +1,11 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
-import type { LoteMetrics } from './metrics'
+import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, hoyISO, sumarDias } from './format'
 import { precioAlimentoLb } from './precios'
 import {
   LB_POR_QUINTAL,
   alimentoAcumEstandarLb,
   diaParaPeso,
-  fcaEstandar,
   mortalidadEsperadaPct,
   pesoEstandarLb,
 } from './standards'
@@ -66,7 +65,7 @@ export function proyectarVenta(
   // proporcionalmente más de lo que engordan.
   let alimentoRestanteLb = 0
   if (!listo) {
-    const factorEf = m.fca && m.fca > 0.5 ? m.fca / fcaEstandar(diaUltimo) : 1
+    const factorEf = eficienciaAlimento(m)
     const consumoStd = Math.max(
       0,
       alimentoAcumEstandarLb(diaVenta) - alimentoAcumEstandarLb(Math.max(diaUltimo, m.dias)),

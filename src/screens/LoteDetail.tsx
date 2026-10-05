@@ -27,6 +27,7 @@ import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
 import { computeLiquidacion, gananciaPorSocio } from "../lib/sociedad";
 import { compartirReporte } from "../lib/reporte";
 import {
+  alimentoEn,
   diasEntre,
   fecha,
   money,
@@ -38,6 +39,7 @@ import {
 } from "../lib/format";
 import { categoriaLabel, RAZA, tipoIngresoLabel } from "../lib/labels";
 import {
+  LB_POR_QUINTAL,
   PESO_OBJETIVO_DEFAULT,
   fcaEstandar,
   pesoEstandarLb,
@@ -174,7 +176,10 @@ export function LoteDetail() {
       value: metrics.fca != null ? num(metrics.fca, 2) : "—",
     },
     { label: "Mortalidad", value: pct(metrics.mortalidadPct) },
-    { label: "Alimento total", value: `${num(metrics.alimentoTotalLb)} lb` },
+    {
+      label: "Alimento total",
+      value: `${num(metrics.alimentoTotalLb / LB_POR_QUINTAL, 1)} qq`,
+    },
     {
       label: "Costo / lb",
       value: metrics.costoPorLb != null ? porLb(metrics.costoPorLb) : "—",
@@ -281,7 +286,11 @@ export function LoteDetail() {
             metrics={metrics}
             aplicaciones={aplicaciones}
           />
-          <GuiaDelDia lote={lote} metrics={metrics} />
+          <GuiaDelDia
+            lote={lote}
+            metrics={metrics}
+            unidad={settings.unidadAlimento}
+          />
           <FaseActual lote={lote} gastos={gastos} metrics={metrics} />
 
           <Seccion className="mb-3 mt-8" etiqueta="Historial" />
@@ -316,7 +325,7 @@ export function LoteDetail() {
                         )}
                         {r.alimentoLb > 0 && (
                           <span className="text-ink-faint">
-                            {num(r.alimentoLb)} lb alim.
+                            {alimentoEn(r.alimentoLb, settings.unidadAlimento)}
                           </span>
                         )}
                         {r.mortalidad > 0 && (
@@ -1230,6 +1239,7 @@ function FaseActual({
   const f = plan.faseActual;
   const inv = computeInventarioAlimento(gastos, metrics, plan.totalQuintales);
   const quedan = inv?.completo ? inv.existenciaQq : undefined;
+  const aprox = inv?.completo && inv.diasSinAnotar > 0;
 
   return (
     <Link
@@ -1259,22 +1269,39 @@ function FaseActual({
               (inv!.diasQueAlcanza <= 3 ? "text-clay-deep" : "")
             }
           >
+            {aprox ? "~" : ""}
             {num(Math.max(0, quedan), 1)} qq
           </div>
-          <div className="mt-0.5 text-xs text-ink-faint">en el galpón</div>
+          <div className="mt-0.5 text-xs text-ink-faint">
+            {aprox ? "sin contar" : "en el galpón"}
+          </div>
         </div>
       )}
     </Link>
   );
 }
 
-function GuiaDelDia({ lote, metrics }: { lote: Lote; metrics: LoteMetrics }) {
+function GuiaDelDia({
+  lote,
+  metrics,
+  unidad,
+}: {
+  lote: Lote;
+  metrics: LoteMetrics;
+  unidad: "qq" | "lb";
+}) {
   const g = computeGuiaDia(lote, metrics);
   if (!g) return null;
   const desv = g.desviacionPct;
   const stats = [
-    { label: "Alimento hoy", value: `${num(g.alimentoDiaLb)} lb` },
-    { label: "Alimento acum.", value: `${num(g.alimentoAcumLb)} lb` },
+    { label: "Alimento hoy", value: alimentoEn(g.alimentoDiaLb, unidad) },
+    {
+      label: "Alimento acum.",
+      value:
+        unidad === "qq"
+          ? `${num(g.alimentoAcumLb / LB_POR_QUINTAL, 1)} qq`
+          : `${num(g.alimentoAcumLb)} lb`,
+    },
     { label: "FCA esperado", value: num(g.fcaEsperado, 2) },
     { label: "Temperatura", value: `${g.tempC} °C` },
     {
