@@ -1,4 +1,5 @@
 import { AVES_POR_M2, PESO_OBJETIVO_DEFAULT, PLAN_SANITARIO_DEFAULT, type HitoSanitario } from './standards'
+import type { TipoBebedero, TipoComedero, TipoEquipo } from './equipo'
 
 const KEY = 'avicontrol.settings'
 
@@ -7,6 +8,13 @@ export interface Settings {
   granja: string
   galponLargoM?: number
   galponAnchoM?: number
+  // Las medidas se guardan en metros; esto es solo cómo se escriben y se leen.
+  unidadMedida: 'm' | 'pies'
+  // El equipo de la granja: con qué se da agua y comida, y para cuántas aves
+  // alcanza cada uno si el modelo no es el de la cifra por defecto.
+  bebedero: TipoBebedero
+  comedero: TipoComedero
+  avesPorEquipo: Partial<Record<TipoEquipo, number>>
   // Defaults de producción (aplican a cada ciclo nuevo).
   pesoObjetivoLb: number
   precioMercadoLb?: number
@@ -20,6 +28,10 @@ export interface Settings {
 const defaults: Settings = {
   moneda: 'RD$',
   granja: 'Mi granja',
+  unidadMedida: 'm',
+  bebedero: 'plasson',
+  comedero: 'tolva',
+  avesPorEquipo: {},
   pesoObjetivoLb: PESO_OBJETIVO_DEFAULT,
   avesPorM2: AVES_POR_M2,
   unidadAlimento: 'qq',
