@@ -16,7 +16,8 @@ import { useSettings } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
-import { Banda, DangerButton, Field, Input, Seccion } from '../components/ui'
+import { Banda, DangerButton, Field, Input, Segmentado, Seccion } from '../components/ui'
+import { MedidasGalpon } from './fichas/Galpon'
 import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
 
@@ -233,7 +234,7 @@ export function Ajustes() {
         />
         <FilaNumero
           label="Aves por metro²"
-          sub="Avisa si el galpón queda apretado"
+          sub="Cuántas caben en tu galpón"
           value={s.avesPorM2}
           onSave={(v) => saveSettings({ avesPorM2: v || 11 })}
         />
@@ -249,25 +250,53 @@ export function Ajustes() {
         <Field label="Moneda" hint="Símbolo que verás en los montos (ej. RD$, $, Q, S/).">
           <Input defaultValue={s.moneda} onBlur={(e) => saveSettings({ moneda: e.target.value.trim() || 'RD$' })} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Largo del galpón" hint="En metros.">
-            <Input
-              type="number"
-              inputMode="decimal"
-              defaultValue={s.galponLargoM ?? ''}
-              onBlur={(e) => saveSettings({ galponLargoM: Number(e.target.value) || undefined })}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="Ancho del galpón" hint="En metros.">
-            <Input
-              type="number"
-              inputMode="decimal"
-              defaultValue={s.galponAnchoM ?? ''}
-              onBlur={(e) => saveSettings({ galponAnchoM: Number(e.target.value) || undefined })}
-              placeholder="0"
-            />
-          </Field>
+      </Banda>
+
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Galpón y equipo"
+        nota="Con esto la app dice cuántos bebederos y comederos hacen falta, cuántas aves caben y cómo repartirlos."
+      />
+      <Banda className="space-y-4 px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium">Medidas en</span>
+          <Segmentado
+            etiqueta="Unidad de las medidas"
+            valor={s.unidadMedida}
+            onCambio={(v) => saveSettings({ unidadMedida: v })}
+            opciones={[
+              { id: 'm', label: 'Metros' },
+              { id: 'pies', label: 'Pies' },
+            ]}
+            className="w-48"
+          />
+        </div>
+        <MedidasGalpon settings={s} />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium">Bebederos</span>
+          <Segmentado
+            etiqueta="Tipo de bebedero"
+            valor={s.bebedero}
+            onCambio={(v) => saveSettings({ bebedero: v })}
+            opciones={[
+              { id: 'plasson', label: 'Plasson' },
+              { id: 'niple', label: 'Niples' },
+            ]}
+            className="w-48"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium">Comederos</span>
+          <Segmentado
+            etiqueta="Tipo de comedero"
+            valor={s.comedero}
+            onCambio={(v) => saveSettings({ comedero: v })}
+            opciones={[
+              { id: 'tolva', label: 'Tolva' },
+              { id: 'plato', label: 'Platos' },
+            ]}
+            className="w-48"
+          />
         </div>
       </Banda>
 
