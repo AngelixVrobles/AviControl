@@ -5,7 +5,7 @@ import { hoyISO } from '../lib/format'
 import { Button } from './ui'
 
 async function respaldar() {
-  const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos] =
+  const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos, entregas] =
     await Promise.all([
       db.lotes.toArray(),
       db.registros.toArray(),
@@ -15,11 +15,12 @@ async function respaldar() {
       db.aplicaciones.toArray(),
       db.deudas.toArray(),
       db.abonos.toArray(),
+      db.entregas.toArray(),
     ])
   const blob = new Blob(
     [
       JSON.stringify(
-        { version: 3, lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos },
+        { version: 4, lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos, entregas },
         null,
         2,
       ),

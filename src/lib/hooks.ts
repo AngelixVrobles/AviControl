@@ -24,16 +24,18 @@ export function useLoteData(id: number | undefined) {
     if (!id || Number.isNaN(id)) return null
     const lote = await db.lotes.get(id)
     if (!lote) return null
-    const [registros, gastos, ingresos, pesajes, aplicaciones] = await Promise.all([
+    const [registros, gastos, ingresos, pesajes, aplicaciones, entregas] = await Promise.all([
       db.registros.where('loteId').equals(id).toArray(),
       db.gastos.where('loteId').equals(id).toArray(),
       db.ingresos.where('loteId').equals(id).toArray(),
       db.pesajes.where('loteId').equals(id).toArray(),
       db.aplicaciones.where('loteId').equals(id).toArray(),
+      db.entregas.where('loteId').equals(id).toArray(),
     ])
     registros.sort((a, b) => a.fecha.localeCompare(b.fecha))
     pesajes.sort((a, b) => a.fecha.localeCompare(b.fecha))
     aplicaciones.sort((a, b) => a.fecha.localeCompare(b.fecha))
+    entregas.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.creado - b.creado)
     const metrics = computeMetrics(lote, registros, gastos, ingresos)
     return {
       lote,
@@ -42,6 +44,7 @@ export function useLoteData(id: number | undefined) {
       ingresos,
       pesajes,
       aplicaciones,
+      entregas,
       metrics,
       alertas: computeAlertas(lote, registros, gastos, metrics),
     }
