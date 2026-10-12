@@ -14,6 +14,7 @@ import {
 } from '../db/schema'
 import { saveSettings, type Settings } from '../lib/settings'
 import { useSettings } from '../lib/hooks'
+import { borrarBorradores } from '../lib/borrador'
 import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
@@ -62,13 +63,14 @@ function migrarUnidades(data: Respaldo) {
 export function Ajustes() {
   const s = useSettings()
   const conteos = useLiveQuery(async () => {
-    const [ciclos, registros, gastos, ventas] = await Promise.all([
+    const [ciclos, registros, gastos, ventas, deudas] = await Promise.all([
       db.lotes.count(),
       db.registros.count(),
       db.gastos.count(),
       db.ingresos.count(),
+      db.deudas.count(),
     ])
-    return { ciclos, registros, gastos, ventas }
+    return { ciclos, registros, gastos, ventas, deudas }
   }, [])
 
   async function exportar() {
@@ -206,38 +208,20 @@ export function Ajustes() {
   }
 
   async function borrarTodo() {
-    const c = conteos
     if (
       !(await confirmar({
         titulo: 'Borrar todos los datos',
-        mensaje: `Borra ${num(c?.ciclos ?? 0)} ${plural(c?.ciclos ?? 0, 'ciclo', 'ciclos')}, ${num(
-          c?.registros ?? 0,
-        )} ${plural(c?.registros ?? 0, 'registro diario', 'registros diarios')}, ${num(
-          c?.gastos ?? 0,
-        )} ${plural(c?.gastos ?? 0, 'gasto', 'gastos')} y ${num(c?.ventas ?? 0)} ${plural(
-          c?.ventas ?? 0,
-          'venta',
-          'ventas',
-        )}. No se puede deshacer y no hay copia en internet.`,
+        mensaje: queSeBorra(conteos),
         confirmar: 'Borrar todo',
         peligro: true,
       }))
     )
       return
-    await db.transaction(
-      'rw',
-      [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.entregas],
-      async () => {
-        await Promise.all([
-          db.lotes.clear(),
-          db.registros.clear(),
-          db.gastos.clear(),
-          db.ingresos.clear(),
-          db.pesajes.clear(),
-          db.entregas.clear(),
-        ])
-      },
-    )
+    // Todas las tablas y no una lista a mano: cada tabla que se añadía había que
+    // acordarse de sumarla aquí, y las vacunas, las deudas y sus abonos se
+    // quedaban después de «borrar todo».
+    await db.transaction('rw', db.tables, () => Promise.all(db.tables.map((t) => t.clear())))
+    borrarBorradores()
     toast('Datos borrados.')
   }
 
@@ -335,9 +319,7 @@ export function Ajustes() {
       <Seccion className="mb-3 mt-8 text-clay-deep" etiqueta="Zona de peligro" />
       <Banda className="space-y-3 px-5 py-4">
         <p className="text-sm leading-relaxed text-ink-soft">
-          Borra {num(conteos?.ciclos ?? 0)} ciclos, {num(conteos?.registros ?? 0)} registros diarios,{' '}
-          {num(conteos?.gastos ?? 0)} gastos y {num(conteos?.ventas ?? 0)} ventas. No se puede deshacer
-          y no hay copia en internet.
+          {queSeBorra(conteos)}
         </p>
         <DangerButton onClick={borrarTodo}>Borrar todo</DangerButton>
       </Banda>
@@ -345,6 +327,33 @@ export function Ajustes() {
       <p className="mt-8 text-center text-sm text-ink-soft">AviControl · v{__APP_VERSION__} · datos locales</p>
     </div>
   )
+}
+
+// Lo de cada ciclo va junto —registros, pesajes, vacunas, gastos, ventas y
+// entregas entre socios—, y las deudas de la empresa aparte porque no cuelgan
+// de ningún ciclo.
+function queSeBorra(c?: {
+  ciclos: number
+  registros: number
+  gastos: number
+  ventas: number
+  deudas: number
+}): string {
+  const aviso = 'No se puede deshacer y no hay copia en internet.'
+  // Mientras se cuentan los datos no se sabe si hay algo: mejor el aviso entero.
+  if (!c) return `Borra todos los ciclos y las deudas anotadas. ${aviso}`
+  const n = (x: number, uno: string, varios: string) => `${num(x)} ${plural(x, uno, varios)}`
+  const partes = [
+    c.ciclos > 0 &&
+      `${n(c.ciclos, 'ciclo', 'ciclos')} con todo lo anotado en ${plural(c.ciclos, 'él', 'ellos')} (${n(
+        c.registros,
+        'registro diario',
+        'registros diarios',
+      )}, ${n(c.gastos, 'gasto', 'gastos')} y ${n(c.ventas, 'venta', 'ventas')})`,
+    c.deudas > 0 && `${n(c.deudas, 'deuda de la empresa', 'deudas de la empresa')} con sus abonos`,
+  ].filter(Boolean)
+  if (!partes.length) return 'Todavía no hay ciclos ni deudas anotados.'
+  return `Borra ${partes.join(' y ')}. ${aviso}`
 }
 
 function resumen(lotes?: Lote[]) {

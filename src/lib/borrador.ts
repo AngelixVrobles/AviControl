@@ -9,8 +9,10 @@ export interface BorradorPesaje {
   actualizado: number
 }
 
+const PREFIJO = 'avicontrol.pesaje.'
+
 const clave = (loteId: number, pesajeId?: number) =>
-  `avicontrol.pesaje.${loteId}${pesajeId != null ? `.${pesajeId}` : ''}`
+  `${PREFIJO}${loteId}${pesajeId != null ? `.${pesajeId}` : ''}`
 
 export function leerBorrador(loteId: number, pesajeId?: number): BorradorPesaje | null {
   try {
@@ -49,6 +51,22 @@ export function borrarBorrador(loteId: number, pesajeId?: number) {
     localStorage.removeItem(clave(loteId, pesajeId))
   } catch {
     // Nada que hacer: un borrador que no se pudo borrar solo vuelve a aparecer.
+  }
+}
+
+// «Borrar todo» se lleva también los pesajes a medias: son pesos anotados en
+// este teléfono como cualquier otro dato, y si se restaura un respaldo con un
+// ciclo del mismo número aparecerían en su hoja de pesaje.
+export function borrarBorradores() {
+  try {
+    const claves: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith(PREFIJO)) claves.push(k)
+    }
+    for (const k of claves) localStorage.removeItem(k)
+  } catch {
+    // Sin acceso al almacenamiento no hay borradores que borrar.
   }
 }
 
