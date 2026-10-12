@@ -5,6 +5,7 @@ import {
   type Abono,
   type Aplicacion,
   type Deuda,
+  type EntregaSocio,
   type Gasto,
   type Ingreso,
   type Lote,
@@ -22,7 +23,7 @@ import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
 
 const KG_A_LB = 2.20462
-const VERSION_ACTUAL = 3
+const VERSION_ACTUAL = 4
 
 interface Respaldo {
   version?: number
@@ -35,6 +36,7 @@ interface Respaldo {
   aplicaciones?: Aplicacion[]
   deudas?: Deuda[]
   abonos?: Abono[]
+  entregas?: EntregaSocio[]
 }
 
 // Los respaldos anteriores a la migración a libras traen alimentoKg/pesoKg.
@@ -70,7 +72,7 @@ export function Ajustes() {
   }, [])
 
   async function exportar() {
-    const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos] =
+    const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos, entregas] =
       await Promise.all([
         db.lotes.toArray(),
         db.registros.toArray(),
@@ -80,11 +82,24 @@ export function Ajustes() {
         db.aplicaciones.toArray(),
         db.deudas.toArray(),
         db.abonos.toArray(),
+        db.entregas.toArray(),
       ])
     const blob = new Blob(
       [
         JSON.stringify(
-          { version: VERSION_ACTUAL, settings: s, lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos },
+          {
+            version: VERSION_ACTUAL,
+            settings: s,
+            lotes,
+            registros,
+            gastos,
+            ingresos,
+            pesajes,
+            aplicaciones,
+            deudas,
+            abonos,
+            entregas,
+          },
           null,
           2,
         ),
@@ -137,7 +152,17 @@ export function Ajustes() {
     try {
       await db.transaction(
         'rw',
-        [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.aplicaciones, db.deudas, db.abonos],
+        [
+          db.lotes,
+          db.registros,
+          db.gastos,
+          db.ingresos,
+          db.pesajes,
+          db.aplicaciones,
+          db.deudas,
+          db.abonos,
+          db.entregas,
+        ],
         async () => {
           await Promise.all([
             db.lotes.clear(),
@@ -148,6 +173,7 @@ export function Ajustes() {
             db.aplicaciones.clear(),
             db.deudas.clear(),
             db.abonos.clear(),
+            db.entregas.clear(),
           ])
           await db.lotes.bulkAdd(data.lotes!)
           await db.registros.bulkAdd(data.registros!)
@@ -157,6 +183,7 @@ export function Ajustes() {
           await db.aplicaciones.bulkAdd(data.aplicaciones ?? [])
           await db.deudas.bulkAdd(data.deudas ?? [])
           await db.abonos.bulkAdd(data.abonos ?? [])
+          await db.entregas.bulkAdd(data.entregas ?? [])
         },
       )
     } catch {
@@ -197,15 +224,20 @@ export function Ajustes() {
       }))
     )
       return
-    await db.transaction('rw', db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, async () => {
-      await Promise.all([
-        db.lotes.clear(),
-        db.registros.clear(),
-        db.gastos.clear(),
-        db.ingresos.clear(),
-        db.pesajes.clear(),
-      ])
-    })
+    await db.transaction(
+      'rw',
+      [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.entregas],
+      async () => {
+        await Promise.all([
+          db.lotes.clear(),
+          db.registros.clear(),
+          db.gastos.clear(),
+          db.ingresos.clear(),
+          db.pesajes.clear(),
+          db.entregas.clear(),
+        ])
+      },
+    )
     toast('Datos borrados.')
   }
 
