@@ -138,6 +138,20 @@ export interface Deuda {
   creado: number
 }
 
+// Dinero que un socio le da a otro para dejar la cuenta pareja: no es gasto ni
+// venta del ciclo —la ganancia no cambia—, solo mueve quién tiene qué. Sin
+// anotarlo, la liquidación seguía pidiendo el mismo pago después de hecho.
+export interface EntregaSocio {
+  id: number
+  loteId: number
+  fecha: string
+  de: number
+  a: number
+  monto: number
+  nota?: string
+  creado: number
+}
+
 export interface Abono {
   id: number
   deudaId: number
@@ -157,6 +171,7 @@ export const db = new Dexie('avicontrol') as Dexie & {
   aplicaciones: EntityTable<Aplicacion, 'id'>
   deudas: EntityTable<Deuda, 'id'>
   abonos: EntityTable<Abono, 'id'>
+  entregas: EntityTable<EntregaSocio, 'id'>
 }
 
 db.version(1).stores({
@@ -177,4 +192,8 @@ db.version(3).stores({
 db.version(4).stores({
   deudas: '++id, fecha',
   abonos: '++id, deudaId, fecha',
+})
+
+db.version(5).stores({
+  entregas: '++id, loteId, fecha',
 })

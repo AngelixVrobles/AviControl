@@ -9,6 +9,7 @@ import { clsx } from "clsx";
 import { motion } from "motion/react";
 import {
   db,
+  type EntregaSocio,
   type Gasto,
   type Ingreso,
   type Lote,
@@ -24,7 +25,15 @@ import { analizarPuntoOptimo } from "../lib/optimo";
 import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
-import { computeLiquidacion, gananciaPorSocio } from "../lib/sociedad";
+import {
+  computeLiquidacion,
+  esYo,
+  fraseEntrega,
+  gananciaPorSocio,
+  nombreSocio,
+  type SocioBalance,
+  type Traspaso,
+} from "../lib/sociedad";
 import { compartirReporte } from "../lib/reporte";
 import {
   alimentoEn,
@@ -47,7 +56,7 @@ import {
 import type { Settings } from "../lib/settings";
 import { AlertaChip } from "../components/AlertaChip";
 import { FichasNav } from "../components/FichasNav";
-import { confirmar } from "../components/confirm";
+import { confirmar, toast } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Button, Banda, Pill, Seccion } from "../components/ui";
 import { GraficaLineas } from "../components/chart";
@@ -62,6 +71,7 @@ import {
 import {
   ActionButton,
   CierreSheet,
+  EntregaSheet,
   GastoSheet,
   IngresoSheet,
   PesajeSheet,
@@ -131,6 +141,7 @@ export function LoteDetail() {
     ingresos,
     pesajes,
     aplicaciones,
+    entregas,
     metrics,
     alertas,
   } = data;
@@ -465,8 +476,10 @@ export function LoteDetail() {
 
           <Sociedad
             lote={lote}
+            registros={registros}
             gastos={gastos}
             ingresos={ingresos}
+            entregas={entregas}
             metrics={metrics}
             settings={settings}
           />
@@ -1371,99 +1384,385 @@ function GuiaDelDia({
 
 function Sociedad({
   lote,
+  registros,
   gastos,
   ingresos,
+  entregas,
   metrics,
   settings,
 }: {
   lote: Lote;
+  registros: Registro[];
   gastos: Gasto[];
   ingresos: Ingreso[];
+  entregas: EntregaSocio[];
   metrics: LoteMetrics;
   settings: Settings;
 }) {
-  const liq = computeLiquidacion(lote, gastos, ingresos, metrics);
+  const [hoja, setHoja] = useState(false);
+  const [sugerida, setSugerida] = useState<{ de: number; a: number; monto: number }>();
+  const [editar, setEditar] = useState<EntregaSocio>();
+  const liq = computeLiquidacion(lote, gastos, ingresos, metrics, entregas);
   if (!liq) return null;
-  const hayGanancia = metrics.ingresos > 0;
+  const socios = lote.socios!;
+  const nombre = (i: number) =>
+    socios[i] ? nombreSocio(socios[i], i) : `Socio ${i + 1}`;
+
+  // Antes de vender, lo que cada uno se llevaría si la venta sale como la
+  // proyección: la ganancia de hoy es solo lo gastado con signo negativo.
+  const proyeccion =
+    lote.estado === "activo" && !liq.conVentas
+      ? proyectarVenta(
+          lote,
+          registros,
+          gastos,
+          metrics,
+          lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT,
+        )
+      : null;
+  const estimada = proyeccion?.gananciaProyectada;
+
+  const parejos = liq.traspasos.length === 0;
+  const [antes, despues] = parejos
+    ? ["", ""]
+    : fraseEntrega(liq.traspasos[0].de, liq.traspasos[0].a);
+  const titulo = parejos
+    ? liq.conVentas
+      ? "La cuenta está pareja"
+      : "Van parejos"
+    : liq.traspasos.length === 1
+      ? `${antes}${money(liq.traspasos[0].monto)}${despues}`
+      : `Faltan ${num(liq.traspasos.length)} entregas para quedar parejos`;
+  const nota = liq.conVentas
+    ? `Cada uno recupera lo que puso y se queda con su parte de la ganancia, ${liq.acuerdo}.`
+    : `Lo que ha puesto cada uno, para seguir ${liq.acuerdo} con los gastos.`;
+
+  function anotar(t?: Traspaso) {
+    setEditar(undefined);
+    setSugerida(t ? { de: t.deIdx, a: t.aIdx, monto: t.monto } : undefined);
+    setHoja(true);
+  }
 
   function compartir() {
-    const L = [`${settings.granja} — Liquidación`, lote.nombre, ""];
+    const L = [
+      `${settings.granja} — Cuenta de la sociedad`,
+      `${lote.nombre} · ${lote.estado === "cerrado" ? "ciclo cerrado" : `día ${metrics.dias}`}`,
+      "",
+    ];
+    if (liq!.conVentas)
+      L.push(
+        `Ventas: ${money(liq!.ingresos)}`,
+        `Costos: ${money(liq!.costos)}`,
+        `${liq!.ganancia >= 0 ? "Ganancia" : "Pérdida"}: ${money(liq!.ganancia)}`,
+      );
+    else L.push(`Gastado hasta hoy: ${money(liq!.costos)}`);
     for (const s of liq!.socios) {
-      L.push(`${s.nombre} (${pct(s.pct, 0)})`);
-      L.push(`  Aportó: ${money(s.aporte)}`);
-      if (hayGanancia) L.push(`  Le corresponde: ${money(s.corresponde)}`);
+      L.push("", `${s.nombre} (${pct(s.pct, 0)})`, `  Puso: ${money(s.aporte)}`);
+      if (liq!.conVentas) L.push(`  Cobró de las ventas: ${money(s.cobrado)}`);
+      else L.push(`  Le toca poner: ${money(s.leTocaPoner)}`);
+      if (s.recibido > 0) L.push(`  Recibió de los socios: ${money(s.recibido)}`);
+      if (s.entregado > 0) L.push(`  Entregó a los socios: ${money(s.entregado)}`);
+      if (liq!.conVentas)
+        L.push(
+          `  ${s.corresponde >= 0 ? "Su ganancia" : "Su pérdida"}: ${money(s.corresponde)}`,
+        );
+      else if (estimada != null)
+        L.push(`  Ganancia estimada: ${money((estimada * s.pct) / 100)}`);
     }
-    L.push("", `Ganancia total: ${money(liq!.ganancia)}`);
-    for (const t of liq!.traspasos)
-      L.push(`${t.de} le paga ${money(t.monto)} a ${t.a}`);
+    if (entregas.length > 0) {
+      L.push("", "Entregas hechas:");
+      for (const e of entregas) {
+        const [x, y] = fraseEntrega(nombre(e.de), nombre(e.a), {
+          voz: "propia",
+          hecha: true,
+        });
+        L.push(`  ${fecha(e.fecha)}: ${x}${money(e.monto)}${y}`);
+      }
+    }
+    L.push("");
+    if (parejos) L.push("La cuenta está pareja.");
+    else {
+      L.push(
+        liq!.conVentas ? "Para quedar parejos:" : `Para seguir ${liq!.acuerdo}:`,
+      );
+      for (const t of liq!.traspasos) {
+        const [x, y] = fraseEntrega(t.de, t.a, { voz: "propia" });
+        L.push(`  ${x}${money(t.monto)}${y}`);
+      }
+    }
     const text = L.join("\n");
     if (navigator.share)
       navigator
-        .share({ title: `Liquidación ${lote.nombre}`, text })
+        .share({ title: `Cuenta de la sociedad · ${lote.nombre}`, text })
         .catch(() => {});
     else {
       navigator.clipboard?.writeText(text);
-      alert("Liquidación copiada.");
+      toast("Cuenta copiada.");
     }
   }
 
   return (
     <>
-      <Seccion className="mb-3 mt-8" etiqueta="Sociedad" />
-      <Banda className="divide-y divide-line">
-        {liq.socios.map((s, i) => (
-          <div key={i} className="px-5 py-3">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">{s.nombre}</span>
-              <Pill tone="neutral">{pct(s.pct, 0)}</Pill>
-            </div>
-            <div className="mt-1.5 flex items-center justify-between text-sm">
-              <span className="text-ink-faint">Aportó</span>
-              <span className="font-display font-semibold tnum">
-                {money(s.aporte)}
-              </span>
-            </div>
-            {hayGanancia && (
-              <div className="mt-0.5 flex items-center justify-between text-sm">
-                <span className="text-ink-faint">Le corresponde</span>
-                <span
-                  className={
-                    "font-display font-semibold tnum " +
-                    (s.corresponde >= 0 ? "text-forest-600" : "text-clay-deep")
-                  }
-                >
-                  {money(s.corresponde)}
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
-      </Banda>
-      {liq.traspasos.length > 0 && (
-        <>
-          <div className="mb-2 mt-3 text-xs font-medium text-ink-faint">
-            {lote.estado === "cerrado"
-              ? "Liquidación final"
-              : "Para igualar aportes"}
-          </div>
-          <div className="space-y-1.5">
-            {liq.traspasos.map((t, i) => (
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Sociedad"
+        titulo={titulo}
+        nota={nota}
+      />
+
+      {!parejos && (
+        <div className="mb-4 space-y-2">
+          {liq.traspasos.map((t, i) => {
+            const [x, y] = fraseEntrega(t.de, t.a);
+            return (
               <div
                 key={i}
-                className="rounded-xl border border-forest-400/30 bg-forest-50 px-3.5 py-2.5 text-sm font-medium text-forest-700"
+                className="flex items-center gap-3 rounded-xl border border-forest-400/30 bg-forest-50 py-2 pl-3.5 pr-2"
               >
-                <span className="font-semibold">{t.de}</span> le paga{" "}
-                <span className="font-semibold tnum">{money(t.monto)}</span> a{" "}
-                <span className="font-semibold">{t.a}</span>
+                <span className="min-w-0 flex-1 text-sm font-medium text-forest-800">
+                  {liq.traspasos.length === 1 ? (
+                    "Cuando se entregue, anótalo y la cuenta queda al día."
+                  ) : (
+                    <>
+                      {x}
+                      <span className="font-semibold tnum">{money(t.monto)}</span>
+                      {y}
+                    </>
+                  )}
+                </span>
+                <button
+                  onClick={() => anotar(t)}
+                  className="h-11 shrink-0 rounded-full bg-forest-600 px-4 text-sm font-semibold text-paper-raised transition active:scale-[0.97]"
+                >
+                  Ya se entregó
+                </button>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      )}
+
+      <Banda className="divide-y divide-line">
+        {liq.socios.map((s, i) => (
+          <CuentaSocio
+            key={i}
+            s={s}
+            otros={
+              socios.length === 2 ? nombre(i === 0 ? 1 : 0) : "los socios"
+            }
+            conVentas={liq.conVentas}
+            costos={liq.costos}
+            estimada={estimada != null ? (estimada * s.pct) / 100 : undefined}
+          />
+        ))}
+      </Banda>
+      {estimada != null && (
+        <p className="mt-2 text-xs text-ink-faint">
+          Lo estimado sale de vender al peso objetivo a{" "}
+          {porLb(lote.precioVentaLb ?? 0)} la libra.
+        </p>
+      )}
+
+      {entregas.length > 0 && (
+        <>
+          <div className="mb-2 mt-5 text-xs font-medium text-ink-faint">
+            Entregas anotadas · toca una para corregirla
           </div>
+          <Banda className="divide-y divide-line">
+            {[...entregas].reverse().map((e) => {
+              const [x, y] = fraseEntrega(nombre(e.de), nombre(e.a), {
+                hecha: true,
+              });
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => {
+                    setSugerida(undefined);
+                    setEditar(e);
+                    setHoja(true);
+                  }}
+                  className="flex w-full items-baseline justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
+                >
+                  <span className="min-w-0">
+                    <span className="block">
+                      {x.trim()}
+                      {y}
+                    </span>
+                    <span className="block text-xs text-ink-faint tnum">
+                      {fecha(e.fecha)}
+                      {e.nota ? ` · ${e.nota}` : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-display font-semibold tnum">
+                    {money(e.monto)}
+                  </span>
+                </button>
+              );
+            })}
+          </Banda>
         </>
       )}
-      <Button block variant="soft" className="mt-3" onClick={compartir}>
-        Compartir liquidación
-      </Button>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Button variant="soft" onClick={() => anotar(liq.traspasos[0])}>
+          Anotar entrega
+        </Button>
+        <Button variant="soft" onClick={compartir}>
+          Compartir
+        </Button>
+      </div>
+
+      <EntregaSheet
+        lote={lote}
+        gastos={gastos}
+        ingresos={ingresos}
+        metrics={metrics}
+        entregas={entregas}
+        open={hoja}
+        onClose={() => setHoja(false)}
+        editar={editar}
+        sugerida={sugerida}
+      />
     </>
+  );
+}
+
+// La cuenta de un socio en dos renglones que se restan: lo que le toca contra
+// lo que ya tiene (o, antes de vender, lo que le toca poner contra lo que ha
+// puesto). Al socio que se llama «Yo» se le habla de tú.
+function CuentaSocio({
+  s,
+  otros,
+  conVentas,
+  costos,
+  estimada,
+}: {
+  s: SocioBalance;
+  otros: string;
+  conVentas: boolean;
+  costos: number;
+  estimada?: number;
+}) {
+  const tu = esYo(s.nombre);
+  const t = (aTi: string, aEl: string) => (tu ? aTi : aEl);
+  const parejo = Math.abs(s.ajuste) < 1;
+  const movimientos = [
+    s.recibido > 0 && `${t("recibiste", "recibió")} ${money(s.recibido)} de ${otros}`,
+    s.entregado > 0 && `${t("entregaste", "entregó")} ${money(s.entregado)} a ${otros}`,
+  ].filter(Boolean);
+
+  const renglones = conVentas
+    ? [
+        {
+          label: t("Te toca", "Le toca"),
+          valor: s.aporte + s.corresponde,
+          detalle:
+            s.corresponde >= 0
+              ? `${t("pusiste", "puso")} ${money(s.aporte)} + ${money(s.corresponde)} de ganancia`
+              : `${t("pusiste", "puso")} ${money(s.aporte)} − ${money(-s.corresponde)} de pérdida`,
+        },
+        {
+          label: t("Ya tienes", "Ya tiene"),
+          valor: s.cobrado + s.recibido - s.entregado,
+          detalle:
+            [
+              s.cobrado > 0 && `${t("cobraste", "cobró")} ${money(s.cobrado)} de ventas`,
+              ...movimientos,
+            ]
+              .filter(Boolean)
+              .join(" · ") || t("no has cobrado nada", "no ha cobrado nada"),
+        },
+      ]
+    : [
+        {
+          label: t("Te toca poner", "Le toca poner"),
+          valor: s.leTocaPoner,
+          detalle: `${pct(s.pct, 0)} de ${money(costos)} gastados`,
+        },
+        {
+          label: t("Has puesto", "Ha puesto"),
+          valor: s.aporte + s.entregado - s.recibido,
+          detalle: movimientos.length
+            ? [`${t("pagaste", "pagó")} ${money(s.aporte)}`, ...movimientos].join(" · ")
+            : "en pollitos y gastos",
+        },
+      ];
+
+  const resultado = parejo
+    ? t("Estás a la par", "Está a la par")
+    : conVentas
+      ? s.ajuste > 0
+        ? `${t("Te falta", "Le falta")} recibir ${money(s.ajuste)}`
+        : `${t("Tienes", "Tiene")} ${money(-s.ajuste)} de más`
+      : s.ajuste > 0
+        ? `${t("Pusiste", "Puso")} ${money(s.ajuste)} de más`
+        : `${t("Te falta", "Le falta")} poner ${money(-s.ajuste)}`;
+  const bien = parejo || s.ajuste > 0;
+
+  return (
+    <div className="px-5 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-display text-base font-semibold">{s.nombre}</div>
+          <div className="text-xs text-ink-faint tnum">{pct(s.pct, 0)} de la sociedad</div>
+        </div>
+        {conVentas ? (
+          <div className="shrink-0 text-right">
+            <div className="text-xs text-ink-faint">
+              {s.corresponde >= 0
+                ? t("Tu ganancia", "Su ganancia")
+                : t("Tu pérdida", "Su pérdida")}
+            </div>
+            <div
+              className={clsx(
+                "font-display text-xl font-semibold leading-tight tnum",
+                s.corresponde >= 0 ? "text-forest-600" : "text-clay-deep",
+              )}
+            >
+              {money(s.corresponde)}
+            </div>
+          </div>
+        ) : estimada != null ? (
+          <div className="shrink-0 text-right">
+            <div className="text-xs text-ink-faint">
+              {estimada >= 0 ? "Ganancia estimada" : "Pérdida estimada"}
+            </div>
+            <div
+              className={clsx(
+                "font-display text-xl font-semibold leading-tight tnum",
+                estimada >= 0 ? "text-ink-soft" : "text-clay-deep",
+              )}
+            >
+              ≈ {money(estimada)}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {renglones.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm text-ink-soft">{r.label}</div>
+              <div className="text-xs text-ink-faint tnum">{r.detalle}</div>
+            </div>
+            <div className="shrink-0 font-display font-semibold tnum">
+              {money(r.valor)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div
+        className={clsx(
+          "mt-3 border-t border-line pt-2.5 text-sm font-semibold tnum",
+          bien ? "text-forest-700" : "text-clay-deep",
+        )}
+      >
+        {parejo ? "✓ " : ""}
+        {resultado}
+      </div>
+    </div>
   );
 }
 

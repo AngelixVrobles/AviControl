@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { computeLiquidacion, gananciaPorSocio } from './sociedad'
+import { computeLiquidacion, fraseEntrega, gananciaPorSocio } from './sociedad'
 import { computeMetrics } from './metrics'
-import { gasto, ingreso, lote, registro } from '../test/fixtures'
+import { entrega, gasto, ingreso, lote, registro } from '../test/fixtures'
 
 const socios = [
   { nombre: 'Ana', pct: 50 },
   { nombre: 'Beto', pct: 50 },
 ]
 
-function liquidar(l = lote({ socios }), gastos = [] as ReturnType<typeof gasto>[], ingresos = [] as ReturnType<typeof ingreso>[]) {
+function liquidar(
+  l = lote({ socios }),
+  gastos = [] as ReturnType<typeof gasto>[],
+  ingresos = [] as ReturnType<typeof ingreso>[],
+  entregas = [] as ReturnType<typeof entrega>[],
+) {
   const m = computeMetrics(l, [registro(1)], gastos, ingresos)
-  return { liq: computeLiquidacion(l, gastos, ingresos, m)!, m }
+  return { liq: computeLiquidacion(l, gastos, ingresos, m, entregas)!, m }
 }
 
 describe('computeLiquidacion', () => {
@@ -93,9 +98,111 @@ describe('computeLiquidacion', () => {
     // Ana puso 100.000 y cobró 200.000: le sobran 50.000 sobre lo que le toca.
     expect(liq.socios[0].ajuste).toBeCloseTo(-50000, 5)
     expect(liq.traspasos).toEqual([
-      { de: 'Ana', a: 'Beto', monto: 30000 },
-      { de: 'Ana', a: 'Cid', monto: 20000 },
+      { de: 'Ana', a: 'Beto', deIdx: 0, aIdx: 1, monto: 30000 },
+      { de: 'Ana', a: 'Cid', deIdx: 0, aIdx: 2, monto: 20000 },
     ])
+  })
+
+  it('dice cómo se lee el acuerdo', () => {
+    expect(liquidar().liq.acuerdo).toBe('mitad y mitad')
+    const tres = [1, 2, 3].map((n) => ({ nombre: `S${n}`, pct: 10 }))
+    expect(liquidar(lote({ socios: tres })).liq.acuerdo).toBe('en partes iguales')
+    const desigual = [{ nombre: 'Ana', pct: 60 }, { nombre: 'Beto', pct: 40 }]
+    expect(liquidar(lote({ socios: desigual })).liq.acuerdo).toBe('60/40')
+  })
+
+  it('a un socio sin nombre lo llama por su número', () => {
+    const { liq } = liquidar(lote({ socios: [{ nombre: 'Ana', pct: 50 }, { nombre: ' ', pct: 50 }] }))
+    expect(liq.socios[1].nombre).toBe('Socio 2')
+  })
+})
+
+describe('entregas entre socios', () => {
+  // Ana puso 40.000 y no cobró; Beto cobró 100.000 sin poner nada: Beto le debe
+  // 70.000 (los 40.000 de vuelta y 30.000 de la mitad de la ganancia).
+  const base = [
+    lote({ socios, costoInicial: 0 }),
+    [gasto({ monto: 40000, pagadoPor: 0 })],
+    [ingreso({ monto: 100000, recibidoPor: 1 })],
+  ] as const
+
+  it('la entrega completa deja la cuenta pareja', () => {
+    const { liq } = liquidar(...base, [entrega({ de: 1, a: 0, monto: 70000 })])
+    expect(liq.traspasos).toHaveLength(0)
+    for (const s of liq.socios) expect(s.ajuste).toBeCloseTo(0, 5)
+    expect(liq.movido).toBe(70000)
+  })
+
+  it('una entrega a medias deja pendiente solo lo que falta', () => {
+    const { liq } = liquidar(...base, [entrega({ de: 1, a: 0, monto: 30000 })])
+    expect(liq.traspasos).toEqual([{ de: 'Beto', a: 'Ana', deIdx: 1, aIdx: 0, monto: 40000 }])
+    expect(liq.socios[0]).toMatchObject({ recibido: 30000, entregado: 0 })
+    expect(liq.socios[1]).toMatchObject({ recibido: 0, entregado: 30000 })
+  })
+
+  it('la ganancia de cada uno no cambia por lo que se entreguen', () => {
+    const sin = liquidar(...base).liq
+    const con = liquidar(...base, [entrega({ de: 1, a: 0, monto: 70000 })]).liq
+    expect(con.socios.map((s) => s.corresponde)).toEqual(sin.socios.map((s) => s.corresponde))
+    expect(con.socios.map((s) => s.corresponde)).toEqual([30000, 30000])
+  })
+
+  it('una entrega al revés agranda lo que se debe', () => {
+    const { liq } = liquidar(...base, [entrega({ de: 0, a: 1, monto: 10000 })])
+    expect(liq.traspasos[0]).toMatchObject({ de: 'Beto', a: 'Ana', monto: 80000 })
+  })
+
+  it('ignora entregas a uno mismo o a un socio que no existe', () => {
+    const { liq } = liquidar(...base, [
+      entrega({ de: 0, a: 0, monto: 5000 }),
+      entrega({ id: 2, de: 1, a: 7, monto: 5000 }),
+      entrega({ id: 3, de: 1, a: 0, monto: 0 }),
+    ])
+    expect(liq.movido).toBe(0)
+    expect(liq.traspasos[0].monto).toBe(70000)
+  })
+
+  // Antes de vender, la misma cuenta sirve para seguir mitad y mitad con lo
+  // que cada uno ha puesto.
+  it('antes de vender iguala lo que ha puesto cada uno', () => {
+    const l = lote({ socios, costoInicial: 0 })
+    const gastos = [gasto({ monto: 30000, pagadoPor: 0 })]
+    const antes = liquidar(l, gastos).liq
+    expect(antes.conVentas).toBe(false)
+    expect(antes.socios.map((s) => s.leTocaPoner)).toEqual([15000, 15000])
+    expect(antes.traspasos).toEqual([{ de: 'Beto', a: 'Ana', deIdx: 1, aIdx: 0, monto: 15000 }])
+
+    const despues = liquidar(l, gastos, [], [entrega({ de: 1, a: 0, monto: 15000 })]).liq
+    expect(despues.traspasos).toHaveLength(0)
+  })
+
+  it('lo igualado antes de vender cuenta al liquidar después', () => {
+    const l = lote({ socios, costoInicial: 0 })
+    const gastos = [gasto({ monto: 100000, pagadoPor: 0 })]
+    const ventas = [ingreso({ monto: 150000, recibidoPor: 1 })]
+    // Beto le dio 50.000 a Ana para quedar a la par y después cobró la venta.
+    const { liq } = liquidar(l, gastos, ventas, [entrega({ de: 1, a: 0, monto: 50000 })])
+    expect(liq.socios.map((s) => s.corresponde)).toEqual([25000, 25000])
+    expect(liq.traspasos).toEqual([{ de: 'Beto', a: 'Ana', deIdx: 1, aIdx: 0, monto: 75000 }])
+  })
+})
+
+describe('fraseEntrega', () => {
+  it('a «Yo» la app le habla de tú', () => {
+    expect(fraseEntrega('Yo', 'Socio')).toEqual(['Le entregas ', ' a Socio'])
+    expect(fraseEntrega('Socio', 'Yo')).toEqual(['Socio te entrega ', ''])
+    expect(fraseEntrega('Socio', 'yo ', { hecha: true })).toEqual(['Socio te entregó ', ''])
+    expect(fraseEntrega('Yo', 'Socio', { hecha: true })).toEqual(['Le entregaste ', ' a Socio'])
+  })
+
+  it('en el mensaje que se comparte habla quien lo manda', () => {
+    expect(fraseEntrega('Yo', 'Socio', { voz: 'propia' })).toEqual(['Le entrego ', ' a Socio'])
+    expect(fraseEntrega('Socio', 'Yo', { voz: 'propia' })).toEqual(['Socio me entrega ', ''])
+  })
+
+  it('entre otros nombres va en tercera persona', () => {
+    expect(fraseEntrega('Ana', 'Beto')).toEqual(['Ana le entrega ', ' a Beto'])
+    expect(fraseEntrega('Ana', 'Beto', { hecha: true })).toEqual(['Ana le entregó ', ' a Beto'])
   })
 })
 

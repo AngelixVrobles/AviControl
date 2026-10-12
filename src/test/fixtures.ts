@@ -1,4 +1,4 @@
-import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
+import type { EntregaSocio, Gasto, Ingreso, Lote, Registro } from '../db/schema'
 
 export function hace(dias: number): string {
   const d = new Date()
@@ -40,4 +40,8 @@ export function gasto(patch: Partial<Gasto> = {}): Gasto {
 
 export function ingreso(patch: Partial<Ingreso> = {}): Ingreso {
   return { id: 1, loteId: 1, tipo: 'aves', cantidad: 0, monto: 0, fecha: hace(0), creado: 0, ...patch }
+}
+
+export function entrega(patch: Partial<EntregaSocio> = {}): EntregaSocio {
+  return { id: 1, loteId: 1, fecha: hace(0), de: 1, a: 0, monto: 0, creado: 0, ...patch }
 }
