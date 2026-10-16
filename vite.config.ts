@@ -9,6 +9,21 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version),
   },
+  build: {
+    // Juntas, las librerías pasan de los 500 kB del aviso. Hacen falta todas al
+    // abrir y quedan guardadas entre versiones, así que partirlas no ahorra nada.
+    chunkSizeWarningLimit: 600,
+    rolldownOptions: {
+      output: {
+        // Las librerías cambian poco: en su propio paquete conservan el nombre
+        // entre versiones, y una actualización de la app no obliga a bajarlas
+        // otra vez con la señal del campo.
+        codeSplitting: {
+          groups: [{ name: 'vendor', test: /node_modules/ }],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
