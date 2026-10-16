@@ -38,7 +38,7 @@ function pantalla<T>(cargar: () => Promise<T>, elegir: (m: T) => ComponentType) 
 
 // Mientras se baja la pantalla, el router todavía muestra la anterior y la
 // dirección no ha cambiado: el destino está en la navegación pendiente. En la
-// primera carga el router aún no existe y la dirección ya es la de destino.
+// primera carga no hay navegación pendiente: la dirección ya es la de destino.
 function destinoPendiente(): string | null {
   try {
     const l = router.state.navigation.location
