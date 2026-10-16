@@ -14,7 +14,11 @@ import {
 } from '../db/schema'
 import { saveSettings, type Settings } from '../lib/settings'
 import { useSettings } from '../lib/hooks'
-import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
+import { fecha, num, plural } from '../lib/format'
+import { borrarBorradoresDe } from '../lib/borrador'
+import { diasSinRespaldo } from '../lib/respaldo'
+import { VERSION_RESPALDO } from '../db/respaldo'
+import { useRespaldo } from '../components/useRespaldo'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
 import { Banda, DangerButton, Field, Input, Segmentado, Seccion } from '../components/ui'
@@ -23,7 +27,6 @@ import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
 
 const KG_A_LB = 2.20462
-const VERSION_ACTUAL = 4
 
 interface Respaldo {
   version?: number
@@ -61,6 +64,7 @@ function migrarUnidades(data: Respaldo) {
 
 export function Ajustes() {
   const s = useSettings()
+  const { respaldar } = useRespaldo()
   const conteos = useLiveQuery(async () => {
     const [ciclos, registros, gastos, ventas] = await Promise.all([
       db.lotes.count(),
@@ -70,51 +74,6 @@ export function Ajustes() {
     ])
     return { ciclos, registros, gastos, ventas }
   }, [])
-
-  async function exportar() {
-    const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos, entregas] =
-      await Promise.all([
-        db.lotes.toArray(),
-        db.registros.toArray(),
-        db.gastos.toArray(),
-        db.ingresos.toArray(),
-        db.pesajes.toArray(),
-        db.aplicaciones.toArray(),
-        db.deudas.toArray(),
-        db.abonos.toArray(),
-        db.entregas.toArray(),
-      ])
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            version: VERSION_ACTUAL,
-            settings: s,
-            lotes,
-            registros,
-            gastos,
-            ingresos,
-            pesajes,
-            aplicaciones,
-            deudas,
-            abonos,
-            entregas,
-          },
-          null,
-          2,
-        ),
-      ],
-      { type: 'application/json' },
-    )
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `avicontrol-respaldo-${hoyISO()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    saveSettings({ ultimoRespaldo: hoyISO() })
-    toast('Respaldo guardado en Descargas.')
-  }
 
   async function importar(file: File) {
     let data: Respaldo
@@ -129,7 +88,7 @@ export function Ajustes() {
       toast('El archivo no tiene el formato de un respaldo de AviControl.')
       return
     }
-    if ((data.version ?? 1) > VERSION_ACTUAL) {
+    if ((data.version ?? 1) > VERSION_RESPALDO) {
       toast('Ese respaldo es de una versión más nueva de la app. Actualiza AviControl primero.')
       return
     }
@@ -190,6 +149,9 @@ export function Ajustes() {
       toast('No se pudo restaurar. Tus datos actuales no cambiaron.')
       return
     }
+    // Los pesajes a medias eran de los ciclos de antes: con los del respaldo
+    // aparecerían como si fueran suyos.
+    borrarBorradoresDe()
     if (data.settings) saveSettings(data.settings)
     toast('Respaldo restaurado.')
   }
@@ -245,7 +207,7 @@ export function Ajustes() {
     <div className="animate-rise pt-3">
       <h1 className="font-display text-2xl font-semibold">Ajustes</h1>
 
-      <AvisoRespaldo ultimo={s.ultimoRespaldo} onRespaldar={exportar} onRestaurar={pickFile} />
+      <AvisoRespaldo ultimo={s.ultimoRespaldo} onRespaldar={respaldar} onRestaurar={pickFile} />
 
       <Seccion className="mb-3 mt-8" etiqueta="Producción" />
       <Banda className="divide-y divide-line">
@@ -361,14 +323,15 @@ function AvisoRespaldo({
   onRespaldar: () => void
   onRestaurar: () => void
 }) {
-  const dias = ultimo ? diasEntre(ultimo, hoyISO()) : null
+  const dias = diasSinRespaldo(ultimo)
   return (
     <div className="mt-5 rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
       <div className="font-display text-base font-semibold text-amber-text">
         Tus datos viven solo en este teléfono
       </div>
       <p className="mt-1 text-sm leading-relaxed text-amber-text">
-        Si lo pierdes o lo cambias, se pierde todo. No hay copia en internet.
+        Si lo pierdes o lo cambias, se pierde todo. No hay copia en internet: guarda el respaldo
+        fuera del teléfono, en WhatsApp, el correo o Drive.
       </p>
       <p className="mt-2 text-sm font-medium text-amber-text">
         {ultimo
