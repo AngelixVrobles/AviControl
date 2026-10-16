@@ -8,6 +8,40 @@ import { analizarPrecio, type AnalisisPrecio } from './precios'
 import { proyectarVenta } from './proyeccion'
 import { getSettings, type Settings } from './settings'
 import { resumenDeudas } from './deudas'
+import { hoyISO } from './format'
+
+// La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
+// cuentas del ciclo dependen del día: con la app abierta de un día para otro,
+// el día del ciclo, los días sin registro y el registro de hoy se quedaban en
+// el de ayer hasta cerrarla. El teléfono duerme los temporizadores con la
+// pantalla apagada, por eso también se revisa al volver.
+export function useHoy(): string {
+  const [hoy, setHoy] = useState(hoyISO)
+  useEffect(() => {
+    let t = 0
+    const revisar = () => setHoy(hoyISO())
+    const programar = () => {
+      const ahora = new Date()
+      const manana = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 1)
+      t = window.setTimeout(() => {
+        revisar()
+        programar()
+      }, manana.getTime() - ahora.getTime() + 1000)
+    }
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') revisar()
+    }
+    programar()
+    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', revisar)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', revisar)
+    }
+  }, [])
+  return hoy
+}
 
 export function useLotes(estado?: 'activo' | 'cerrado') {
   return useLiveQuery(async () => {
@@ -25,6 +59,9 @@ export interface LoteConMetrics {
 }
 
 export function useLoteData(id: number | undefined) {
+  // El día y los ajustes entran en las cuentas: si cambian, se recalcula.
+  const hoy = useHoy()
+  const settings = useSettings()
   return useLiveQuery(async () => {
     if (!id || Number.isNaN(id)) return null
     const lote = await db.lotes.get(id)
@@ -51,12 +88,17 @@ export function useLoteData(id: number | undefined) {
       aplicaciones,
       entregas,
       metrics,
-      alertas: computeAlertas(lote, registros, gastos, metrics, { aplicaciones }),
+      alertas: computeAlertas(lote, registros, gastos, metrics, {
+        plan: settings.planSanitario,
+        aplicaciones,
+      }),
     }
-  }, [id])
+  }, [id, hoy, settings])
 }
 
 export function useResumen(estado: 'cerrado' | 'activo' | 'todos' = 'todos') {
+  const hoy = useHoy()
+  const settings = useSettings()
   return useLiveQuery(async () => {
     const todos = await db.lotes.toArray()
     const lotes = estado === 'todos' ? todos : todos.filter((l) => l.estado === estado)
@@ -83,12 +125,15 @@ export function useResumen(estado: 'cerrado' | 'activo' | 'todos' = 'todos') {
       out.push({
         lote,
         metrics,
-        alertas: computeAlertas(lote, registros, gastos, metrics, { aplicaciones }),
+        alertas: computeAlertas(lote, registros, gastos, metrics, {
+          plan: settings.planSanitario,
+          aplicaciones,
+        }),
         precio,
       })
     }
     return out
-  }, [estado])
+  }, [estado, hoy, settings])
 }
 
 export function useSettings(): Settings {
@@ -111,6 +156,7 @@ export function useDeudas() {
 // Los gastos de todos los ciclos, agrupados: para comparar lo invertido a la
 // misma edad entre un ciclo y los demás.
 export function useGastosPorCiclo() {
+  const hoy = useHoy()
   return useLiveQuery(async () => {
     const [lotes, gastos] = await Promise.all([db.lotes.toArray(), db.gastos.toArray()])
     const porLote = new Map<number, Gasto[]>()
@@ -121,5 +167,5 @@ export function useGastosPorCiclo() {
       else porLote.set(g.loteId, [g])
     }
     return lotes.map((lote) => ({ lote, gastos: porLote.get(lote.id) ?? [] }))
-  }, [])
+  }, [hoy])
 }
