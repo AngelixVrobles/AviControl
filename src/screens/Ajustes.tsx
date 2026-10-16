@@ -252,7 +252,7 @@ export function Ajustes() {
         <FilaEstatica label="Raza que usas" valor={RAZA} sub="Define pesos y consumo esperados" />
         <FilaNumero
           label="Peso objetivo de venta"
-          sub="Marca el día de venta en la barra"
+          sub="El de cada ciclo nuevo y el de los que no tienen el suyo"
           unidad="lb"
           value={s.pesoObjetivoLb}
           onSave={(v) => saveSettings({ pesoObjetivoLb: v || 5.5 })}

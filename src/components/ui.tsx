@@ -85,17 +85,26 @@ export function DangerButton({ children, ...rest }: ButtonHTMLAttributes<HTMLBut
 export function Field({
   label,
   hint,
+  error,
   children,
 }: {
   label: string
   hint?: string
+  // Lo que impide guardar: va en lugar de la ayuda y en otro color.
+  error?: string
   children: ReactNode
 }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-ink-soft">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-ink-faint">{hint}</span>}
+      {error ? (
+        <span role="alert" className="mt-1 block text-xs font-medium text-clay-text">
+          {error}
+        </span>
+      ) : (
+        hint && <span className="mt-1 block text-xs text-ink-faint">{hint}</span>
+      )}
     </label>
   )
 }

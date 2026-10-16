@@ -7,7 +7,8 @@ import { useSettings } from '../../lib/hooks'
 import { estadoAgua, type ResumenAgua, resumenAgua } from '../../lib/agua'
 import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
 import { precioQuintalReal } from '../../lib/precios'
-import { fcaEstandar, LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT } from '../../lib/standards'
+import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
+import { pesoObjetivoDe } from '../../lib/lote'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { db } from '../../db/schema'
 import { Banda, Seccion } from '../../components/ui'
@@ -45,7 +46,7 @@ export function FichaAlimento({
   // Lo mismo que usa «A cómo vender»: el consumo hasta el día de venta menos lo
   // que ya está en el almacén.
   const proy = activo
-    ? proyectarVenta(lote, registros, gastos, metrics, lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT)
+    ? proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote))
     : null
   const sinAlimento = metrics.alimentoTotalLb === 0
 

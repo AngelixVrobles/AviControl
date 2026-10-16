@@ -24,6 +24,7 @@ import { resultadoCiclo, type Contraste } from "../lib/cierre";
 import { analizarPuntoOptimo } from "../lib/optimo";
 import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
+import { pesoObjetivoDe } from "../lib/lote";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
 import {
   computeLiquidacion,
@@ -49,7 +50,6 @@ import {
 import { categoriaLabel, RAZA, tipoIngresoLabel } from "../lib/labels";
 import {
   LB_POR_QUINTAL,
-  PESO_OBJETIVO_DEFAULT,
   fcaEstandar,
   pesoEstandarLb,
 } from "../lib/standards";
@@ -57,12 +57,14 @@ import type { Settings } from "../lib/settings";
 import { AlertaChip } from "../components/AlertaChip";
 import { FichasNav } from "../components/FichasNav";
 import { InversionPorDia } from "../components/InversionPorDia";
+import { EditarLoteSheet } from "../components/LoteSheet";
 import { confirmar, toast } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Button, Banda, Pill, Seccion } from "../components/ui";
 import { GraficaLineas } from "../components/chart";
 import {
   IconBack,
+  IconLapiz,
   IconMoney,
   IconPesa,
   IconPlus,
@@ -79,7 +81,14 @@ import {
   RegistroSheet,
 } from "../components/sheets";
 
-type SheetKind = "registro" | "pesaje" | "gasto" | "ingreso" | "cierre" | null;
+type SheetKind =
+  | "registro"
+  | "pesaje"
+  | "gasto"
+  | "ingreso"
+  | "cierre"
+  | "lote"
+  | null;
 type Tab = "hoy" | "crecimiento" | "dinero";
 const TABS: { id: Tab; label: string }[] = [
   { id: "hoy", label: "Hoy" },
@@ -221,6 +230,13 @@ export function LoteDetail() {
             {lote.estado === "cerrado" && <Pill tone="neutral">Cerrado</Pill>}
           </div>
         </div>
+        <button
+          onClick={() => abrir("lote")}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken text-ink-soft"
+          aria-label="Corregir o borrar el ciclo"
+        >
+          <IconLapiz width={20} height={20} />
+        </button>
       </header>
 
       {alertas.length > 0 && (
@@ -589,6 +605,28 @@ export function LoteDetail() {
         onClose={() => setSheet(null)}
         editar={editIngreso}
       />
+      <EditarLoteSheet
+        lote={lote}
+        limites={{
+          primeraFecha: [registros[0]?.fecha, pesajes[0]?.fecha, aplicaciones[0]?.fecha]
+            .filter((f): f is string => !!f)
+            .sort()[0],
+          salidas:
+            registros.reduce((a, r) => a + (r.mortalidad ?? 0) + (r.descarte ?? 0), 0) +
+            metrics.vendidas,
+          fechaCierre: lote.fechaCierre,
+        }}
+        contenido={{
+          registros: registros.length,
+          gastos: gastos.length,
+          ventas: ingresos.length,
+          pesajes: pesajes.length,
+          aplicaciones: aplicaciones.length,
+          entregas: entregas.length,
+        }}
+        open={sheet === "lote"}
+        onClose={() => setSheet(null)}
+      />
     </div>
   );
 }
@@ -917,7 +955,7 @@ function PrecioMinimo({
   metrics: LoteMetrics;
 }) {
   if (lote.estado !== "activo") return null;
-  const objetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT;
+  const objetivo = pesoObjetivoDe(lote);
   const p = proyectarVenta(lote, registros, gastos, metrics, objetivo);
   const a = analizarPrecio(lote, gastos, metrics, p);
   const precioAlim = precioAlimentoLb(lote, gastos, metrics);
@@ -1446,7 +1484,7 @@ function Sociedad({
           registros,
           gastos,
           metrics,
-          lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT,
+          pesoObjetivoDe(lote),
         )
       : null;
   const estimada = proyeccion?.gananciaProyectada;

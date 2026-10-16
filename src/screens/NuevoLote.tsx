@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { db, type Socio } from '../db/schema'
 import { Button, Field, Input, Select } from '../components/ui'
-import { IconBack, IconClose } from '../components/icons'
+import { IconBack } from '../components/icons'
+import { EditorSocios } from '../components/Socios'
 import { hoyISO, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
 import { RAZA } from '../lib/labels'
 import { equipoDeLaGranja, resumenEquipo } from '../lib/equipo'
+import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
 
 export function NuevoLote() {
@@ -19,6 +21,9 @@ export function NuevoLote() {
   const [costoAve, setCostoAve] = useState('')
   const [precioQuintal, setPrecioQuintal] = useState('')
   const [precioLb, setPrecioLb] = useState('')
+  // El de Ajustes es el punto de partida; el ciclo guarda el suyo y se corrige
+  // después con el lápiz sin tocar los demás.
+  const [pesoVenta, setPesoVenta] = useState(() => String(settings.pesoObjetivoLb))
   const [enSociedad, setEnSociedad] = useState(false)
   const [socios, setSocios] = useState<Socio[]>([
     { nombre: 'Yo', pct: 50 },
@@ -28,15 +33,15 @@ export function NuevoLote() {
   const [notas, setNotas] = useState('')
 
   const cantidadNum = Number(cantidad) || 0
+  const pesoNum = Number(pesoVenta) || 0
+  const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
   const valido = cantidadNum > 0 && fechaInicio
-  const sumaPct = socios.reduce((a, s) => a + (Number(s.pct) || 0), 0)
-
-  function setSocio(i: number, patch: Partial<Socio>) {
-    setSocios((prev) => prev.map((s, j) => (j === i ? { ...s, ...patch } : s)))
-  }
 
   async function crear() {
     const costoInicial = (Number(costoAve) || 0) * cantidadNum
+    const reparto = enSociedad
+      ? sociosParaGuardar(socios, pagoAves !== '' ? Number(pagoAves) : undefined)
+      : null
     const id = await db.lotes.add({
       tipo: 'engorde',
       nombre: nombre.trim() || autoNombre(fechaInicio),
@@ -46,8 +51,9 @@ export function NuevoLote() {
       estado: 'activo',
       precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
       precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
-      socios: enSociedad ? socios.filter((s) => s.nombre.trim()) : undefined,
-      costoInicialPagadoPor: enSociedad && pagoAves !== '' ? Number(pagoAves) : undefined,
+      pesoObjetivoLb: pesoQueRige,
+      socios: reparto && reparto.socios.length >= 2 ? reparto.socios : undefined,
+      costoInicialPagadoPor: reparto && costoInicial > 0 ? reparto.pagador : undefined,
       notas: notas.trim() || undefined,
       creado: Date.now(),
     })
@@ -115,103 +121,60 @@ export function NuevoLote() {
           </Field>
         </div>
 
-        {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} />}
-
-        <Field label="Precio de venta por libra" hint="Opcional. Con esto se proyecta la ganancia.">
-          <Input
-            type="number"
-            inputMode="decimal"
-            value={precioLb}
-            onChange={(e) => setPrecioLb(e.target.value)}
-            placeholder="0"
-          />
-        </Field>
-
-        <div className="rounded-xl2 border border-line bg-paper-raised p-4">
-          <button
-            onClick={() => setEnSociedad((v) => !v)}
-            className="flex w-full items-center justify-between"
-          >
-            <div className="text-left">
-              <div className="font-display text-base font-semibold">Llevar en sociedad</div>
-              <div className="text-xs text-ink-faint">Reparte gastos y ganancias entre socios.</div>
-            </div>
-            <span
-              className={clsx(
-                'relative h-6 w-10 rounded-full transition',
-                enSociedad ? 'bg-forest-500' : 'bg-line',
-              )}
-            >
-              <span
-                className={clsx(
-                  'absolute top-0.5 h-5 w-5 rounded-full bg-paper-raised shadow-card transition-all',
-                  enSociedad ? 'left-[18px]' : 'left-0.5',
-                )}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Peso de venta" hint={`Cobb lo alcanza hacia el día ${diaParaPeso(pesoQueRige)}.`}>
+            <div className="relative">
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={pesoVenta}
+                onChange={(e) => setPesoVenta(e.target.value)}
+                placeholder={num(settings.pesoObjetivoLb, 1)}
+                className="pr-10"
               />
-            </span>
-          </button>
-
-          {enSociedad && (
-            <div className="mt-4 space-y-3">
-              {socios.map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    value={s.nombre}
-                    onChange={(e) => setSocio(i, { nombre: e.target.value })}
-                    placeholder="Nombre"
-                    className="flex-1"
-                  />
-                  <div className="relative w-24">
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={String(s.pct)}
-                      onChange={(e) => setSocio(i, { pct: Number(e.target.value) || 0 })}
-                      className="pr-7 text-center"
-                    />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
-                      %
-                    </span>
-                  </div>
-                  {socios.length > 2 && (
-                    <button
-                      onClick={() => setSocios((p) => p.filter((_, j) => j !== i))}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-faint active:bg-paper-sunken"
-                      aria-label="Quitar socio"
-                    >
-                      <IconClose width={18} height={18} />
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => setSocios((p) => [...p, { nombre: '', pct: 0 }])}
-                  className="text-sm font-medium text-forest-600"
-                >
-                  + Agregar socio
-                </button>
-                <span className={clsx('text-xs tnum', sumaPct === 100 ? 'text-ink-faint' : 'text-clay-deep')}>
-                  Suma {sumaPct}%
-                </span>
-              </div>
-
-              {Number(costoAve) > 0 && (
-                <Field label="¿Quién pagó las aves?">
-                  <Select value={pagoAves} onChange={(e) => setPagoAves(e.target.value)}>
-                    <option value="">Común (según %)</option>
-                    {socios.map((s, i) => (
-                      <option key={i} value={i}>
-                        {s.nombre || `Socio ${i + 1}`}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              )}
+              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
+                lb
+              </span>
             </div>
-          )}
+          </Field>
+          <Field label="Precio por libra" hint="Opcional. Con esto se proyecta la ganancia.">
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={precioLb}
+              onChange={(e) => setPrecioLb(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
         </div>
+
+        {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} pesoVentaLb={pesoQueRige} />}
+
+        <EditorSocios
+          titulo="Llevar en sociedad"
+          nota="Reparte gastos y ganancias entre socios."
+          activo={enSociedad}
+          onActivo={setEnSociedad}
+          socios={socios}
+          onSocios={(s) => {
+            // Al quitar una fila los de abajo suben: el que pagó ya no sería el mismo.
+            if (s.length < socios.length) setPagoAves('')
+            setSocios(s)
+          }}
+        >
+          {Number(costoAve) > 0 && (
+            <Field label="¿Quién pagó las aves?">
+              <Select value={pagoAves} onChange={(e) => setPagoAves(e.target.value)}>
+                <option value="">Común (según %)</option>
+                {socios.map((s, i) => (
+                  <option key={i} value={i}>
+                    {s.nombre.trim() || `Socio ${i + 1}`}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+        </EditorSocios>
 
         <Field label="Notas">
           <Input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Proveedor, galpón…" />
@@ -233,14 +196,9 @@ function autoNombre(fecha: string) {
 
 // Antes de recibir los pollitos: lo que hace falta montar en el galpón para esa
 // cantidad, con el equipo que la granja tiene anotado, y si caben.
-function EquipoNecesario({ aves }: { aves: number }) {
+function EquipoNecesario({ aves, pesoVentaLb }: { aves: number; pesoVentaLb: number }) {
   const settings = useSettings()
-  const plan = equipoDeLaGranja(
-    aves,
-    settings.pesoObjetivoLb,
-    diaParaPeso(settings.pesoObjetivoLb),
-    settings,
-  )
+  const plan = equipoDeLaGranja(aves, pesoVentaLb, diaParaPeso(pesoVentaLb), settings)
   if (!plan) return null
   const g = plan.galpon
   return (
