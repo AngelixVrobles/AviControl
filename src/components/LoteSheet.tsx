@@ -90,9 +90,11 @@ function FormLote({
   const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
 
   async function guardar() {
-    const reparto = enSociedad
+    const guardados = enSociedad
       ? sociosParaGuardar(socios, pagoAves !== '' ? Number(pagoAves) : undefined, sociosAntes)
       : null
+    // Con menos de dos socios no hay sociedad que llevar.
+    const reparto = guardados && guardados.socios.length >= 2 ? guardados : null
     await db.lotes.update(lote.id, {
       nombre: nombre.trim() || lote.nombre,
       fechaInicio,
@@ -101,7 +103,7 @@ function FormLote({
       precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
       precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
       pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
-      socios: reparto && reparto.socios.length >= 2 ? reparto.socios : undefined,
+      socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
       notas: notas.trim() || undefined,
     })

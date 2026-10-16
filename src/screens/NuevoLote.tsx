@@ -39,9 +39,11 @@ export function NuevoLote() {
 
   async function crear() {
     const costoInicial = (Number(costoAve) || 0) * cantidadNum
-    const reparto = enSociedad
+    const guardados = enSociedad
       ? sociosParaGuardar(socios, pagoAves !== '' ? Number(pagoAves) : undefined)
       : null
+    // Con menos de dos socios no hay sociedad que llevar.
+    const reparto = guardados && guardados.socios.length >= 2 ? guardados : null
     const id = await db.lotes.add({
       tipo: 'engorde',
       nombre: nombre.trim() || autoNombre(fechaInicio),
@@ -52,7 +54,7 @@ export function NuevoLote() {
       precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
       precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
       pesoObjetivoLb: pesoQueRige,
-      socios: reparto && reparto.socios.length >= 2 ? reparto.socios : undefined,
+      socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoInicial > 0 ? reparto.pagador : undefined,
       notas: notas.trim() || undefined,
       creado: Date.now(),
