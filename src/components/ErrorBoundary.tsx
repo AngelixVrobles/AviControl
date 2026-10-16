@@ -1,37 +1,24 @@
 import { Component, type ReactNode } from 'react'
 import { useRouteError } from 'react-router-dom'
-import { db } from '../db/schema'
+import { leerRespaldo } from '../db/respaldo'
+import { entregarArchivo, nombreRespaldo } from '../lib/respaldo'
 import { hoyISO } from '../lib/format'
+import { getSettings, saveSettings } from '../lib/settings'
 import { Button } from './ui'
 
+// El mismo respaldo de Ajustes, con los ajustes incluidos y el mismo camino
+// para guardarlo. Aquí no hay avisos: la app está trabada, y si algo falla el
+// productor ve que no bajó nada y puede volver a intentar.
 async function respaldar() {
-  const [lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos, entregas] =
-    await Promise.all([
-      db.lotes.toArray(),
-      db.registros.toArray(),
-      db.gastos.toArray(),
-      db.ingresos.toArray(),
-      db.pesajes.toArray(),
-      db.aplicaciones.toArray(),
-      db.deudas.toArray(),
-      db.abonos.toArray(),
-      db.entregas.toArray(),
-    ])
-  const blob = new Blob(
-    [
-      JSON.stringify(
-        { version: 4, lotes, registros, gastos, ingresos, pesajes, aplicaciones, deudas, abonos, entregas },
-        null,
-        2,
-      ),
-    ],
-    { type: 'application/json' },
-  )
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `avicontrol-respaldo-${hoyISO()}.json`
-  a.click()
-  URL.revokeObjectURL(a.href)
+  try {
+    const texto = await leerRespaldo(getSettings())
+    const como = await entregarArchivo(
+      new File([texto], nombreRespaldo(), { type: 'application/json' }),
+    )
+    if (como !== 'cancelado') saveSettings({ ultimoRespaldo: hoyISO() })
+  } catch {
+    // Sin base que leer no hay respaldo posible.
+  }
 }
 
 export function PantallaError({ detalle }: { detalle?: string }) {
@@ -41,13 +28,13 @@ export function PantallaError({ detalle }: { detalle?: string }) {
         La app se quedó trabada
       </h1>
       <p className="mt-2 text-base leading-relaxed text-ink-soft">
-        Tus datos no se tocaron: siguen guardados en este teléfono. Baja el respaldo por si acaso y
-        vuelve a abrir.
+        Tus datos no se tocaron: siguen guardados en este teléfono. Guarda el respaldo por si acaso
+        y vuelve a abrir.
       </p>
 
       <div className="mt-6 space-y-2">
         <Button block onClick={respaldar}>
-          Descargar mi respaldo
+          Guardar mi respaldo
         </Button>
         <Button block variant="soft" onClick={() => location.assign('/')}>
           Volver al inicio
