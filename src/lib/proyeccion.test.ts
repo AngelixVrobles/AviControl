@@ -112,3 +112,29 @@ describe('proyectarVenta', () => {
     })
   })
 })
+
+describe('proyectarVenta sin precio del alimento', () => {
+  // Compras sin quintales, sin precio del quintal y sin alimento anotado: no hay
+  // cómo saber cuánto cuesta la libra.
+  const l = lote({ precioVentaLb: 60, costoInicial: 24000 })
+  const registros = [registro(30, { pesoPromedio: 4 })]
+  const compras = [
+    gasto({ id: 1, categoria: 'alimento', monto: 60000 }),
+    gasto({ id: 2, categoria: 'medicina', monto: 3000 }),
+  ]
+
+  // Antes los 24.000 de los pollitos entraban en el gasto por día y se
+  // cobraban otra vez por cada día que faltaba.
+  it('estima lo que falta con el gasto por día, sin los pollitos', () => {
+    const m = computeMetrics(l, registros, compras, [])
+    const p = proyectarVenta(l, registros, compras, m, 5.5)!
+    expect(p.sinPrecioAlimento).toBe(true)
+    expect(p.costoRestante).toBeCloseTo((63000 / m.dias) * p.diasRestantes, 5)
+  })
+
+  it('con precio del quintal no hace falta estimar', () => {
+    const conPrecio = lote({ precioVentaLb: 60, costoInicial: 24000, precioQuintal: 1900 })
+    const m = computeMetrics(conPrecio, registros, compras, [])
+    expect(proyectarVenta(conPrecio, registros, compras, m, 5.5)!.sinPrecioAlimento).toBe(false)
+  })
+})
