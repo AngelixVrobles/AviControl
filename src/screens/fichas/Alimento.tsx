@@ -7,7 +7,8 @@ import { useSettings } from '../../lib/hooks'
 import { estadoAgua, type ResumenAgua, resumenAgua } from '../../lib/agua'
 import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
 import { precioQuintalReal } from '../../lib/precios'
-import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
+import { fcaEstandar, LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT } from '../../lib/standards'
+import { proyectarVenta } from '../../lib/proyeccion'
 import { db } from '../../db/schema'
 import { Banda, Seccion } from '../../components/ui'
 import { ConteoSheet } from '../../components/sheets'
@@ -41,6 +42,11 @@ export function FichaAlimento({
   const agua = resumenAgua(lote, registros)
   const activo = lote.estado === 'activo'
   const ultimoConteo = consumo.conteos.length ? consumo.conteos[consumo.conteos.length - 1] : undefined
+  // Lo mismo que usa «A cómo vender»: el consumo hasta el día de venta menos lo
+  // que ya está en el almacén.
+  const proy = activo
+    ? proyectarVenta(lote, registros, gastos, metrics, lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT)
+    : null
   const sinAlimento = metrics.alimentoTotalLb === 0
 
   if (sinAlimento && !compras.length && !activo)
@@ -233,6 +239,26 @@ export function FichaAlimento({
                   ? `${inv.diasSinAnotar} ${plural(inv.diasSinAnotar, 'día', 'días')} sin dato de alimento se calcularon con el consumo esperado (${numCorto(inv.sinAnotarQq, 1)} qq): cuenta los sacos para saber lo que hay de verdad.`
                   : ''}
               </p>
+              )}
+              {proy && !proy.listo && proy.alimentoRestanteLb > 0 && (
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft tnum">
+                  Para vender el día {proy.diaVenta} ({fecha(proy.fechaEstimada)}) se comerán{' '}
+                  {num(proy.alimentoRestanteQuintales, 1)} qq más:{' '}
+                  {proy.alimentoPorComprarLb > 0 ? (
+                    <>
+                      faltan{' '}
+                      <span className="font-semibold text-ink">
+                        {num(proy.alimentoPorComprarQuintales, 1)} qq
+                      </span>{' '}
+                      por comprar
+                      {precioQq ? `, unos ${money(proy.alimentoPorComprarQuintales * precioQq)}` : ''}.
+                    </>
+                  ) : proy.sobranteLb >= 50 ? (
+                    `alcanza con lo que hay y sobran ${num(proy.sobranteLb / LB_POR_QUINTAL, 1)} qq.`
+                  ) : (
+                    'alcanza con lo que hay.'
+                  )}
+                </p>
               )}
             </Banda>
           ) : (

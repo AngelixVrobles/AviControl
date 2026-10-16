@@ -1,6 +1,7 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
 import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, hoyISO, sumarDias } from './format'
+import { computeInventarioAlimento } from './plan'
 import { precioAlimentoLb } from './precios'
 import {
   LB_POR_QUINTAL,
@@ -15,8 +16,14 @@ export interface Proyeccion {
   fechaEstimada: string
   diaVenta: number
   diasRestantes: number
+  // Lo que se va a comer hasta la venta, y de eso lo que hay que comprar: el
+  // alimento que ya está en el almacén se pagó y está en los costos.
   alimentoRestanteLb: number
   alimentoRestanteQuintales: number
+  existenciaLb: number
+  alimentoPorComprarLb: number
+  alimentoPorComprarQuintales: number
+  sobranteLb: number
   avesAlVender: number
   pesoVentaLb: number
   lbEnPie: number
@@ -77,9 +84,23 @@ export function proyectarVenta(
   const pesoVentaLb = listo ? pesoActual : objetivoLb
   const lbEnPie = Math.round(avesAlVender * pesoVentaLb)
 
+  // El alimento del almacén ya está pagado y dentro de `m.costos`: cobrarlo
+  // otra vez como consumo futuro subía el precio de equilibrio en todo lo que
+  // se compró por adelantado. Solo se descuenta si el saldo cuadra (todas las
+  // compras con sus quintales); si no, se supone que todo falta por comprar,
+  // que se equivoca hacia el lado seguro. Lo que sobre al vender se queda en
+  // los costos de este ciclo, que es donde se pagó: así el cierre real y lo
+  // proyectado cuentan igual.
+  const inventario = computeInventarioAlimento(gastos, m, 0)
+  const existenciaLb = inventario?.completo
+    ? Math.max(0, inventario.existenciaQq) * LB_POR_QUINTAL
+    : 0
+  const alimentoPorComprarLb = Math.max(0, alimentoRestanteLb - existenciaLb)
+  const sobranteLb = Math.max(0, existenciaLb - alimentoRestanteLb)
+
   const precioLb = precioAlimentoLb(lote, gastos, m)
   const costoRestante = precioLb
-    ? alimentoRestanteLb * precioLb
+    ? alimentoPorComprarLb * precioLb
     : m.dias > 0
       ? (m.costos / m.dias) * diasRestantes
       : 0
@@ -100,6 +121,10 @@ export function proyectarVenta(
     diasRestantes,
     alimentoRestanteLb,
     alimentoRestanteQuintales: alimentoRestanteLb / LB_POR_QUINTAL,
+    existenciaLb,
+    alimentoPorComprarLb,
+    alimentoPorComprarQuintales: alimentoPorComprarLb / LB_POR_QUINTAL,
+    sobranteLb,
     avesAlVender,
     pesoVentaLb,
     lbEnPie,

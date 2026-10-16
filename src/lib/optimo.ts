@@ -2,6 +2,7 @@ import type { Gasto, Lote, Registro } from '../db/schema'
 import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, sumarDias } from './format'
 import { precioAlimentoLb } from './precios'
+import { proyectarVenta } from './proyeccion'
 import {
   PESO_OBJETIVO_DEFAULT,
   alimentoAcumEstandarLb,
@@ -52,6 +53,15 @@ export function analizarPuntoOptimo(
   const diaUltimo = diasEntre(lote.fechaInicio, conPeso[conPeso.length - 1].fecha)
   const factorEf = eficienciaAlimento(m)
   const desde = Math.max(m.dias, diaUltimo)
+  const objetivoLb = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
+
+  // El alimento del almacén que se va a comer hasta la venta ya está pagado.
+  // Se descuenta igual en todos los días, así que no mueve el mejor día ni lo
+  // que cuesta la libra de más —comerlo hoy o guardarlo para el próximo ciclo
+  // vale lo mismo—, pero la ganancia del día de venta queda igual que la de
+  // «A cómo vender» en vez de cobrar dos veces esos sacos.
+  const p = proyectarVenta(lote, registros, gastos, m, objetivoLb)
+  const usadoDelAlmacenLb = p ? Math.min(p.existenciaLb, p.alimentoRestanteLb) : 0
 
   const puntos: PuntoVenta[] = []
   let previo: PuntoVenta | undefined
@@ -64,7 +74,7 @@ export function analizarPuntoOptimo(
     const aves = Math.max(0, m.avesVivas - bajas)
     const avesPromedio = (m.avesVivas + aves) / 2
     const consumo = Math.max(0, alimentoAcumEstandarLb(dia) - alimentoAcumEstandarLb(desde))
-    const costo = m.costos + consumo * avesPromedio * factorEf * precioAlim
+    const costo = m.costos + (consumo * avesPromedio * factorEf - usadoDelAlmacenLb) * precioAlim
     const lbEnPie = aves * pesoLb
     const ganancia = m.ingresos + lbEnPie * precioVentaLb - costo
 
@@ -89,7 +99,6 @@ export function analizarPuntoOptimo(
   // El óptimo puro puede caer en un pollo de 8 lb que ningún pollero paga a
   // precio de mercado, así que también se devuelve el mejor día sin pasarse del
   // peso que compra el cliente.
-  const objetivoLb = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
   const tope = puntos.find((p) => p.dia >= m.diaObjetivo) ?? hoy
 
   return {

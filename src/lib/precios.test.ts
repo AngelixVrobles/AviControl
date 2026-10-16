@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { analizarPrecio, precioAlimentoLb, precioQuintalReal } from './precios'
 import { computeMetrics } from './metrics'
+import { proyectarVenta } from './proyeccion'
 import { gasto, lote, registro } from '../test/fixtures'
 
 describe('precioQuintalReal', () => {
@@ -85,5 +86,42 @@ describe('analizarPrecio', () => {
   it('sin peso no hay libras que vender y no devuelve nada', () => {
     const vacio = computeMetrics(l, [], gastos, [])
     expect(analizarPrecio(l, gastos, vacio, null)).toBeNull()
+  })
+})
+
+describe('analizarPrecio con alimento en el almacén', () => {
+  const l = lote({ costoInicial: 24000, precioVentaLb: 60 })
+  const registros = [registro(30, { pesoPromedio: 4, alimentoLb: 4000 })]
+  const analizar = (gastos: ReturnType<typeof gasto>[]) => {
+    const m = computeMetrics(l, registros, gastos, [])
+    const p = proyectarVenta(l, registros, gastos, m, 5.5)!
+    return { a: analizarPrecio(l, gastos, m, p)!, p }
+  }
+  const justo = [gasto({ id: 1, categoria: 'alimento', monto: 76000, cantidadQq: 40 })]
+  const conAdelanto = (qq: number) => [
+    ...justo,
+    gasto({ id: 2, categoria: 'alimento', monto: 1900 * qq, cantidadQq: qq }),
+  ]
+
+  // El caso que se reportó: comprar de adelanto lo que se va a comer subía el
+  // precio mínimo, porque esos sacos se cobraban como gasto y otra vez como
+  // consumo futuro.
+  it('el precio mínimo no sube por comprar alimento por adelantado', () => {
+    const sin = analizar(justo).a
+    const con = analizar(conAdelanto(10)).a
+    expect(con.precioEquilibrioLb).toBeCloseTo(sin.precioEquilibrioLb, 5)
+    expect(con.costoAlimento).toBeCloseTo(sin.costoAlimento, 5)
+  })
+
+  // Lo que sobre al vender se pagó en este ciclo y ahí se queda: sube el mínimo
+  // exactamente en lo que cuestan esos sacos, ni más ni menos.
+  it('lo que sobra al vender cuenta una sola vez', () => {
+    const sin = analizar(justo).a
+    const { a: con, p } = analizar(conAdelanto(80))
+    expect(p.sobranteLb).toBeGreaterThan(0)
+    expect(con.precioEquilibrioLb * con.lbEnPie).toBeCloseTo(
+      sin.precioEquilibrioLb * sin.lbEnPie + p.sobranteLb * 19,
+      2,
+    )
   })
 })
