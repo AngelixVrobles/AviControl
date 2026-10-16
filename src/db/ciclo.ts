@@ -23,3 +23,13 @@ export async function borrarCiclo(loteId: number) {
   )
   borrarBorradoresDe(loteId)
 }
+
+// Todo lo anotado: los ciclos con lo suyo y las deudas de la granja con sus
+// abonos. Los Ajustes se quedan, que son la granja y no sus datos. Antes se
+// quedaban también las vacunas, las deudas y los abonos, y reaparecían sueltos.
+export async function borrarTodo() {
+  await db.transaction('rw', db.tables, async () => {
+    await Promise.all(db.tables.map((t) => t.clear()))
+  })
+  borrarBorradoresDe()
+}
