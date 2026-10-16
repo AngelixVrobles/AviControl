@@ -69,3 +69,34 @@ describe('agendaSanitaria', () => {
     expect([...dias].sort((a, b) => a - b)).toEqual(dias)
   })
 })
+
+describe('agendaSanitaria: a qué parte del plan va cada aplicación', () => {
+  const plan3 = [
+    { nombre: 'Newcastle', dia: 7 },
+    { nombre: 'Gumboro', dia: 14 },
+    { nombre: 'Refuerzo Newcastle', dia: 21 },
+  ]
+
+  // Solo se puso el refuerzo: no puede tachar la del día 7, que solo se le parece.
+  it('el nombre idéntico gana al parecido', () => {
+    const agenda = agendaSanitaria(lote(), 30, plan3, [
+      aplicacion({ id: 5, nombre: 'Refuerzo Newcastle', fecha: hace(9) }),
+    ])
+    expect(agenda.find((e) => e.nombre === 'Refuerzo Newcastle')!.estado).toBe('aplicado')
+    expect(agenda.find((e) => e.nombre === 'Newcastle')!.estado).toBe('atrasado')
+  })
+
+  it('entre dos del mismo nombre, cada una va a la fecha más cercana', () => {
+    const agenda = agendaSanitaria(
+      lote(),
+      30,
+      [
+        { nombre: 'Newcastle', dia: 7 },
+        { nombre: 'Newcastle', dia: 21 },
+      ],
+      [aplicacion({ id: 5, fecha: hace(10) })],
+    )
+    expect(agenda.find((e) => e.diaPlan === 21)!.estado).toBe('aplicado')
+    expect(agenda.find((e) => e.diaPlan === 7)!.estado).toBe('atrasado')
+  })
+})

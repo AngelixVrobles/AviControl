@@ -1,26 +1,34 @@
-import type { Gasto, Lote, Registro } from '../db/schema'
+import type { Aplicacion, Gasto, Lote, Registro } from '../db/schema'
 import type { LoteMetrics } from './metrics'
 import { resumenAgua } from './agua'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
+import { agendaSanitaria } from './sanidad'
+import { getSettings } from './settings'
 import { diasEntre, hoyISO, num, pct, plural } from './format'
-import { DIAS_RETIRO, FASES_ALIMENTO, fcaEstandar, mortalidadEsperadaPct } from './standards'
+import {
+  DIAS_RETIRO,
+  FASES_ALIMENTO,
+  fcaEstandar,
+  mortalidadEsperadaPct,
+  type HitoSanitario,
+} from './standards'
 
 export interface Alerta {
   nivel: 'bad' | 'warn' | 'info'
   texto: string
 }
 
-const VACUNAS_ENGORDE: Record<number, string> = {
-  7: 'Newcastle + Bronquitis',
-  14: 'Gumboro',
-  21: 'Refuerzo Newcastle',
-}
+// Lo del plan que se pasó sin anotarse se recuerda unos días y no para siempre:
+// quien no lleva las vacunas en la app no tiene por qué cargar el aviso todo el
+// ciclo, y en la ficha Sanidad sigue apareciendo como atrasado.
+const DIAS_AVISO_ATRASO = 3
 
 export function computeAlertas(
   lote: Lote,
   registros: Registro[],
   gastos: Gasto[],
   m: LoteMetrics,
+  sanidad: { plan?: HitoSanitario[]; aplicaciones?: Aplicacion[] } = {},
 ): Alerta[] {
   if (lote.estado !== 'activo') return []
   const alertas: Alerta[] = []
@@ -118,9 +126,21 @@ export function computeAlertas(
     alertas.push({ nivel: 'info', texto: `Día ${m.dias}: cambia a alimento ${cambio.nombre}` })
   }
 
-  const vacuna = VACUNAS_ENGORDE[m.dias]
-  if (vacuna) {
-    alertas.push({ nivel: 'info', texto: `Día ${m.dias}: vacuna ${vacuna} (plan típico)` })
+  // Las vacunas salen del plan de Ajustes y de lo ya anotado: antes era un plan
+  // fijo de los días 7, 14 y 21 que avisaba aunque ya se hubiera puesto.
+  const plan = sanidad.plan ?? getSettings().planSanitario
+  for (const e of agendaSanitaria(lote, m.dias, plan, sanidad.aplicaciones ?? [])) {
+    if (e.diaPlan == null || e.estado === 'aplicado' || e.estado === 'extra') continue
+    const atraso = m.dias - e.diaPlan
+    if (atraso === 0)
+      alertas.push({ nivel: 'info', texto: `Hoy toca ${e.nombre} (día ${e.diaPlan} de tu plan)` })
+    else if (atraso === -1)
+      alertas.push({ nivel: 'info', texto: `Mañana toca ${e.nombre}` })
+    else if (atraso > 0 && atraso <= DIAS_AVISO_ATRASO)
+      alertas.push({
+        nivel: 'warn',
+        texto: `${e.nombre} tocaba el día ${e.diaPlan} y no se ha anotado: si ya se puso, márcalo en Sanidad`,
+      })
   }
 
   const paraVenta = m.diaObjetivo - m.dias

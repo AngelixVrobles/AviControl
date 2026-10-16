@@ -46,7 +46,7 @@ export function useLoteData(id: number | undefined) {
       aplicaciones,
       entregas,
       metrics,
-      alertas: computeAlertas(lote, registros, gastos, metrics),
+      alertas: computeAlertas(lote, registros, gastos, metrics, { aplicaciones }),
     }
   }, [id])
 }
@@ -57,14 +57,20 @@ export function useResumen(estado: 'cerrado' | 'activo' | 'todos' = 'todos') {
     const lotes = estado === 'todos' ? todos : todos.filter((l) => l.estado === estado)
     const out: LoteConMetrics[] = []
     for (const lote of lotes) {
-      const [registros, gastos, ingresos] = await Promise.all([
+      const [registros, gastos, ingresos, aplicaciones] = await Promise.all([
         db.registros.where('loteId').equals(lote.id).toArray(),
         db.gastos.where('loteId').equals(lote.id).toArray(),
         db.ingresos.where('loteId').equals(lote.id).toArray(),
+        db.aplicaciones.where('loteId').equals(lote.id).toArray(),
       ])
       registros.sort((a, b) => a.fecha.localeCompare(b.fecha))
+      aplicaciones.sort((a, b) => a.fecha.localeCompare(b.fecha))
       const metrics = computeMetrics(lote, registros, gastos, ingresos)
-      out.push({ lote, metrics, alertas: computeAlertas(lote, registros, gastos, metrics) })
+      out.push({
+        lote,
+        metrics,
+        alertas: computeAlertas(lote, registros, gastos, metrics, { aplicaciones }),
+      })
     }
     return out
   }, [estado])
