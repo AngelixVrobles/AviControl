@@ -27,6 +27,10 @@ export interface LoteMetrics {
   fechaPeso?: string
   diasDesdePeso?: number
   pesoEstimadoLb?: number
+  /** Lo que pesó cada ave vendida: libras de la báscula entre aves, de las ventas con peso. */
+  pesoVentaLb?: number
+  /** El peso con que se juzga el ciclo: el de venta si ya cerró, el estimado de hoy si sigue. */
+  pesoFinalLb?: number
   biomasaLb?: number
   fca?: number
   costoPorLb?: number
@@ -141,10 +145,22 @@ export function computeMetrics(
   const costoPorLb = biomasaLb > 0 ? costos / biomasaLb : undefined
   const gananciaPorLb = biomasaLb > 0 ? ganancia / biomasaLb : undefined
 
+  // El peso de un ciclo cerrado es el de la báscula al vender, no el del último
+  // pesaje proyectado al cierre: la comparación entre ciclos y el IEP se hacían
+  // con un peso que nadie cobró.
+  const ventasConPeso = ingresos.filter(
+    (i) => i.tipo === 'aves' && (i.pesoLb ?? 0) > 0 && i.cantidad > 0,
+  )
+  const avesConPeso = sum(ventasConPeso.map((i) => i.cantidad))
+  const pesoVentaLb =
+    avesConPeso > 0 ? sum(ventasConPeso.map((i) => i.pesoLb!)) / avesConPeso : undefined
+  const pesoFinalLb =
+    lote.estado === 'cerrado' && pesoVentaLb != null ? pesoVentaLb : pesoEstimadoLb
+
   // Índice de eficiencia productiva europeo (EPEF/IEP), rango típico 250–400.
   const iep =
-    pesoEstimadoLb != null && fca != null && fca > 0 && dias > 0
-      ? (((100 - mortalidadPct) * (pesoEstimadoLb * KG_POR_LB)) / (dias * fca)) * 100
+    pesoFinalLb != null && fca != null && fca > 0 && dias > 0
+      ? (((100 - mortalidadPct) * (pesoFinalLb * KG_POR_LB)) / (dias * fca)) * 100
       : undefined
 
   let diaVentaEstimado: number | undefined
@@ -168,6 +184,8 @@ export function computeMetrics(
     fechaPeso: ultimoPeso?.fecha,
     diasDesdePeso,
     pesoEstimadoLb,
+    pesoVentaLb,
+    pesoFinalLb,
     biomasaLb,
     fca,
     costoPorLb,

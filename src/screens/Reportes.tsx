@@ -306,7 +306,7 @@ interface Atribucion {
 // dominante; si el segundo está a menos de 15 % de distancia, nombra los dos.
 function atribucionIEP(cerrados: LoteConMetrics[]): Atribucion | null {
   const conDatos = cerrados.filter(
-    (r) => r.metrics.iep != null && r.metrics.fca != null && r.metrics.pesoPromedioLb != null,
+    (r) => r.metrics.iep != null && r.metrics.fca != null && r.metrics.pesoFinalLb != null,
   )
   if (conDatos.length < 2) return null
   const mejor = conDatos.reduce((a, b) => (b.metrics.iep! > a.metrics.iep! ? b : a))
@@ -329,8 +329,8 @@ function atribucionIEP(cerrados: LoteConMetrics[]): Atribucion | null {
     },
     {
       key: 'peso',
-      w: Math.abs(ln(mejor.metrics.pesoPromedioLb! / peor.metrics.pesoPromedioLb!)),
-      frase: `el peso (${num(peor.metrics.pesoPromedioLb!, 2)} → ${num(mejor.metrics.pesoPromedioLb!, 2)} lb)`,
+      w: Math.abs(ln(mejor.metrics.pesoFinalLb! / peor.metrics.pesoFinalLb!)),
+      frase: `el peso (${num(peor.metrics.pesoFinalLb!, 2)} → ${num(mejor.metrics.pesoFinalLb!, 2)} lb)`,
     },
   ].sort((a, b) => b.w - a.w)
 
