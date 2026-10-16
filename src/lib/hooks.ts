@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { db, type Lote } from '../db/schema'
+import { db, type Gasto, type Lote } from '../db/schema'
 import { computeAlertas, type Alerta } from './alerts'
 import { computeMetrics, type LoteMetrics } from './metrics'
 import { getSettings, type Settings } from './settings'
@@ -84,5 +84,21 @@ export function useDeudas() {
   return useLiveQuery(async () => {
     const [deudas, abonos] = await Promise.all([db.deudas.toArray(), db.abonos.toArray()])
     return resumenDeudas(deudas, abonos)
+  }, [])
+}
+
+// Los gastos de todos los ciclos, agrupados: para comparar lo invertido a la
+// misma edad entre un ciclo y los demás.
+export function useGastosPorCiclo() {
+  return useLiveQuery(async () => {
+    const [lotes, gastos] = await Promise.all([db.lotes.toArray(), db.gastos.toArray()])
+    const porLote = new Map<number, Gasto[]>()
+    for (const g of gastos) {
+      if (g.loteId == null) continue
+      const lista = porLote.get(g.loteId)
+      if (lista) lista.push(g)
+      else porLote.set(g.loteId, [g])
+    }
+    return lotes.map((lote) => ({ lote, gastos: porLote.get(lote.id) ?? [] }))
   }, [])
 }

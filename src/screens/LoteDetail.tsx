@@ -56,6 +56,7 @@ import {
 import type { Settings } from "../lib/settings";
 import { AlertaChip } from "../components/AlertaChip";
 import { FichasNav } from "../components/FichasNav";
+import { InversionPorDia } from "../components/InversionPorDia";
 import { confirmar, toast } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Button, Banda, Pill, Seccion } from "../components/ui";
@@ -473,6 +474,12 @@ export function LoteDetail() {
               <span className="text-xs text-ink-faint">ver desglose ›</span>
             </span>
           </Link>
+
+          <InversionPorDia
+            lote={lote}
+            gastos={gastos}
+            diaActual={metrics.dias}
+          />
 
           <Sociedad
             lote={lote}
