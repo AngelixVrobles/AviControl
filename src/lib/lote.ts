@@ -1,5 +1,6 @@
 import type { Lote } from '../db/schema'
 import { fecha, num } from './format'
+import type { LoteMetrics } from './metrics'
 import { getSettings } from './settings'
 
 // El peso de venta de un ciclo: el suyo si se lo pusiste, si no el de Ajustes.
@@ -9,6 +10,12 @@ export const pesoObjetivoDe = (lote: Lote): number => {
   const propio = lote.pesoObjetivoLb
   return propio != null && propio > 0 ? propio : getSettings().pesoObjetivoLb
 }
+
+// Un ciclo activo que se quedó sin aves —se vendieron todas con «Venta» o no
+// sobrevivió ninguna— ya no pide registro del día ni pesaje: lo que falta es
+// cerrarlo.
+export const sinAves = (m: Pick<LoteMetrics, 'avesVivas' | 'cantidadInicial'>) =>
+  m.cantidadInicial > 0 && m.avesVivas <= 0
 
 export interface LimitesLote {
   /** Lo primero que se anotó del galpón: el inicio no puede quedar después. */

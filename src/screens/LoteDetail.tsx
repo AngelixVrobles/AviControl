@@ -24,7 +24,7 @@ import { resultadoCiclo, type Contraste } from "../lib/cierre";
 import { analizarPuntoOptimo } from "../lib/optimo";
 import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
-import { pesoObjetivoDe } from "../lib/lote";
+import { pesoObjetivoDe, sinAves } from "../lib/lote";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
 import {
   computeLiquidacion,
@@ -40,6 +40,7 @@ import {
   alimentoEn,
   diasEntre,
   fecha,
+  hoyISO,
   money,
   num,
   numCompacto,
@@ -159,6 +160,8 @@ export function LoteDetail() {
     lote.estado === "cerrado" && ingresos.some((i) => i.tipo === "aves");
   const gastosCat = agruparGastos(gastos);
   const positivo = metrics.ganancia >= 0;
+  // Activo con el galpón vacío: en vez de los botones del día, cerrar el ciclo.
+  const vacio = lote.estado === "activo" && sinAves(metrics);
 
   // El ingreso llega el día de la venta: hasta entonces la ganancia solo puede
   // decir «pérdida», y del tamaño de toda la inversión.
@@ -239,7 +242,7 @@ export function LoteDetail() {
         </button>
       </header>
 
-      {alertas.length > 0 && (
+      {alertas.length > 0 && !vacio && (
         <div className="mb-4 space-y-2">
           {alertas.map((a, i) => (
             <AlertaChip key={i} alerta={a} />
@@ -247,7 +250,16 @@ export function LoteDetail() {
         </div>
       )}
 
-      {lote.estado === "activo" && (
+      {vacio && (
+        <CerrarSinAves
+          lote={lote}
+          metrics={metrics}
+          ingresos={ingresos}
+          onGasto={() => abrir("gasto")}
+        />
+      )}
+
+      {lote.estado === "activo" && !vacio && (
         <div className="mt-1 grid grid-cols-4 gap-2">
           <ActionButton
             label="Día"
@@ -601,6 +613,9 @@ export function LoteDetail() {
       />
       <IngresoSheet
         lote={lote}
+        metrics={metrics}
+        registros={registros}
+        gastos={gastos}
         open={sheet === "ingreso"}
         onClose={() => setSheet(null)}
         editar={editIngreso}
@@ -627,6 +642,66 @@ export function LoteDetail() {
         open={sheet === "lote"}
         onClose={() => setSheet(null)}
       />
+    </div>
+  );
+}
+
+// Se vendieron todas las aves con «Venta», o no queda ninguna: el ciclo sigue
+// abierto y pedía el registro del día. Aquí se cierra con la fecha de la última
+// venta, sin proyección que guardar: con el galpón vacío ya no hay qué proyectar.
+function CerrarSinAves({
+  lote,
+  metrics,
+  ingresos,
+  onGasto,
+}: {
+  lote: Lote;
+  metrics: LoteMetrics;
+  ingresos: Ingreso[];
+  onGasto: () => void;
+}) {
+  const ventas = ingresos
+    .filter((i) => i.tipo === "aves")
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const ultima = ventas[ventas.length - 1]?.fecha;
+  const vendio = metrics.vendidas > 0;
+
+  async function cerrar() {
+    const ok = await confirmar({
+      titulo: "Cerrar el ciclo",
+      mensaje: `${ultima ? `Se cierra con fecha ${fecha(ultima)}, la de la última venta.` : "Se cierra con fecha de hoy."} Si te falta anotar un gasto, puedes hacerlo antes o reabrirlo después.`,
+      confirmar: "Cerrar el ciclo",
+    });
+    if (!ok) return;
+    await db.lotes.update(lote.id, {
+      estado: "cerrado",
+      fechaCierre: ultima ?? hoyISO(),
+    });
+    toast(`Ciclo cerrado · ${money(metrics.ganancia)}`);
+  }
+
+  return (
+    <div className="mt-1 rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
+      <div className="font-display text-base font-semibold text-amber-text">
+        {vendio ? "Vendiste todas las aves" : "No quedan aves en el galpón"}
+      </div>
+      <p className="mt-1 text-sm leading-relaxed text-amber-text">
+        El ciclo sigue abierto. Ciérralo para ver cómo salió y que pase a Reportes.
+      </p>
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={cerrar}
+          className="rounded-full bg-forest-500 px-5 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
+        >
+          Cerrar el ciclo
+        </button>
+        <button
+          onClick={onGasto}
+          className="-m-2 p-2 text-sm font-medium text-amber-text"
+        >
+          Anotar un gasto
+        </button>
+      </div>
     </div>
   );
 }
