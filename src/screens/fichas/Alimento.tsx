@@ -202,7 +202,10 @@ export function FichaAlimento({
             etiqueta={activo ? 'Existencia' : 'Lo que sobró'}
             accion={
               activo ? (
-                <button onClick={() => setContando(true)} className="text-sm font-semibold text-forest-600">
+                <button
+                  onClick={() => setContando(true)}
+                  className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
+                >
                   Contar sacos →
                 </button>
               ) : undefined

@@ -198,7 +198,7 @@ function DeudasDeLaEmpresa() {
         titulo="No has anotado ninguna"
         nota="El galpón, el equipo o el terreno que estás pagando poco a poco van aquí: se abonan cuando puedes y no ensucian el resultado de ningún ciclo."
         accion={
-          <Link to="/deudas" className="-m-2 p-2 text-sm font-medium text-forest-600">
+          <Link to="/deudas" className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600">
             Anotar →
           </Link>
         }
@@ -217,7 +217,7 @@ function DeudasDeLaEmpresa() {
         }
         nota="El galpón, el equipo y el terreno se abonan poco a poco, así que no entran en el resultado de ningún ciclo."
         accion={
-          <Link to="/deudas" className="-m-2 p-2 text-sm font-medium text-forest-600">
+          <Link to="/deudas" className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600">
             Ver todas
           </Link>
         }
@@ -394,7 +394,7 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
 
       <div className="space-y-1">
         {activo && (
-          <Link to={`/lotes/${activo.lote.id}`} className="block py-1 text-sm font-medium text-forest-600">
+          <Link to={`/lotes/${activo.lote.id}`} className="block py-3 text-sm font-medium text-forest-600">
             Ver cómo va {activo.lote.nombre} →
           </Link>
         )}
