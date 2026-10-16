@@ -7,17 +7,7 @@ import {
   tramosBanda,
 } from '../lib/escala'
 import { num } from '../lib/format'
-
-// SVG necesita el valor, no la clase de Tailwind, así que los tonos de las
-// gráficas viven aquí. Cada uno nombra el token del que sale.
-const TINTA = {
-  serie: '#1E7340', // forest-500: la línea que es tuya
-  guia: '#5F6D64', // ink-faint: la referencia contra la que te mides
-  aviso: '#A03A16', // clay
-  texto: '#3A4840', // ink-soft: las notas
-  reja: '#EDE9DD', // paper-sunken
-  papel: '#FFFEFA', // paper-raised
-}
+import { TINTA } from './tinta'
 
 const PAD = { arriba: 18, derecha: 6, abajo: 18, izquierda: 2 }
 
