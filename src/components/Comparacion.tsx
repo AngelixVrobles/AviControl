@@ -28,7 +28,8 @@ const METRICAS: Metrica[] = [
   },
   { label: 'FCA', value: (m) => m.fca, format: (v) => num(v, 2), mejor: 'menor' },
   { label: 'Costo / lb', value: (m) => m.costoPorLb, format: (v) => porLb(v), mejor: 'menor' },
-  { label: 'Peso final', value: (m) => m.pesoPromedioLb, format: (v) => `${num(v, 2)} lb`, mejor: 'mayor', parcialEnActivo: true },
+  // El de la báscula al vender; en un ciclo que sigue, el estimado de hoy.
+  { label: 'Peso final', value: (m) => m.pesoFinalLb, format: (v) => `${num(v, 2)} lb`, mejor: 'mayor', parcialEnActivo: true },
   { label: 'Mortalidad', value: (m) => m.mortalidadPct, format: (v) => pct(v), mejor: 'menor' },
   { label: 'Días', value: (m) => m.dias, format: (v) => num(v), parcialEnActivo: true },
   { label: 'Aves', value: (m) => m.cantidadInicial, format: (v) => num(v) },
