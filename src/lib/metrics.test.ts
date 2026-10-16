@@ -146,3 +146,35 @@ describe('computeMetrics', () => {
     expect(m.pesoEstimadoLb).toBeCloseTo(pesoEstandarLb(30), 5)
   })
 })
+
+describe('peso final', () => {
+  // El último pesaje fue de 4.8 lb el día 30, pero el camión pesó 5.8 lb por
+  // ave al vender: el ciclo se juzga con el peso que se cobró.
+  it('en un ciclo cerrado es el de la báscula al vender', () => {
+    const l = lote({ estado: 'cerrado', fechaCierre: hace(0), cantidadInicial: 1000 })
+    const regs = [registro(30, { pesoPromedio: 4.8, alimentoLb: 9000 })]
+    const ventas = [
+      ingreso({ id: 1, cantidad: 600, pesoLb: 3540, monto: 1 }),
+      ingreso({ id: 2, cantidad: 380, pesoLb: 2144, monto: 1 }),
+    ]
+    const m = computeMetrics(l, regs, [], ventas)
+    expect(m.pesoVentaLb).toBeCloseTo(5684 / 980, 6)
+    expect(m.pesoFinalLb).toBeCloseTo(5684 / 980, 6)
+    expect(m.pesoPromedioLb).toBe(4.8)
+  })
+
+  it('las ventas sin peso anotado no cuentan para el peso de venta', () => {
+    const l = lote({ estado: 'cerrado', fechaCierre: hace(0) })
+    const m = computeMetrics(l, [registro(30, { pesoPromedio: 4.8 })], [], [
+      ingreso({ id: 1, cantidad: 100, pesoLb: 550, monto: 1 }),
+      ingreso({ id: 2, cantidad: 300, monto: 1 }),
+    ])
+    expect(m.pesoVentaLb).toBe(5.5)
+  })
+
+  it('en un ciclo que sigue es el estimado de hoy', () => {
+    const m = computeMetrics(lote(), [registro(30, { pesoPromedio: 4.8 })], [], [])
+    expect(m.pesoVentaLb).toBeUndefined()
+    expect(m.pesoFinalLb).toBe(m.pesoEstimadoLb)
+  })
+})
