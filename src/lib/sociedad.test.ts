@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeLiquidacion, fraseEntrega, gananciaPorSocio } from './sociedad'
+import { computeLiquidacion, fraseEntrega, gananciaPorSocio, sociosParaGuardar } from './sociedad'
 import { computeMetrics } from './metrics'
 import { entrega, gasto, ingreso, lote, registro } from '../test/fixtures'
 
@@ -237,5 +237,66 @@ describe('gananciaPorSocio', () => {
     const r = gananciaPorSocio([{ socios, ganancia: 100000 }, { ganancia: 30000 }])
     expect(r.sinSociedad).toBe(30000)
     expect(r.socios).toHaveLength(2)
+  })
+})
+
+describe('sociosParaGuardar', () => {
+  // La fila vacía de en medio se va, y quien pagó sigue siendo el mismo socio
+  // aunque ahora esté un lugar más arriba.
+  it('quien pagó sigue siendo el mismo al quitar una fila vacía', () => {
+    const r = sociosParaGuardar(
+      [
+        { nombre: 'Ana', pct: 50 },
+        { nombre: '', pct: 0 },
+        { nombre: 'Beto', pct: 50 },
+      ],
+      2,
+    )
+    expect(r.socios.map((s) => s.nombre)).toEqual(['Ana', 'Beto'])
+    expect(r.pagador).toBe(1)
+  })
+
+  it('el socio sin nombre pero con su parte se queda con el nombre que se veía', () => {
+    const r = sociosParaGuardar(
+      [
+        { nombre: ' Ana ', pct: 60 },
+        { nombre: '', pct: 40 },
+      ],
+      1,
+    )
+    expect(r.socios).toEqual([
+      { nombre: 'Ana', pct: 60 },
+      { nombre: 'Socio 2', pct: 40 },
+    ])
+    expect(r.pagador).toBe(1)
+  })
+
+  it('si quien pagó era la fila vacía el pago queda común', () => {
+    const r = sociosParaGuardar(
+      [
+        { nombre: 'Ana', pct: 50 },
+        { nombre: 'Beto', pct: 50 },
+        { nombre: '', pct: 0 },
+      ],
+      2,
+    )
+    expect(r.socios).toHaveLength(2)
+    expect(r.pagador).toBeUndefined()
+  })
+
+  it('los socios que ya tienen cuentas no se quitan aunque queden en blanco', () => {
+    const r = sociosParaGuardar(
+      [
+        { nombre: 'Ana', pct: 100 },
+        { nombre: '', pct: 0 },
+        { nombre: '', pct: 0 },
+      ],
+      undefined,
+      2,
+    )
+    expect(r.socios).toEqual([
+      { nombre: 'Ana', pct: 100 },
+      { nombre: 'Socio 2', pct: 0 },
+    ])
   })
 })

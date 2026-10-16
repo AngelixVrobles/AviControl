@@ -14,7 +14,7 @@ import {
   type ItemEquipo,
   type TipoEquipo,
 } from '../../lib/equipo'
-import { PESO_OBJETIVO_DEFAULT } from '../../lib/standards'
+import { pesoObjetivoDe } from '../../lib/lote'
 import { Banda, Segmentado, Seccion } from '../../components/ui'
 
 function Fila({
@@ -49,7 +49,7 @@ export function FichaGalpon({
   settings: Settings
 }) {
   const aves = metrics.avesVivas > 0 ? metrics.avesVivas : lote.cantidadInicial
-  const pesoObjetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
+  const pesoObjetivo = pesoObjetivoDe(lote)
   const plan = equipoDeLaGranja(aves, pesoObjetivo, metrics.diaObjetivo, settings)
   if (!plan) return null
   const g = plan.galpon

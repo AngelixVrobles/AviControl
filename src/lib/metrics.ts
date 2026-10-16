@@ -1,7 +1,8 @@
 import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
 import { consumoAlimento, type ConsumoAlimento } from './consumo'
 import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
-import { KG_POR_LB, PESO_OBJETIVO_DEFAULT, diaParaPeso, fcaEstandar, pesoEstandarLb } from './standards'
+import { pesoObjetivoDe } from './lote'
+import { KG_POR_LB, diaParaPeso, fcaEstandar, pesoEstandarLb } from './standards'
 
 export interface LoteMetrics {
   dias: number
@@ -93,7 +94,7 @@ export function computeMetrics(
     costoPorAve,
   }
 
-  const pesoObjetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
+  const pesoObjetivo = pesoObjetivoDe(lote)
 
   const conPeso = registros.filter((r) => Number.isFinite(r.pesoPromedio))
   const ultimoPeso = conPeso.length ? conPeso[conPeso.length - 1] : undefined
