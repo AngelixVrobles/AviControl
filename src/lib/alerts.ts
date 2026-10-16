@@ -2,6 +2,7 @@ import type { Aplicacion, Gasto, Lote, Registro } from '../db/schema'
 import type { LoteMetrics } from './metrics'
 import { resumenAgua } from './agua'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
+import { sinAves } from './lote'
 import { agendaSanitaria } from './sanidad'
 import { getSettings } from './settings'
 import { diasEntre, hoyISO, num, pct, plural } from './format'
@@ -31,6 +32,18 @@ export function computeAlertas(
   sanidad: { plan?: HitoSanitario[]; aplicaciones?: Aplicacion[] } = {},
 ): Alerta[] {
   if (lote.estado !== 'activo') return []
+  // Sin aves no hay día que registrar ni peso que tomar: el único aviso es el
+  // que importa.
+  if (sinAves(m))
+    return [
+      {
+        nivel: 'warn',
+        texto:
+          m.vendidas > 0
+            ? 'Vendiste todas las aves y el ciclo sigue abierto: ciérralo para ver cómo salió'
+            : 'No quedan aves en el galpón: cierra el ciclo',
+      },
+    ]
   const alertas: Alerta[] = []
 
   const ultimo = registros.length ? registros[registros.length - 1] : undefined
