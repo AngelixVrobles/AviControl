@@ -38,9 +38,10 @@ Sin cuentas, sin servidor, sin internet: los datos se guardan en el dispositivo 
 - **«¿Hasta qué día conviene?»**: el día en que la ganancia deja de subir, con la curva día por día y el **costo de la libra marginal** contra el precio de venta — porque cada día extra el pollo convierte peor y llega un punto en que engordarlo cuesta más de lo que se cobra por él.
 - **Comederos y bebederos**: cuántos hacen falta para las aves que hay con el equipo de tu granja — **bebederos Plasson** o niples, **comederos de tolva** o platos —, con la cifra de aves por equipo editable si tu modelo es otro; lo del recibo (bandejas, bebederos de galón y criadoras) y el agua que beben al final del ciclo para dimensionar el tanque. Con las medidas del galpón, en **metros o pies**: cuántas aves caben (la densidad de la granja sin pasar de 30 kg/m² al peso de venta), dónde cerrar el recibo, en cuántas líneas se reparte el equipo y cada cuánto va cada uno. Al crear un ciclo dice qué hace falta para esa cantidad de pollitos. Cifras de Plasson y de la Guía de Manejo de Cobb.
 - **«Si vendes…»**: compara la ganancia de vender hoy, al peso objetivo (recomendado) o más tarde, con la advertencia cuando las aves comen más de lo que crecen.
-- **Proyección de venta financiera**: fecha estimada al peso objetivo, mortalidad que falta por ocurrir, alimento restante en quintales, costo e ingreso proyectados y **precio de equilibrio** por libra.
+- **Proyección de venta financiera**: fecha estimada al peso objetivo, mortalidad que falta por ocurrir, alimento restante en quintales —separando lo que ya está pagado en el almacén de lo que falta comprar, para no cobrar dos veces lo comprado por adelantado—, costo e ingreso proyectados y **precio de equilibrio** por libra.
 - **Sociedad**: reparte gastos y ganancias entre socios con % configurables y lleva la cuenta de cada uno: lo que puso, lo que cobró de las ventas y **su ganancia individual** (estimada antes de vender, real después). Dice quién le entrega cuánto a quién —antes de vender, para seguir mitad y mitad con los gastos; después, para que cada uno recupere lo suyo— y las **entregas entre socios** se anotan, también por partes, para que la cuenta quede al día en vez de pedir el mismo pago para siempre. La cuenta se comparte por WhatsApp.
 - **Alertas** con tope y prioridad por severidad: días sin registrar, días sin pesar, mortalidad alta, FCA desviado del estándar Cobb, cambios de fase de alimento, vacunas del plan típico y retiro del medicado antes de la venta.
+- **Inversión por día**: cuánto llevabas invertido a los 10, 20, 30 o 40 días (o el día que elijas), con el desglose por categoría y la comparación por pollito contra tus otros ciclos a la misma edad, día a día en una gráfica.
 - **Comparación entre camadas** y **reporte compartible** en imagen para WhatsApp.
 - **Respaldo**: exportar/importar todos los datos en `.json`, con migración automática de respaldos antiguos.
 
@@ -64,7 +65,7 @@ src/
 
 | Capa | Tecnologías |
 |------|-------------|
-| UI | React 19, Tailwind CSS, Motion (animaciones), Recharts (gráficos) |
+| UI | React 19, Tailwind CSS, Motion (animaciones), gráficas propias en SVG |
 | Datos | Dexie sobre IndexedDB, live queries reactivas |
 | Offline / PWA | vite-plugin-pwa (Workbox), runtime caching de fuentes |
 | Lenguaje / build | TypeScript, Vite |
