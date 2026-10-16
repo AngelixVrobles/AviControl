@@ -22,12 +22,13 @@ App para engordadores que llevan el control de sus camadas en papel o en la cabe
 
 Está especializada en **Cobb 500**: las curvas de peso, consumo y conversión son la tabla *as-hatched* del [Cobb500 Broiler Performance & Nutrition Supplement (2022)](https://www.cobbgenetics.com/assets/Cobb-Files/2022-Cobb500-Broiler-Performance-Nutrition-Supplement.pdf), día por día del 0 al 56.
 
-Sin cuentas, sin servidor, sin internet: los datos se guardan en el dispositivo (IndexedDB) y se respaldan exportando un archivo `.json`.
+Sin cuentas, sin servidor, sin internet: los datos se guardan en el dispositivo (IndexedDB) y se respaldan en un archivo `.json` que en el teléfono sale por el menú de compartir —Archivos, WhatsApp, Drive—.
 
 ## Funcionalidades
 
-- **Ciclos de engorde** con barra de progreso e hitos (recibo, vacunas, cambios de alimento, retiro y venta), sobre la curva Cobb 500 escalada al rendimiento real del lote.
-- **Registro diario en segundos**: mortalidad y descarte con *steppers*, alimento **en sacos de 100 lb o en libras** con chips sugeridos según tu consumo reciente, peso opcional.
+- **Ciclos de engorde** con barra de progreso e hitos (recibo, vacunas, cambios de alimento, retiro y venta), sobre la curva Cobb 500 escalada al rendimiento real del lote. Con el lápiz del ciclo se corrige lo que se anotó al crearlo —fecha, pollitos, lo que costaron, peso y precio de venta, socios— sin romper lo ya registrado, o se borra el ciclo con todo lo suyo. Cada ciclo nuevo trae el peso de venta de Ajustes, y el que no tiene el suyo lo sigue.
+- **Inicio**: el registro de hoy de cada ciclo, las alertas y el **precio mínimo para no perder** de todos los ciclos juntos —sus costos entre sus libras, para que cada galpón pese lo que produce—, contra el precio de mercado. Si pasa una semana sin respaldo, lo recuerda y deja respaldar ahí mismo.
+- **Registro diario en segundos**: mortalidad y descarte con *steppers*, alimento **en sacos de 100 lb o en libras** con chips sugeridos según tu consumo reciente, peso opcional. Un pesaje no cuenta como el registro del día hasta que se completan las bajas y el alimento.
 - **Muestreo de peso**: dice cuántas aves pesar para que el promedio valga para todo el galpón, y al ir pesando calcula en vivo el promedio, el **margen de error** (IC 95 % con corrección por población finita), la **uniformidad** y el **CV**, el % del estándar Cobb y las libras vivas del galpón. La casilla y el **+** se quedan fijos arriba aunque la lista crezca, cada peso se guarda en el teléfono al momento (si la hoja se cierra, al abrirla siguen ahí), se deshace el último con un toque y se marcan en rojo los pesos que parecen un error al escribir.
 - **Guía del día**: peso ideal para la edad vs. el real, alimento del día y acumulado, FCA esperado, agua, temperatura de galpón, densidad y mortalidad esperada.
 - **Plan de alimento en cuatro fases** (pre-inicio, iniciador, crecimiento, engorde) con proteína, energía y presentación de cada una: quintales y costo por fase, lo consumido vs. lo esperado y el día de cambio.
@@ -40,10 +41,11 @@ Sin cuentas, sin servidor, sin internet: los datos se guardan en el dispositivo 
 - **«Si vendes…»**: compara la ganancia de vender hoy, al peso objetivo (recomendado) o más tarde, con la advertencia cuando las aves comen más de lo que crecen.
 - **Proyección de venta financiera**: fecha estimada al peso objetivo, mortalidad que falta por ocurrir, alimento restante en quintales —separando lo que ya está pagado en el almacén de lo que falta comprar, para no cobrar dos veces lo comprado por adelantado—, costo e ingreso proyectados y **precio de equilibrio** por libra.
 - **Sociedad**: reparte gastos y ganancias entre socios con % configurables y lleva la cuenta de cada uno: lo que puso, lo que cobró de las ventas y **su ganancia individual** (estimada antes de vender, real después). Dice quién le entrega cuánto a quién —antes de vender, para seguir mitad y mitad con los gastos; después, para que cada uno recupere lo suyo— y las **entregas entre socios** se anotan, también por partes, para que la cuenta quede al día en vez de pedir el mismo pago para siempre. La cuenta se comparte por WhatsApp.
-- **Alertas** con tope y prioridad por severidad: días sin registrar, días sin pesar, mortalidad alta, FCA desviado del estándar Cobb, cambios de fase de alimento, vacunas del plan típico y retiro del medicado antes de la venta.
+- **Alertas** con tope y prioridad por severidad: días sin registrar, días sin pesar, mortalidad alta, FCA desviado del estándar Cobb, cambios de fase de alimento, las vacunas de **tu plan sanitario** —la víspera, el día y unos días si se pasan sin anotar; lo ya aplicado no avisa— y retiro del medicado antes de la venta. Las cuentas del día se rehacen solas a medianoche aunque la app siga abierta.
+- **Venta**: si una venta se lleva las últimas aves, el ciclo se cierra con ella y guarda lo que la app proyectaba para compararlo con lo que pasó.
 - **Inversión por día**: cuánto llevabas invertido a los 10, 20, 30 o 40 días (o el día que elijas), con el desglose por categoría y la comparación por pollito contra tus otros ciclos a la misma edad, día a día en una gráfica.
-- **Comparación entre camadas** y **reporte compartible** en imagen para WhatsApp.
-- **Respaldo**: exportar/importar todos los datos en `.json`, con migración automática de respaldos antiguos.
+- **Comparación entre camadas** —con el peso real de venta de cada ciclo cerrado— y **reporte compartible** en imagen para WhatsApp.
+- **Respaldo**: exportar/importar todos los datos en `.json`, con migración automática de respaldos antiguos. En el teléfono el archivo sale por el menú de compartir y el último respaldo solo se anota si el archivo salió. La app le pide al navegador que no borre sus datos cuando le falte espacio.
 
 ## Arquitectura
 
@@ -51,7 +53,9 @@ SPA local-first sin backend. La capa de datos es reactiva: cualquier escritura e
 
 ```
 src/
-  db/          Esquema Dexie (lotes, registros, pesajes, gastos, ingresos)
+  db/          Esquema Dexie (lotes, registros, pesajes, gastos, ingresos,
+               aplicaciones, entregas, deudas, abonos), borrar un ciclo y
+               armar el respaldo
   lib/         Lógica de dominio: métricas, curva Cobb 500, plan de alimento,
                muestreo estadístico, equipo del galpón, alertas, proyección de
                venta, precios y punto óptimo, reporte en canvas, formato es-DO
@@ -60,6 +64,8 @@ src/
 ```
 
 **Flujo de datos:** `IndexedDB (Dexie)` → `useLiveQuery` → `métricas puras` → `UI (React)`.
+
+**Carga:** Inicio y Ciclos van en el paquete de entrada; las demás pantallas se bajan al abrirse y las librerías van aparte, para que una actualización de la app no las vuelva a bajar. Con la app instalada todo queda guardado en el teléfono.
 
 ## Stack tecnológico
 
