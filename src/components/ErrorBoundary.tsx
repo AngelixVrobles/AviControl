@@ -66,6 +66,15 @@ export function PantallaError({ detalle }: { detalle?: string }) {
   )
 }
 
+// Mientras se baja la pantalla con que se abrió la app.
+export function PantallaCargando() {
+  return (
+    <div role="status" className="grid min-h-dvh place-items-center bg-paper text-sm text-ink-faint">
+      Cargando…
+    </div>
+  )
+}
+
 // React Router atrapa lo que revienta dentro de una ruta antes de que llegue al
 // boundary de arriba, así que necesita el suyo propio.
 export function ErrorDeRuta() {
