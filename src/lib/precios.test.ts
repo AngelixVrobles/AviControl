@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { analizarPrecio, precioAlimentoLb, precioQuintalReal } from './precios'
+import { analizarPrecio, precioAlimentoLb, precioMinimoConjunto, precioQuintalReal } from './precios'
 import { computeMetrics } from './metrics'
 import { proyectarVenta } from './proyeccion'
 import { gasto, lote, registro } from '../test/fixtures'
@@ -123,5 +123,19 @@ describe('analizarPrecio con alimento en el almacén', () => {
       sin.precioEquilibrioLb * sin.lbEnPie + p.sobranteLb * 19,
       2,
     )
+  })
+})
+
+describe('precioMinimoConjunto', () => {
+  // Un galpón chico caro y uno grande barato: el precio de los dos juntos pesa
+  // más el grande. El promedio simple daba 60; lo que hay que cubrir, 53.33.
+  it('pondera por las libras de cada ciclo', () => {
+    const chico = { costoNeto: 70 * 1000, lbEnPie: 1000 }
+    const grande = { costoNeto: 50 * 5000, lbEnPie: 5000 }
+    expect(precioMinimoConjunto([chico, grande])).toBeCloseTo(320000 / 6000, 6)
+  })
+
+  it('sin libras no hay precio', () => {
+    expect(precioMinimoConjunto([])).toBeUndefined()
   })
 })

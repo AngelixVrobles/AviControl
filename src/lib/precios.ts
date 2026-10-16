@@ -133,3 +133,13 @@ export function analizarPrecio(
     actual,
   }
 }
+
+// El precio mínimo de varios ciclos juntos: lo que falta por cubrir de todos
+// entre todas las libras que van a salir. Promediar el de cada uno pesaba igual
+// un galpón de 500 aves que uno de 3.000.
+export function precioMinimoConjunto(
+  analisis: Pick<AnalisisPrecio, 'costoNeto' | 'lbEnPie'>[],
+): number | undefined {
+  const lb = analisis.reduce((a, x) => a + x.lbEnPie, 0)
+  return lb > 0 ? analisis.reduce((a, x) => a + x.costoNeto, 0) / lb : undefined
+}

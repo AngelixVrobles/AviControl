@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { db, type Gasto, type Lote } from '../db/schema'
 import { computeAlertas, type Alerta } from './alerts'
 import { computeMetrics, type LoteMetrics } from './metrics'
+import { pesoObjetivoDe } from './lote'
+import { analizarPrecio, type AnalisisPrecio } from './precios'
+import { proyectarVenta } from './proyeccion'
 import { getSettings, type Settings } from './settings'
 import { resumenDeudas } from './deudas'
 
@@ -17,6 +20,8 @@ export interface LoteConMetrics {
   lote: Lote
   metrics: LoteMetrics
   alertas: Alerta[]
+  /** A cómo vender: solo en los ciclos activos que ya tienen un pesaje. */
+  precio?: AnalisisPrecio | null
 }
 
 export function useLoteData(id: number | undefined) {
@@ -66,10 +71,20 @@ export function useResumen(estado: 'cerrado' | 'activo' | 'todos' = 'todos') {
       registros.sort((a, b) => a.fecha.localeCompare(b.fecha))
       aplicaciones.sort((a, b) => a.fecha.localeCompare(b.fecha))
       const metrics = computeMetrics(lote, registros, gastos, ingresos)
+      const precio =
+        lote.estado === 'activo'
+          ? analizarPrecio(
+              lote,
+              gastos,
+              metrics,
+              proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote)),
+            )
+          : undefined
       out.push({
         lote,
         metrics,
         alertas: computeAlertas(lote, registros, gastos, metrics, { aplicaciones }),
+        precio,
       })
     }
     return out
