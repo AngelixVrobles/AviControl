@@ -325,7 +325,7 @@ export function RegistroSheet({
         ) : (
           <button
             onClick={() => setMasOpciones(true)}
-            className="text-sm font-medium text-forest-600"
+            className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600"
           >
             Descarte y nota →
           </button>
@@ -560,7 +560,7 @@ export function PesajeSheet({
                 onClick={() => cambiar(pesos.slice(0, -1))}
                 onMouseDown={(e) => e.preventDefault()}
                 aria-label={`Deshacer el último peso, ${num(ultimo, 2)} libras`}
-                className="-mr-2 shrink-0 rounded-full px-2 py-1 text-sm font-semibold text-forest-600 active:bg-paper-sunken"
+                className="-my-2 -mr-3 shrink-0 rounded-full px-3 py-2.5 text-sm font-semibold text-forest-600 active:bg-paper-sunken"
               >
                 Deshacer
               </button>
@@ -582,7 +582,7 @@ export function PesajeSheet({
                       onClick={() => cambiar(pesos.filter((_, j) => j !== i))}
                       aria-label={`Quitar el ave ${i + 1}: ${num(p, 2)} libras${raro ? ', se sale de lo normal' : ''}`}
                       className={clsx(
-                        'inline-flex items-center gap-1.5 rounded-full border py-1.5 pl-3 pr-2 text-sm font-semibold tnum transition active:bg-paper-sunken',
+                        'inline-flex h-10 items-center gap-1.5 rounded-full border pl-3.5 pr-2.5 text-sm font-semibold tnum transition active:bg-paper-sunken',
                         raro
                           ? 'border-clay-line bg-clay-tint text-clay-text'
                           : i === pesos.length - 1

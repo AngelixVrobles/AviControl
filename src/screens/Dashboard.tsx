@@ -70,7 +70,7 @@ export function Dashboard() {
             className="mt-8"
             etiqueta="Ciclos en curso"
             accion={
-              <Link to="/lotes" className="-m-2 p-2 text-sm font-medium text-forest-600">
+              <Link to="/lotes" className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600">
                 Ver todos
               </Link>
             }
@@ -110,7 +110,7 @@ function RecordarRespaldo({ ultimo }: { ultimo: string | null }) {
         >
           Respaldar ahora
         </button>
-        <Link to="/ajustes" className="-m-2 p-2 text-sm font-medium text-amber-text">
+        <Link to="/ajustes" className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-amber-text">
           Ver Ajustes
         </Link>
       </div>

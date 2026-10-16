@@ -408,7 +408,7 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
         ))}
         <button
           onClick={() => guardar([...items, { nombre: '', dia: 0 }])}
-          className="text-sm font-medium text-forest-600"
+          className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600"
         >
           + Agregar al plan
         </button>

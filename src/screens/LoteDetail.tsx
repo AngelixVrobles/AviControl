@@ -297,7 +297,7 @@ export function LoteDetail() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className="relative flex-1 rounded-full py-2 text-sm font-semibold"
+                className="relative flex-1 rounded-full py-2.5 text-sm font-semibold"
               >
                 {tab === t.id && (
                   <motion.span
@@ -704,7 +704,7 @@ function CerrarSinAves({
         </button>
         <button
           onClick={onGasto}
-          className="-m-2 p-2 text-sm font-medium text-amber-text"
+          className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-amber-text"
         >
           Anotar un gasto
         </button>
@@ -737,7 +737,10 @@ function Muestreo({
         className="mb-3 mt-8"
         etiqueta="Muestreo de peso"
         accion={
-          <button onClick={onNuevo} className="text-sm font-semibold text-forest-600">
+          <button
+            onClick={onNuevo}
+            className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
+          >
             Pesar aves →
           </button>
         }
