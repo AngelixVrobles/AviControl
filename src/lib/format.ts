@@ -37,6 +37,14 @@ export function numCompacto(value: number): string {
 export const plural = (n: number, singular: string, plural: string) =>
   Math.abs(n) === 1 ? singular : plural
 
+// «3 ciclos, 12 gastos y 2 ventas»: lo que hay, sin lo que está en cero.
+export function enumerar(partes: readonly (readonly [number, string, string])[]): string {
+  const lista = partes
+    .filter(([n]) => n > 0)
+    .map(([n, uno, varios]) => `${num(n)} ${plural(n, uno, varios)}`)
+  return lista.length > 1 ? `${lista.slice(0, -1).join(', ')} y ${lista[lista.length - 1]}` : (lista[0] ?? '')
+}
+
 export function num(value: number, decimals = 0): string {
   return new Intl.NumberFormat('es-DO', {
     minimumFractionDigits: decimals,

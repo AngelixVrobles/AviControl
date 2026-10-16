@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db, type Lote, type Socio } from '../db/schema'
 import { borrarCiclo } from '../db/ciclo'
-import { money, num, plural } from '../lib/format'
+import { enumerar, money, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
 import { erroresLote, type LimitesLote } from '../lib/lote'
 import { sociosParaGuardar } from '../lib/sociedad'
@@ -118,12 +118,8 @@ function FormLote({
       [contenido.aplicaciones, 'vacuna o medicina', 'vacunas y medicinas'],
       [contenido.entregas, 'entrega entre socios', 'entregas entre socios'],
     ] as const
-    const lista = partes
-      .filter(([n]) => n > 0)
-      .map(([n, uno, varios]) => `${num(n)} ${plural(n, uno, varios)}`)
-    const con = lista.length
-      ? ` con ${lista.length > 1 ? `${lista.slice(0, -1).join(', ')} y ${lista[lista.length - 1]}` : lista[0]}`
-      : ''
+    const lista = enumerar(partes)
+    const con = lista ? ` con ${lista}` : ''
     const ok = await confirmar({
       titulo: `Borrar ${lote.nombre}`,
       mensaje: `Se borra el ciclo${con}. No se puede deshacer: si lo quieres guardar, haz antes un respaldo en Ajustes. Las deudas de la granja no se tocan.`,
