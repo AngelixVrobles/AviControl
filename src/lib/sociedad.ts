@@ -52,6 +52,28 @@ const norm = (socios: Socio[]): number[] => {
 
 export const nombreSocio = (s: Socio, i: number) => s.nombre.trim() || `Socio ${i + 1}`
 
+// Los socios tal como se guardan. Se va la fila que quedó en blanco —sin
+// nombre y sin parte—, no la que tiene su porcentaje aunque nadie le pusiera
+// nombre: esa se guarda con el que se veía en pantalla («Socio 2»). Quien pagó
+// se busca en la lista que queda: antes la lista se filtraba y el índice seguía
+// siendo el de la pantalla, y al quitar una fila vacía el pago de los pollitos
+// le caía a otro socio o a nadie. Las primeras `fijas` filas son socios que ya
+// tienen gastos y ventas a su nombre y se quedan siempre, para no correrlos.
+export function sociosParaGuardar(
+  socios: Socio[],
+  pagador?: number,
+  fijas = 0,
+): { socios: Socio[]; pagador?: number } {
+  const quedan = socios
+    .map((s, i) => ({ i, nombre: s.nombre.trim(), pct: Number(s.pct) || 0 }))
+    .filter((s) => s.i < fijas || s.nombre !== '' || s.pct > 0)
+  const j = pagador == null ? -1 : quedan.findIndex((s) => s.i === pagador)
+  return {
+    socios: quedan.map((s) => ({ nombre: s.nombre || `Socio ${s.i + 1}`, pct: s.pct })),
+    pagador: j >= 0 ? j : undefined,
+  }
+}
+
 function leerAcuerdo(fr: number[]): string {
   if (fr.every((f) => Math.abs(f - fr[0]) < 1e-9))
     return fr.length === 2 ? 'mitad y mitad' : 'en partes iguales'

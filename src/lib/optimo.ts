@@ -1,10 +1,10 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
 import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, sumarDias } from './format'
+import { pesoObjetivoDe } from './lote'
 import { precioAlimentoLb } from './precios'
 import { proyectarVenta } from './proyeccion'
 import {
-  PESO_OBJETIVO_DEFAULT,
   alimentoAcumEstandarLb,
   mortalidadEsperadaPct,
   pesoEstandarLb,
@@ -53,7 +53,7 @@ export function analizarPuntoOptimo(
   const diaUltimo = diasEntre(lote.fechaInicio, conPeso[conPeso.length - 1].fecha)
   const factorEf = eficienciaAlimento(m)
   const desde = Math.max(m.dias, diaUltimo)
-  const objetivoLb = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT
+  const objetivoLb = pesoObjetivoDe(lote)
 
   // El alimento del almacén que se va a comer hasta la venta ya está pagado.
   // Se descuenta igual en todos los días, así que no mueve el mejor día ni lo

@@ -20,7 +20,13 @@ import { Button, DangerButton, Field, Input, Segmentado, Select, Sheet } from '.
 import { confirmar, toast } from './confirm'
 import { CATEGORIAS, categoriaLabel } from '../lib/labels'
 import { CATEGORIAS_DEUDA } from '../lib/deudas'
-import { computeLiquidacion, fraseEntrega, gananciaPorSocio, nombreSocio } from '../lib/sociedad'
+import {
+  computeLiquidacion,
+  fraseEntrega,
+  gananciaPorSocio,
+  nombreSocio,
+  sociosParaGuardar,
+} from '../lib/sociedad'
 import { diasEntre, fecha as fechaCorta, hoyISO, money, num, numCorto, pct, plural, porLb } from '../lib/format'
 import { comprasAlimento } from '../lib/precios'
 import { useSettings } from '../lib/hooks'
@@ -31,8 +37,10 @@ import { proyectarVenta } from '../lib/proyeccion'
 import { construirContrastes, snapshotCierre, type Contraste, type RealCiclo } from '../lib/cierre'
 import { aguaEsperadaL } from '../lib/agua'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
-import { LB_POR_QUINTAL, PESO_OBJETIVO_DEFAULT, pesoEstandarLb } from '../lib/standards'
+import { LB_POR_QUINTAL, pesoEstandarLb } from '../lib/standards'
+import { pesoObjetivoDe } from '../lib/lote'
 import { IconClose } from './icons'
+import { EditorSocios } from './Socios'
 
 export function RegistroSheet({
   lote,
@@ -958,7 +966,7 @@ export function CierreSheet({
     registros,
     gastos,
     metrics,
-    lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT,
+    pesoObjetivoDe(lote),
   )
   const snap = snapshotCierre(metrics, proyeccion, dia)
 
@@ -1432,7 +1440,11 @@ export function DeudaSheet({
       monto: Number(monto) || 0,
       fecha,
       acreedor: acreedor.trim() || undefined,
-      socios: enSociedad ? socios.filter((s) => s.nombre.trim()) : undefined,
+      // Los abonos guardan quién pagó por su lugar en la lista: los socios que
+      // ya estaban se quedan donde estaban.
+      socios: enSociedad
+        ? sociosParaGuardar(socios, undefined, editar?.socios?.length ?? 0).socios
+        : undefined,
     }
     if (editar) await db.deudas.update(editar.id, datos)
     else await db.deudas.add({ ...datos, creado: Date.now() })
@@ -1503,11 +1515,14 @@ export function DeudaSheet({
           </Field>
         </div>
 
-        <RepartoSocios
+        <EditorSocios
+          titulo="Es en sociedad"
+          nota="Reparte lo que falta por pagar."
           activo={enSociedad}
           onActivo={setEnSociedad}
           socios={socios}
           onSocios={setSocios}
+          fijas={editar?.socios?.length ?? 0}
         />
 
         <Button block disabled={!valido} onClick={guardar}>
@@ -1516,92 +1531,6 @@ export function DeudaSheet({
         {editar && <DangerButton onClick={eliminar}>Eliminar deuda</DangerButton>}
       </div>
     </Sheet>
-  )
-}
-
-function RepartoSocios({
-  activo,
-  onActivo,
-  socios,
-  onSocios,
-}: {
-  activo: boolean
-  onActivo: (v: boolean) => void
-  socios: Socio[]
-  onSocios: (s: Socio[]) => void
-}) {
-  const suma = socios.reduce((a, s) => a + (Number(s.pct) || 0), 0)
-  const set = (i: number, patch: Partial<Socio>) =>
-    onSocios(socios.map((s, j) => (j === i ? { ...s, ...patch } : s)))
-
-  return (
-    <div className="rounded-xl2 border border-line bg-paper-raised p-4">
-      <button onClick={() => onActivo(!activo)} className="flex w-full items-center justify-between">
-        <div className="text-left">
-          <div className="font-display text-base font-semibold">Es en sociedad</div>
-          <div className="text-xs text-ink-faint">Reparte lo que falta por pagar.</div>
-        </div>
-        <span
-          className={clsx('relative h-6 w-10 rounded-full transition', activo ? 'bg-forest-500' : 'bg-line')}
-        >
-          <span
-            className={clsx(
-              'absolute top-0.5 h-5 w-5 rounded-full bg-paper-raised shadow-card transition-all',
-              activo ? 'left-[18px]' : 'left-0.5',
-            )}
-          />
-        </span>
-      </button>
-
-      {activo && (
-        <div className="mt-4 space-y-3">
-          {socios.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input
-                value={s.nombre}
-                onChange={(e) => set(i, { nombre: e.target.value })}
-                placeholder="Nombre"
-                className="flex-1"
-              />
-              <div className="relative w-24">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  value={String(s.pct)}
-                  onChange={(e) => set(i, { pct: Number(e.target.value) || 0 })}
-                  className="pr-7 text-center"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
-                  %
-                </span>
-              </div>
-              {socios.length > 2 && (
-                <button
-                  onClick={() => onSocios(socios.filter((_, j) => j !== i))}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-faint active:bg-paper-sunken"
-                  aria-label="Quitar socio"
-                >
-                  <IconClose width={18} height={18} />
-                </button>
-              )}
-            </div>
-          ))}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => onSocios([...socios, { nombre: '', pct: 0 }])}
-              className="text-sm font-medium text-forest-600"
-            >
-              + Agregar socio
-            </button>
-            <span
-              className={clsx('text-xs tnum', suma === 100 ? 'text-ink-faint' : 'text-clay-deep')}
-            >
-              Suma {suma}%
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
 

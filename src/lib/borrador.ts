@@ -52,6 +52,26 @@ export function borrarBorrador(loteId: number, pesajeId?: number) {
   }
 }
 
+// Los borradores de un ciclo —el del pesaje nuevo y los de cada pesaje que se
+// estaba corrigiendo—, o los de todos si no se dice cuál. Al borrar un ciclo no
+// puede quedar su pesaje a medias: al restaurar un respaldo que trae ese mismo
+// ciclo, el borrador viejo aparecería como si fuera de hoy.
+export function borrarBorradoresDe(loteId?: number) {
+  try {
+    const base = 'avicontrol.pesaje.'
+    const propio = loteId != null ? `${base}${loteId}` : null
+    const claves: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k?.startsWith(base)) continue
+      if (propio == null || k === propio || k.startsWith(`${propio}.`)) claves.push(k)
+    }
+    claves.forEach((k) => localStorage.removeItem(k))
+  } catch {
+    // Sin acceso al almacenamiento no hay borradores que quitar.
+  }
+}
+
 // Un peso que se aparta a la mitad o al doble de la mediana casi siempre es un
 // dedazo (42 en vez de 4.2) y no un ave rara: se marca para que se revise antes
 // de que arrastre el promedio. Con menos de cinco pesos no hay mediana que valga.
