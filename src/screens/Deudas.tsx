@@ -82,7 +82,7 @@ export function Deudas() {
             accion={
               <button
                 onClick={() => setNueva(true)}
-                className="text-sm font-semibold text-forest-600"
+                className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
               >
                 Agregar →
               </button>
@@ -233,7 +233,7 @@ function FichaDeuda({
         {abonos.length > 0 && (
           <button
             onClick={() => setAbierta((v) => !v)}
-            className="shrink-0 text-sm font-semibold text-forest-600"
+            className="-mx-2 -my-3 shrink-0 px-2 py-3 text-sm font-semibold text-forest-600"
           >
             {abierta ? 'Ocultar' : `${num(abonos.length)} ${plural(abonos.length, 'abono', 'abonos')}`}
           </button>

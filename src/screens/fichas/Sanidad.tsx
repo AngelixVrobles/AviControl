@@ -76,7 +76,10 @@ export function FichaSanidad({
           className="mb-3"
           etiqueta="Agenda del ciclo"
           accion={
-            <button onClick={() => anotar()} className="text-sm font-semibold text-forest-600">
+            <button
+              onClick={() => anotar()}
+              className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
+            >
               Anotar →
             </button>
           }

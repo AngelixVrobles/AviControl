@@ -107,7 +107,7 @@ export function EditorSocios({
             <button
               type="button"
               onClick={() => onSocios([...socios, { nombre: '', pct: 0 }])}
-              className="-m-2 p-2 text-sm font-medium text-forest-600"
+              className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600"
             >
               + Agregar socio
             </button>
