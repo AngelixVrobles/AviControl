@@ -52,6 +52,21 @@ export function borrarBorrador(loteId: number, pesajeId?: number) {
   }
 }
 
+// Al borrar todos los datos los borradores apuntan a ciclos que ya no existen;
+// si se quedaran, un ciclo nuevo que reciba el mismo id heredaría pesos ajenos.
+export function borrarTodosLosBorradores() {
+  try {
+    const claves: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith('avicontrol.pesaje.')) claves.push(k)
+    }
+    for (const k of claves) localStorage.removeItem(k)
+  } catch {
+    // Sin acceso al almacenamiento no hubo borradores que guardar.
+  }
+}
+
 // Un peso que se aparta a la mitad o al doble de la mediana casi siempre es un
 // dedazo (42 en vez de 4.2) y no un ave rara: se marca para que se revise antes
 // de que arrastre el promedio. Con menos de cinco pesos no hay mediana que valga.

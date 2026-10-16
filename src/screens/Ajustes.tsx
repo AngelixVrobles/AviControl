@@ -13,6 +13,7 @@ import {
   type Registro,
 } from '../db/schema'
 import { saveSettings, type Settings } from '../lib/settings'
+import { borrarTodosLosBorradores } from '../lib/borrador'
 import { useSettings } from '../lib/hooks'
 import { diasEntre, fecha, hoyISO, num, plural } from '../lib/format'
 import type { HitoSanitario } from '../lib/standards'
@@ -62,13 +63,15 @@ function migrarUnidades(data: Respaldo) {
 export function Ajustes() {
   const s = useSettings()
   const conteos = useLiveQuery(async () => {
-    const [ciclos, registros, gastos, ventas] = await Promise.all([
+    const [ciclos, registros, gastos, ventas, aplicaciones, deudas] = await Promise.all([
       db.lotes.count(),
       db.registros.count(),
       db.gastos.count(),
       db.ingresos.count(),
+      db.aplicaciones.count(),
+      db.deudas.count(),
     ])
-    return { ciclos, registros, gastos, ventas }
+    return { ciclos, registros, gastos, ventas, aplicaciones, deudas }
   }, [])
 
   async function exportar() {
@@ -206,19 +209,10 @@ export function Ajustes() {
   }
 
   async function borrarTodo() {
-    const c = conteos
     if (
       !(await confirmar({
         titulo: 'Borrar todos los datos',
-        mensaje: `Borra ${num(c?.ciclos ?? 0)} ${plural(c?.ciclos ?? 0, 'ciclo', 'ciclos')}, ${num(
-          c?.registros ?? 0,
-        )} ${plural(c?.registros ?? 0, 'registro diario', 'registros diarios')}, ${num(
-          c?.gastos ?? 0,
-        )} ${plural(c?.gastos ?? 0, 'gasto', 'gastos')} y ${num(c?.ventas ?? 0)} ${plural(
-          c?.ventas ?? 0,
-          'venta',
-          'ventas',
-        )}. No se puede deshacer y no hay copia en internet.`,
+        mensaje: `Borra ${queSeBorra(conteos)}. No se puede deshacer y no hay copia en internet.`,
         confirmar: 'Borrar todo',
         peligro: true,
       }))
@@ -226,7 +220,17 @@ export function Ajustes() {
       return
     await db.transaction(
       'rw',
-      [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.entregas],
+      [
+        db.lotes,
+        db.registros,
+        db.gastos,
+        db.ingresos,
+        db.pesajes,
+        db.aplicaciones,
+        db.deudas,
+        db.abonos,
+        db.entregas,
+      ],
       async () => {
         await Promise.all([
           db.lotes.clear(),
@@ -234,10 +238,14 @@ export function Ajustes() {
           db.gastos.clear(),
           db.ingresos.clear(),
           db.pesajes.clear(),
+          db.aplicaciones.clear(),
+          db.deudas.clear(),
+          db.abonos.clear(),
           db.entregas.clear(),
         ])
       },
     )
+    borrarTodosLosBorradores()
     toast('Datos borrados.')
   }
 
@@ -335,9 +343,7 @@ export function Ajustes() {
       <Seccion className="mb-3 mt-8 text-clay-deep" etiqueta="Zona de peligro" />
       <Banda className="space-y-3 px-5 py-4">
         <p className="text-sm leading-relaxed text-ink-soft">
-          Borra {num(conteos?.ciclos ?? 0)} ciclos, {num(conteos?.registros ?? 0)} registros diarios,{' '}
-          {num(conteos?.gastos ?? 0)} gastos y {num(conteos?.ventas ?? 0)} ventas. No se puede deshacer
-          y no hay copia en internet.
+          Borra {queSeBorra(conteos)}. No se puede deshacer y no hay copia en internet.
         </p>
         <DangerButton onClick={borrarTodo}>Borrar todo</DangerButton>
       </Banda>
@@ -345,6 +351,27 @@ export function Ajustes() {
       <p className="mt-8 text-center text-sm text-ink-soft">AviControl · v{__APP_VERSION__} · datos locales</p>
     </div>
   )
+}
+
+function queSeBorra(c?: {
+  ciclos: number
+  registros: number
+  gastos: number
+  ventas: number
+  aplicaciones: number
+  deudas: number
+}) {
+  const partes = (
+    [
+      [c?.ciclos ?? 0, 'ciclo', 'ciclos'],
+      [c?.registros ?? 0, 'registro diario', 'registros diarios'],
+      [c?.gastos ?? 0, 'gasto', 'gastos'],
+      [c?.ventas ?? 0, 'venta', 'ventas'],
+      [c?.aplicaciones ?? 0, 'aplicación', 'aplicaciones'],
+      [c?.deudas ?? 0, 'deuda de la granja', 'deudas de la granja'],
+    ] as const
+  ).map(([n, uno, varios]) => `${num(n)} ${plural(n, uno, varios)}`)
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
 }
 
 function resumen(lotes?: Lote[]) {
