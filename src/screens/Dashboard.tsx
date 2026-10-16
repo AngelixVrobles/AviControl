@@ -8,6 +8,7 @@ import { Button, EmptyState, Seccion } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
 import { alimentoEn, fechaLarga, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { precioMinimoConjunto } from '../lib/precios'
+import { sinAves } from '../lib/lote'
 import { useResumen, useSettings } from '../lib/hooks'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
@@ -146,10 +147,13 @@ function Alertas({ activos }: { activos: LoteConMetrics[] }) {
   )
 }
 
-function RegistroDeHoy({ activos }: { activos: LoteConMetrics[] }) {
+function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
   const nav = useNavigate()
   const { unidadAlimento } = useSettings()
+  // El ciclo que ya no tiene aves no tiene día que anotar: su aviso es cerrarlo.
+  const activos = todos.filter((r) => !sinAves(r.metrics))
   const listos = activos.filter((r) => r.metrics.registroHoy).length
+  if (activos.length === 0) return null
 
   return (
     <section className="mt-6 rounded-xl2 bg-sunken p-3">

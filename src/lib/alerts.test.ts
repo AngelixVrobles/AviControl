@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computeAlertas } from './alerts'
 import { computeMetrics } from './metrics'
-import { hace, lote } from '../test/fixtures'
+import { hace, ingreso, lote } from '../test/fixtures'
 import type { Aplicacion } from '../db/schema'
 
 const plan = [
@@ -51,5 +51,18 @@ describe('alertas del plan sanitario', () => {
   it('lo que se pasó sin anotar se recuerda unos días y después se calla', () => {
     expect(alertasAlDia(16).some((t) => t.startsWith('Gumboro tocaba el día 14'))).toBe(true)
     expect(alertasAlDia(18).some((t) => t.startsWith('Gumboro tocaba'))).toBe(false)
+  })
+})
+
+describe('ciclo sin aves', () => {
+  // Se vendió todo con «Venta» y el ciclo quedó abierto: lo único que importa es
+  // cerrarlo, no el registro del día ni el pesaje.
+  it('pide cerrarlo y calla lo demás', () => {
+    const l = lote({ fechaInicio: hace(40), cantidadInicial: 100 })
+    const m = computeMetrics(l, [], [], [ingreso({ cantidad: 100, monto: 30000 })])
+    const textos = computeAlertas(l, [], [], m, { plan }).map((a) => a.texto)
+    expect(textos).toEqual([
+      'Vendiste todas las aves y el ciclo sigue abierto: ciérralo para ver cómo salió',
+    ])
   })
 })

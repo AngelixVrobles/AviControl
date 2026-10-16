@@ -40,7 +40,7 @@ import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra 
 import { LB_POR_QUINTAL, pesoEstandarLb } from '../lib/standards'
 import { pesoObjetivoDe } from '../lib/lote'
 import { IconClose } from './icons'
-import { EditorSocios } from './Socios'
+import { EditorSocios, Interruptor } from './Socios'
 
 export function RegistroSheet({
   lote,
@@ -815,11 +815,17 @@ export function GastoSheet({
 
 export function IngresoSheet({
   lote,
+  metrics,
+  registros,
+  gastos,
   open,
   onClose,
   editar,
 }: {
   lote: Lote
+  metrics: LoteMetrics
+  registros: Registro[]
+  gastos: Gasto[]
   open: boolean
   onClose: () => void
   editar?: Ingreso
@@ -829,6 +835,7 @@ export function IngresoSheet({
   const [monto, setMonto] = useState('')
   const [fecha, setFecha] = useState(hoyISO())
   const [recibidoPor, setRecibidoPor] = useState('')
+  const [cerrar, setCerrar] = useState(true)
 
   useEffect(() => {
     if (!open) return
@@ -837,21 +844,43 @@ export function IngresoSheet({
     setMonto(editar ? String(editar.monto) : '')
     setFecha(editar?.fecha ?? hoyISO())
     setRecibidoPor(editar?.recibidoPor != null ? String(editar.recibidoPor) : '')
+    setCerrar(true)
   }, [open, editar])
+
+  // Vender con «Venta» las aves que quedan dejaba el ciclo abierto con el
+  // galpón vacío, pidiendo el registro del día. Si esta venta se lleva las
+  // últimas, se cierra con ella, como en «Vender y cerrar».
+  const nAves = Number(cantidad) || 0
+  const vendeTodo =
+    !editar && lote.estado === 'activo' && metrics.avesVivas > 0 && nAves >= metrics.avesVivas
 
   async function guardar() {
     const datos = {
       loteId: lote.id,
       tipo: 'aves' as const,
-      cantidad: Number(cantidad) || 0,
+      cantidad: nAves,
       pesoLb: pesoLb ? Number(pesoLb) : undefined,
       monto: Number(monto) || 0,
       fecha,
       recibidoPor: recibidoPor !== '' ? Number(recibidoPor) : undefined,
     }
-    if (editar) await db.ingresos.update(editar.id, datos)
-    else await db.ingresos.add({ ...datos, creado: Date.now() })
-    toast(`Venta anotada · ${money(datos.monto)}`)
+    if (editar) {
+      await db.ingresos.update(editar.id, datos)
+      toast(`Venta anotada · ${money(datos.monto)}`)
+    } else if (vendeTodo && cerrar) {
+      // Lo que la app proyectaba se guarda antes de que la venta deje el galpón
+      // vacío: después ya no hay forma de reconstruirlo.
+      const proyeccion = proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote))
+      const cierre = snapshotCierre(metrics, proyeccion, diasEntre(lote.fechaInicio, fecha))
+      await db.transaction('rw', db.ingresos, db.lotes, async () => {
+        await db.ingresos.add({ ...datos, creado: Date.now() })
+        await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: fecha, cierre })
+      })
+      toast(`Ciclo cerrado · ${money(metrics.ingresos + datos.monto - metrics.costos)}`)
+    } else {
+      await db.ingresos.add({ ...datos, creado: Date.now() })
+      toast(`Venta anotada · ${money(datos.monto)}`)
+    }
     onClose()
   }
 
@@ -865,7 +894,10 @@ export function IngresoSheet({
     <Sheet open={open} onClose={onClose} title={editar ? 'Editar venta' : 'Registrar venta de aves'}>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Nº de aves">
+          <Field
+            label="Nº de aves"
+            hint={!editar && lote.estado === 'activo' ? `Tienes ${num(metrics.avesVivas)} vivas` : undefined}
+          >
             <Input
               type="number"
               inputMode="numeric"
@@ -908,8 +940,25 @@ export function IngresoSheet({
             </Select>
           </Field>
         )}
+        {vendeTodo && (
+          <button
+            type="button"
+            onClick={() => setCerrar((v) => !v)}
+            aria-pressed={cerrar}
+            className="flex w-full items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 text-left"
+          >
+            <div>
+              <div className="font-display text-base font-semibold">Cerrar el ciclo con esta venta</div>
+              <div className="text-xs text-ink-faint">
+                Salen las últimas {num(metrics.avesVivas)} aves. Si te falta un gasto, lo anotas
+                después de reabrirlo.
+              </div>
+            </div>
+            <Interruptor activo={cerrar} />
+          </button>
+        )}
         <Button block disabled={!(Number(monto) > 0)} onClick={guardar}>
-          {editar ? 'Guardar cambios' : 'Guardar venta'}
+          {editar ? 'Guardar cambios' : vendeTodo && cerrar ? 'Guardar y cerrar el ciclo' : 'Guardar venta'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
       </div>
