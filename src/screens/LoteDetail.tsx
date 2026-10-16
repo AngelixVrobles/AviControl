@@ -1175,6 +1175,8 @@ function PrecioMinimo({
 // almacén (pagado) de lo que hay que comprar.
 function notaAlimento(p: Proyeccion): string {
   const qq = (lb: number) => num(lb / LB_POR_QUINTAL, 1);
+  if (p.sinPrecioAlimento)
+    return `Faltan ${qq(p.alimentoPorComprarLb)} qq de alimento; sin su precio, lo que cuestan se estima con lo que llevas gastando por día, sin los pollitos. Anota los quintales de cada compra de alimento para afinarlo.`;
   if (p.existenciaLb <= 0)
     return `Hasta entonces hay que comprar ${qq(p.alimentoPorComprarLb)} qq más de alimento.`;
   if (p.alimentoPorComprarLb <= 0)
