@@ -46,7 +46,9 @@ export function computeAlertas(
     ]
   const alertas: Alerta[] = []
 
-  const ultimo = registros.length ? registros[registros.length - 1] : undefined
+  // Un pesaje no cuenta como registro del día: el último es el último completo.
+  const completos = registros.filter((r) => !r.soloPeso)
+  const ultimo = completos.length ? completos[completos.length - 1] : undefined
   const diasSinRegistro = ultimo ? diasEntre(ultimo.fecha, hoyISO()) : m.dias
   if (diasSinRegistro >= 2 && m.dias >= 2) {
     alertas.push({ nivel: 'warn', texto: `Sin registro desde hace ${diasSinRegistro} ${plural(diasSinRegistro, 'día', 'días')}` })

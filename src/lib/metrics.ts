@@ -66,7 +66,9 @@ export function computeMetrics(
   const margenPct = ingresosTot > 0 ? (ganancia / ingresosTot) * 100 : 0
   const costoPorAve = lote.cantidadInicial > 0 ? costos / lote.cantidadInicial : 0
 
-  const rHoy = registros.find((r) => r.fecha === hoyISO())
+  // El día creado por un pesaje no es el registro de hoy: le faltan las bajas y
+  // el alimento.
+  const rHoy = registros.find((r) => r.fecha === hoyISO() && !r.soloPeso)
 
   const base = {
     dias,
