@@ -28,6 +28,8 @@ export interface Proyeccion {
   pesoVentaLb: number
   lbEnPie: number
   costoRestante: number
+  /** No hay precio del alimento: lo que falta se estimó con el gasto por día del ciclo. */
+  sinPrecioAlimento: boolean
   costoProyectado: number
   ingresoProyectado?: number
   gananciaProyectada?: number
@@ -98,11 +100,17 @@ export function proyectarVenta(
   const alimentoPorComprarLb = Math.max(0, alimentoRestanteLb - existenciaLb)
   const sobranteLb = Math.max(0, existenciaLb - alimentoRestanteLb)
 
+  // Sin precio del alimento, lo que falta se estima con lo que el ciclo lleva
+  // gastando por día, sin los pollitos: se pagan una sola vez, y repartirlos
+  // como si se pagaran a diario inflaba lo que falta y el precio mínimo.
   const precioLb = precioAlimentoLb(lote, gastos, m)
+  const pollitos =
+    lote.costoInicial +
+    gastos.filter((g) => g.categoria === 'aves').reduce((a, g) => a + g.monto, 0)
   const costoRestante = precioLb
     ? alimentoPorComprarLb * precioLb
     : m.dias > 0
-      ? (m.costos / m.dias) * diasRestantes
+      ? (Math.max(0, m.costos - pollitos) / m.dias) * diasRestantes
       : 0
   const costoProyectado = m.costos + costoRestante
 
@@ -129,6 +137,7 @@ export function proyectarVenta(
     pesoVentaLb,
     lbEnPie,
     costoRestante,
+    sinPrecioAlimento: !precioLb,
     costoProyectado,
     ingresoProyectado,
     gananciaProyectada,
