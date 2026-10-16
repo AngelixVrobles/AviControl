@@ -31,6 +31,14 @@ const router = createBrowserRouter([
   { path: '/lotes/nuevo', element: <NuevoLote />, errorElement: <ErrorDeRuta /> },
 ])
 
+// Que el navegador no borre la base cuando le falte espacio: la granja entera
+// vive aquí y no hay copia en internet. Con la app instalada se concede sin
+// preguntar; si no, queda como estaba.
+navigator.storage
+  ?.persisted?.()
+  .then((ya) => ya || navigator.storage.persist())
+  .catch(() => {})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

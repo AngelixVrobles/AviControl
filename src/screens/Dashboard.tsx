@@ -8,6 +8,8 @@ import { Button, EmptyState, Seccion } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
 import { alimentoEn, fechaLarga, hoyISO, money, num, plural, porLb } from '../lib/format'
 import { useResumen, useSettings } from '../lib/hooks'
+import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
+import { useRespaldo } from '../components/useRespaldo'
 
 export function Dashboard() {
   const activos = useResumen('activo')
@@ -17,6 +19,7 @@ export function Dashboard() {
   if (!activos || !cerrados) return <SkeletonHeader />
 
   const hoy = capitalizar(fechaLarga(hoyISO()))
+  const recordar = tocaRecordarRespaldo(settings.ultimoRespaldo, activos.length + cerrados.length > 0)
 
   return (
     <div className="animate-rise">
@@ -51,12 +54,15 @@ export function Dashboard() {
               </div>
             }
           />
+          {recordar && <RecordarRespaldo ultimo={settings.ultimoRespaldo} />}
         </div>
       ) : (
         <>
           <RegistroDeHoy activos={activos} />
 
           <Alertas activos={activos} />
+
+          {recordar && <RecordarRespaldo ultimo={settings.ultimoRespaldo} />}
 
           <Seccion
             className="mt-8"
@@ -79,6 +85,34 @@ export function Dashboard() {
         </>
       )}
     </div>
+  )
+}
+
+// Todo vive en el teléfono: si pasa una semana sin respaldo, Inicio lo dice y
+// deja hacerlo ahí mismo, sin ir a Ajustes.
+function RecordarRespaldo({ ultimo }: { ultimo: string | null }) {
+  const { respaldar } = useRespaldo()
+  const dias = diasSinRespaldo(ultimo)
+  return (
+    <section className="mt-7 rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
+      <h2 className="font-display text-base font-semibold text-amber-text">
+        {dias == null ? 'Nunca has respaldado tus datos' : `Hace ${num(dias)} días del último respaldo`}
+      </h2>
+      <p className="mt-1 text-sm leading-relaxed text-amber-text">
+        Viven solo en este teléfono. Guarda el respaldo fuera de él: WhatsApp, el correo o Drive.
+      </p>
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={respaldar}
+          className="rounded-full bg-forest-500 px-5 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
+        >
+          Respaldar ahora
+        </button>
+        <Link to="/ajustes" className="-m-2 p-2 text-sm font-medium text-amber-text">
+          Ver Ajustes
+        </Link>
+      </div>
+    </section>
   )
 }
 
