@@ -18,8 +18,8 @@ import {
 } from "../db/schema";
 import { useLoteData, useSettings } from "../lib/hooks";
 import { agruparGastos, type LoteMetrics } from "../lib/metrics";
-import { proyectarVenta } from "../lib/proyeccion";
-import { analizarPrecio } from "../lib/precios";
+import { proyectarVenta, type Proyeccion } from "../lib/proyeccion";
+import { analizarPrecio, precioAlimentoLb } from "../lib/precios";
 import { resultadoCiclo, type Contraste } from "../lib/cierre";
 import { analizarPuntoOptimo } from "../lib/optimo";
 import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
@@ -913,6 +913,7 @@ function PrecioMinimo({
   const objetivo = lote.pesoObjetivoLb ?? PESO_OBJETIVO_DEFAULT;
   const p = proyectarVenta(lote, registros, gastos, metrics, objetivo);
   const a = analizarPrecio(lote, gastos, metrics, p);
+  const precioAlim = precioAlimentoLb(lote, gastos, metrics);
 
   if (!a)
     return (
@@ -935,9 +936,11 @@ function PrecioMinimo({
         nota={
           <>
             Sobre el cierre proyectado: {num(a.lbEnPie)} lb de {num(a.aves)} aves
-            {p && !p.listo
-              ? `, vendiendo el ${fecha(p.fechaEstimada)} (día ${p.diaVenta}) y comprando ${num(p.alimentoRestanteQuintales, 1)} qq más de alimento.`
-              : ", con el alimento que falta comprar."}
+            {!p
+              ? ", con lo gastado hasta hoy."
+              : p.listo
+                ? ", vendiendo ya."
+                : `, vendiendo el ${fecha(p.fechaEstimada)} (día ${p.diaVenta}). ${notaAlimento(p)}`}
           </>
         }
         accion={
@@ -1022,6 +1025,14 @@ function PrecioMinimo({
             </div>
           ))}
       </Banda>
+      {p && p.sobranteLb >= 50 && precioAlim > 0 && (
+        <p className="mt-2 text-xs leading-relaxed text-ink-faint tnum">
+          Al vender te sobrarían {num(p.sobranteLb / LB_POR_QUINTAL, 1)} qq (
+          {money(p.sobranteLb * precioAlim)}). Están en el precio mínimo porque
+          ya los pagaste; si los usas en el próximo ciclo, el mínimo de este
+          baja a {porLb(Math.max(0, a.costoNeto - p.sobranteLb * precioAlim) / a.lbEnPie)}.
+        </p>
+      )}
       {a.actual && (
         <p className="mt-2 text-xs text-ink-faint">
           {a.actual.ganancia >= 0
@@ -1031,6 +1042,17 @@ function PrecioMinimo({
       )}
     </>
   );
+}
+
+// Lo que falta de alimento hasta la venta, separando lo que ya está en el
+// almacén (pagado) de lo que hay que comprar.
+function notaAlimento(p: Proyeccion): string {
+  const qq = (lb: number) => num(lb / LB_POR_QUINTAL, 1);
+  if (p.existenciaLb <= 0)
+    return `Hasta entonces hay que comprar ${qq(p.alimentoPorComprarLb)} qq más de alimento.`;
+  if (p.alimentoPorComprarLb <= 0)
+    return `Se comerán ${qq(p.alimentoRestanteLb)} qq más y alcanzan con los ${qq(p.existenciaLb)} del almacén, que ya están pagados.`;
+  return `Se comerán ${qq(p.alimentoRestanteLb)} qq más: ${qq(p.existenciaLb)} ya están en el almacén y pagados, y faltan ${qq(p.alimentoPorComprarLb)} por comprar.`;
 }
 
 function PuntoOptimo({
