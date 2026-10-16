@@ -6,7 +6,8 @@ import { LoteCard } from '../components/LoteCard'
 import type { LoteConMetrics } from '../lib/hooks'
 import { Button, EmptyState, Seccion } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
-import { alimentoEn, fechaLarga, hoyISO, money, num, plural, porLb } from '../lib/format'
+import { alimentoEn, fechaLarga, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
+import { precioMinimoConjunto } from '../lib/precios'
 import { useResumen, useSettings } from '../lib/hooks'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
@@ -222,10 +223,12 @@ function BloqueFinanciero({
   activos: LoteConMetrics[]
   precioMercado?: number
 }) {
-  const conCosto = activos.filter((r) => r.metrics.costoPorLb != null)
-  const costoLbProm = conCosto.length
-    ? conCosto.reduce((a, r) => a + r.metrics.costoPorLb!, 0) / conCosto.length
-    : undefined
+  // El número grande es a cómo hay que vender para no perder, con lo que costará
+  // el ciclo entero y las libras que saldrán. Antes era el costo por libra de
+  // hoy: todo lo gastado entre aves todavía chiquitas, que al principio del
+  // ciclo asustaba sin decir nada, y con varios ciclos un promedio simple.
+  const conPrecio = activos.filter((r) => r.precio)
+  const minimo = precioMinimoConjunto(conPrecio.map((r) => r.precio!))
   const avesVivas = activos.reduce((a, r) => a + r.metrics.avesVivas, 0)
   const invertido = activos.reduce((a, r) => a + r.metrics.costos, 0)
 
@@ -237,19 +240,31 @@ function BloqueFinanciero({
     if (!precio || r.metrics.pesoEstimadoLb == null) return a
     return a + r.metrics.avesVivas * r.metrics.pesoEstimadoLb * precio
   }, 0)
+  const sobreMercado =
+    minimo != null && minimo > 0 && precioMercado ? ((precioMercado - minimo) / minimo) * 100 : undefined
 
   return (
     <section className="mt-8 overflow-hidden rounded-xl2 bg-forest-700 p-5 text-paper-raised">
       <div className="text-sm font-medium text-forest-200">
-        Costo por libra ·{' '}
-        {conCosto.length === activos.length
-          ? `promedio de ${conCosto.length} ${plural(conCosto.length, 'ciclo activo', 'ciclos activos')}`
-          : `${conCosto.length} de ${activos.length} ciclos, los que ya tienen pesaje`}
+        Precio mínimo para no perder
+        {activos.length > 1 &&
+          (conPrecio.length === activos.length
+            ? ` · tus ${num(activos.length)} ciclos juntos`
+            : ` · ${num(conPrecio.length)} de ${num(activos.length)} ciclos, los que ya tienen pesaje`)}
       </div>
       <div className="mt-2 font-display text-hero font-semibold leading-none tracking-tight tnum">
-        {costoLbProm != null ? <AnimatedNumber value={costoLbProm} format={porLb} /> : '—'}
+        {minimo != null ? <AnimatedNumber value={minimo} format={porLb} /> : '—'}
         <span className="ml-1 align-baseline text-lg font-medium text-forest-200">/ lb</span>
       </div>
+      <p className="mt-2 text-sm leading-relaxed text-forest-100">
+        {minimo == null
+          ? 'Pesa una muestra de aves y te digo a cómo vender.'
+          : sobreMercado != null
+            ? sobreMercado >= 0
+              ? `El mercado paga ${porLb(precioMercado!)}, ${pct(sobreMercado, 0)} por encima.`
+              : `El mercado paga ${porLb(precioMercado!)}, ${pct(-sobreMercado, 0)} por debajo: a ese precio perderías.`
+            : 'Con lo que costará el ciclo entero y las libras que vas a sacar.'}
+      </p>
       <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
         <HeroStat label="Invertido" value={money(invertido, { compact: true })} />
         <HeroStat
