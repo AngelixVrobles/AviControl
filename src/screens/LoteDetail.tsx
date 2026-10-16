@@ -358,7 +358,14 @@ export function LoteDetail() {
                       }}
                       className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
                     >
-                      <span className="font-medium">{fecha(r.fecha)}</span>
+                      <span className="font-medium">
+                        {fecha(r.fecha)}
+                        {r.soloPeso && (
+                          <span className="ml-2 text-xs font-normal text-amber-text">
+                            solo pesaje
+                          </span>
+                        )}
+                      </span>
                       <div className="flex items-center gap-3 text-ink-soft tnum">
                         {r.pesoPromedio != null && (
                           <span>{num(r.pesoPromedio, 2)} lb</span>

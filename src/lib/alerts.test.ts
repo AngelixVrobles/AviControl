@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computeAlertas } from './alerts'
 import { computeMetrics } from './metrics'
-import { hace, ingreso, lote } from '../test/fixtures'
+import { hace, ingreso, lote, registro } from '../test/fixtures'
 import type { Aplicacion } from '../db/schema'
 
 const plan = [
@@ -64,5 +64,28 @@ describe('ciclo sin aves', () => {
     expect(textos).toEqual([
       'Vendiste todas las aves y el ciclo sigue abierto: ciérralo para ver cómo salió',
     ])
+  })
+})
+
+describe('el pesaje no es el registro del día', () => {
+  // Pesar no dice cuántas aves murieron ni cuánto comieron: el día sigue sin
+  // registro hasta que se complete.
+  it('un día con solo el peso no calla el aviso de días sin registro', () => {
+    const l = lote({ fechaInicio: hace(20) })
+    const regs = [
+      registro(10, { fecha: hace(5), mortalidad: 1, alimentoLb: 300 }),
+      registro(20, { fecha: hace(0), pesoPromedio: 2.1, soloPeso: true }),
+    ]
+    const m = computeMetrics(l, regs, [], [])
+    const textos = computeAlertas(l, regs, [], m, { plan: [] }).map((a) => a.texto)
+    expect(textos).toContain('Sin registro desde hace 5 días')
+    expect(m.registroHoy).toBeUndefined()
+  })
+
+  it('completado en la hoja del día, ya cuenta', () => {
+    const l = lote({ fechaInicio: hace(20) })
+    const regs = [registro(20, { fecha: hace(0), pesoPromedio: 2.1, mortalidad: 2, alimentoLb: 250 })]
+    const m = computeMetrics(l, regs, [], [])
+    expect(m.registroHoy?.pesoPromedio).toBe(2.1)
   })
 })

@@ -59,6 +59,10 @@ export interface Registro {
   aguaL?: number
   pesoPromedio?: number
   nota?: string
+  // Lo creó un pesaje en un día sin registro: trae el peso y nada más. No cuenta
+  // como el registro del día —faltan las bajas y el alimento— hasta que se
+  // completa en la hoja del día, que le quita la marca.
+  soloPeso?: boolean
   creado: number
 }
 

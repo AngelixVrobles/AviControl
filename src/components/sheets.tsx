@@ -153,9 +153,11 @@ export function RegistroSheet({
       pesoPromedio: !sinPesar && Number(peso.replace(',', '.')) > 0 ? Number(peso.replace(',', '.')) : undefined,
       nota: nota.trim() || undefined,
     }
-    if (existente) await db.registros.update(existente.id, datos)
+    // Guardar desde aquí completa el día: si lo había creado un pesaje, deja de
+    // ser «solo peso».
+    if (existente) await db.registros.update(existente.id, { ...datos, soloPeso: undefined })
     else await db.registros.add({ ...datos, creado: Date.now() })
-    toast(existente ? `Día ${dia} corregido` : `Día ${dia} anotado`)
+    toast(existente && !existente.soloPeso ? `Día ${dia} corregido` : `Día ${dia} anotado`)
     onClose()
   }
 
@@ -170,7 +172,13 @@ export function RegistroSheet({
       <div className="space-y-5">
         <Field
           label="Fecha"
-          hint={existente && !editar ? 'Este día ya estaba anotado: lo estás corrigiendo.' : undefined}
+          hint={
+            existente?.soloPeso
+              ? 'Este día solo tiene el peso del pesaje: completa las bajas y el alimento.'
+              : existente && !editar
+                ? 'Este día ya estaba anotado: lo estás corrigiendo.'
+                : undefined
+          }
         >
           <Input type="date" value={fecha} onChange={(e) => cambiarFecha(e.target.value)} />
         </Field>
@@ -458,6 +466,7 @@ export function PesajeSheet({
         descarte: 0,
         alimentoLb: 0,
         pesoPromedio,
+        soloPeso: true,
         creado: Date.now(),
       })
     onClose()
