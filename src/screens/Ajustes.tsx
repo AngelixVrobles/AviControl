@@ -175,24 +175,10 @@ export function Ajustes() {
   }
 
   async function borrarTodo() {
-    const c = conteos
-    const lista = c
-      ? enumerar([
-          [c.ciclos, 'ciclo', 'ciclos'],
-          [c.registros, 'registro diario', 'registros diarios'],
-          [c.gastos, 'gasto', 'gastos'],
-          [c.ventas, 'venta', 'ventas'],
-          [c.pesajes, 'pesaje', 'pesajes'],
-          [c.aplicaciones, 'vacuna o medicina', 'vacunas y medicinas'],
-          [c.entregas, 'entrega entre socios', 'entregas entre socios'],
-          [c.deudas, 'deuda de la granja', 'deudas de la granja'],
-          [c.abonos, 'abono', 'abonos'],
-        ])
-      : ''
     if (
       !(await confirmar({
         titulo: 'Borrar todos los datos',
-        mensaje: `${lista ? `Borra ${lista}.` : 'No hay datos anotados.'} Los ajustes de la granja se quedan. No se puede deshacer y no hay copia en internet.`,
+        mensaje: queSeBorra(conteos),
         confirmar: 'Borrar todo',
         peligro: true,
       }))
@@ -300,17 +286,37 @@ export function Ajustes() {
 
       <Seccion className="mb-3 mt-8 text-clay-deep" etiqueta="Zona de peligro" />
       <Banda className="space-y-3 px-5 py-4">
-        <p className="text-sm leading-relaxed text-ink-soft">
-          Borra {num(conteos?.ciclos ?? 0)} ciclos, {num(conteos?.registros ?? 0)} registros diarios,{' '}
-          {num(conteos?.gastos ?? 0)} gastos y {num(conteos?.ventas ?? 0)} ventas. No se puede deshacer
-          y no hay copia en internet.
-        </p>
+        <p className="text-sm leading-relaxed text-ink-soft">{queSeBorra(conteos)}</p>
         <DangerButton onClick={borrarTodo}>Borrar todo</DangerButton>
       </Banda>
 
       <p className="mt-8 text-center text-sm text-ink-soft">AviControl · v{__APP_VERSION__} · datos locales</p>
     </div>
   )
+}
+
+// Lo que se va con «Borrar todo», con su cuenta y sin lo que está en cero: el
+// mismo texto encima del botón y en la confirmación. Antes los dos nombraban
+// solo ciclos, registros, gastos y ventas.
+function queSeBorra(c?: Record<
+  'ciclos' | 'registros' | 'gastos' | 'ventas' | 'pesajes' | 'aplicaciones' | 'entregas' | 'deudas' | 'abonos',
+  number
+>): string {
+  const aviso = 'Los ajustes de la granja se quedan. No se puede deshacer y no hay copia en internet.'
+  // Mientras se cuentan los datos no se sabe qué hay: el aviso general.
+  if (!c) return `Borra todos los ciclos con lo anotado en ellos y las deudas de la granja. ${aviso}`
+  const lista = enumerar([
+    [c.ciclos, 'ciclo', 'ciclos'],
+    [c.registros, 'registro diario', 'registros diarios'],
+    [c.gastos, 'gasto', 'gastos'],
+    [c.ventas, 'venta', 'ventas'],
+    [c.pesajes, 'pesaje', 'pesajes'],
+    [c.aplicaciones, 'vacuna o medicina', 'vacunas y medicinas'],
+    [c.entregas, 'entrega entre socios', 'entregas entre socios'],
+    [c.deudas, 'deuda de la granja', 'deudas de la granja'],
+    [c.abonos, 'abono', 'abonos'],
+  ])
+  return lista ? `Borra ${lista}. ${aviso}` : 'Todavía no hay nada anotado.'
 }
 
 function resumen(lotes?: Lote[]) {
