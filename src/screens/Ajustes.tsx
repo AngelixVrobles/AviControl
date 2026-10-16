@@ -14,7 +14,8 @@ import {
 } from '../db/schema'
 import { saveSettings, type Settings } from '../lib/settings'
 import { useSettings } from '../lib/hooks'
-import { fecha, num, plural } from '../lib/format'
+import { enumerar, fecha, num } from '../lib/format'
+import { borrarTodo as borrarTodoDeLaBase } from '../db/ciclo'
 import { borrarBorradoresDe } from '../lib/borrador'
 import { diasSinRespaldo } from '../lib/respaldo'
 import { VERSION_RESPALDO } from '../db/respaldo'
@@ -66,13 +67,19 @@ export function Ajustes() {
   const s = useSettings()
   const { respaldar } = useRespaldo()
   const conteos = useLiveQuery(async () => {
-    const [ciclos, registros, gastos, ventas] = await Promise.all([
-      db.lotes.count(),
-      db.registros.count(),
-      db.gastos.count(),
-      db.ingresos.count(),
-    ])
-    return { ciclos, registros, gastos, ventas }
+    const [ciclos, registros, gastos, ventas, pesajes, aplicaciones, entregas, deudas, abonos] =
+      await Promise.all([
+        db.lotes.count(),
+        db.registros.count(),
+        db.gastos.count(),
+        db.ingresos.count(),
+        db.pesajes.count(),
+        db.aplicaciones.count(),
+        db.entregas.count(),
+        db.deudas.count(),
+        db.abonos.count(),
+      ])
+    return { ciclos, registros, gastos, ventas, pesajes, aplicaciones, entregas, deudas, abonos }
   }, [])
 
   async function importar(file: File) {
@@ -169,37 +176,34 @@ export function Ajustes() {
 
   async function borrarTodo() {
     const c = conteos
+    const lista = c
+      ? enumerar([
+          [c.ciclos, 'ciclo', 'ciclos'],
+          [c.registros, 'registro diario', 'registros diarios'],
+          [c.gastos, 'gasto', 'gastos'],
+          [c.ventas, 'venta', 'ventas'],
+          [c.pesajes, 'pesaje', 'pesajes'],
+          [c.aplicaciones, 'vacuna o medicina', 'vacunas y medicinas'],
+          [c.entregas, 'entrega entre socios', 'entregas entre socios'],
+          [c.deudas, 'deuda de la granja', 'deudas de la granja'],
+          [c.abonos, 'abono', 'abonos'],
+        ])
+      : ''
     if (
       !(await confirmar({
         titulo: 'Borrar todos los datos',
-        mensaje: `Borra ${num(c?.ciclos ?? 0)} ${plural(c?.ciclos ?? 0, 'ciclo', 'ciclos')}, ${num(
-          c?.registros ?? 0,
-        )} ${plural(c?.registros ?? 0, 'registro diario', 'registros diarios')}, ${num(
-          c?.gastos ?? 0,
-        )} ${plural(c?.gastos ?? 0, 'gasto', 'gastos')} y ${num(c?.ventas ?? 0)} ${plural(
-          c?.ventas ?? 0,
-          'venta',
-          'ventas',
-        )}. No se puede deshacer y no hay copia en internet.`,
+        mensaje: `${lista ? `Borra ${lista}.` : 'No hay datos anotados.'} Los ajustes de la granja se quedan. No se puede deshacer y no hay copia en internet.`,
         confirmar: 'Borrar todo',
         peligro: true,
       }))
     )
       return
-    await db.transaction(
-      'rw',
-      [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.entregas],
-      async () => {
-        await Promise.all([
-          db.lotes.clear(),
-          db.registros.clear(),
-          db.gastos.clear(),
-          db.ingresos.clear(),
-          db.pesajes.clear(),
-          db.entregas.clear(),
-        ])
-      },
-    )
+    try {
+      await borrarTodoDeLaBase()
+    } catch {
+      toast('No se pudo borrar. Tus datos siguen como estaban.')
+      return
+    }
     toast('Datos borrados.')
   }
 
