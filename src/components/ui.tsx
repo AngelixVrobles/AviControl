@@ -51,10 +51,13 @@ export function Seccion({
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'ghost' | 'soft'
   block?: boolean
+  // Por qué está gris: un botón apagado que no dice qué falta deja al
+  // productor tocándolo sin saber qué hacer.
+  motivo?: string
 }
 
-export function Button({ variant = 'primary', block, className, children, ...rest }: BtnProps) {
-  return (
+export function Button({ variant = 'primary', block, className, children, motivo, ...rest }: BtnProps) {
+  const boton = (
     <button
       {...rest}
       className={clsx(
@@ -68,6 +71,13 @@ export function Button({ variant = 'primary', block, className, children, ...res
     >
       {children}
     </button>
+  )
+  if (!motivo || !rest.disabled) return boton
+  return (
+    <>
+      {boton}
+      <p className="mt-1.5 text-center text-xs leading-relaxed text-ink-faint">{motivo}</p>
+    </>
   )
 }
 

@@ -5,7 +5,7 @@ import { borrarCiclo } from '../db/ciclo'
 import { enumerar, money, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
 import { galponDe } from '../lib/galpones'
-import { erroresLote, type LimitesLote } from '../lib/lote'
+import { errorNegativo, erroresLote, type LimitesLote } from '../lib/lote'
 import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
 import { confirmar, toast } from './confirm'
@@ -100,7 +100,17 @@ function FormLote({
     { fechaInicio, cantidad: cantidadNum, muertosLlegada: Number(muertosLlegada) || 0 },
     limites,
   )
-  const valido = !errores.fechaInicio && !errores.cantidad && !errores.muertosLlegada
+  const negativos = {
+    costo: errorNegativo(costo),
+    quintal: errorNegativo(precioQuintal),
+    precio: errorNegativo(precioLb),
+    peso: errorNegativo(pesoVenta),
+  }
+  const valido =
+    !errores.fechaInicio &&
+    !errores.cantidad &&
+    !errores.muertosLlegada &&
+    !Object.values(negativos).some(Boolean)
   const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
 
   async function guardar() {
@@ -131,9 +141,11 @@ function FormLote({
         const ok = await confirmar({
           titulo: 'Quitar la sociedad',
           mensaje: [
-            entregas.length
-              ? `Se borran ${enumerar([[entregas.length, 'entrega entre socios', 'entregas entre socios']])}.`
-              : '',
+            entregas.length === 1
+              ? 'Se borra la entrega entre socios.'
+              : entregas.length > 1
+                ? `Se borran las ${num(entregas.length)} entregas entre socios.`
+                : '',
             aNombre ? 'Lo que pagó o cobró cada socio pasa a ser común.' : '',
           ]
             .filter(Boolean)
@@ -233,7 +245,7 @@ function FormLote({
 
       <div className="grid grid-cols-2 gap-3">
         <Field
-          label="Lo que costaron"
+          label="Lo que costaron" error={negativos.costo}
           hint={
             costoNum > 0 && cantidadNum > 0
               ? `${money(costoNum / cantidadNum, { decimales: 2 })} por pollito`
@@ -248,7 +260,7 @@ function FormLote({
             placeholder="0"
           />
         </Field>
-        <Field label="Precio del quintal" hint="Alimento, 100 lb.">
+        <Field label="Precio del quintal" hint="Alimento, 100 lb." error={negativos.quintal}>
           <Input
             type="number"
             inputMode="decimal"
@@ -260,7 +272,11 @@ function FormLote({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Peso de venta" hint={`Cobb lo alcanza hacia el día ${diaParaPeso(pesoQueRige)}.`}>
+        <Field
+          label="Peso de venta"
+          hint={`Cobb lo alcanza hacia el día ${diaParaPeso(pesoQueRige)}.`}
+          error={negativos.peso}
+        >
           <div className="relative">
             <Input
               type="number"
@@ -275,7 +291,7 @@ function FormLote({
             </span>
           </div>
         </Field>
-        <Field label="Precio por libra" hint="Al que piensas vender.">
+        <Field label="Precio por libra" hint="Al que piensas vender." error={negativos.precio}>
           <Input
             type="number"
             inputMode="decimal"
@@ -349,7 +365,14 @@ function FormLote({
       </Field>
 
       <div className="space-y-2 pt-1">
-        <Button block disabled={!valido || ocupado} onClick={enviar(guardar)}>
+        <Button
+          block
+          disabled={!valido || ocupado}
+          motivo={
+            errores.fechaInicio ?? errores.cantidad ?? errores.muertosLlegada ?? (!valido ? 'Hay un número negativo.' : undefined)
+          }
+          onClick={enviar(guardar)}
+        >
           Guardar cambios
         </Button>
         <DangerButton onClick={borrar}>Borrar este ciclo</DangerButton>

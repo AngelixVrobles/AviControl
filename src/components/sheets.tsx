@@ -40,7 +40,7 @@ import { aguaEsperadaL } from '../lib/agua'
 import { EDAD_CALOR, CALOR_C, fraseCalor, juicioCalor } from '../lib/calor'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
 import { LB_POR_QUINTAL, pesoEstandarLb, tempRecomendadaC } from '../lib/standards'
-import { errorFechaDelCiclo, errorFechaFutura, pesoObjetivoDe, topeDelCiclo } from '../lib/lote'
+import { errorFechaDelCiclo, errorFechaFutura, errorNegativo, pesoObjetivoDe, topeDelCiclo } from '../lib/lote'
 import { retiroDe, retiroEn, type Retiro } from '../lib/retiro'
 import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
@@ -168,6 +168,16 @@ export function RegistroSheet({
   const esperadaL = aguaEsperadaL(alimentoLb)
   const litros = Number(aguaL.replace(',', '.')) || 0
   const desvioAgua = litros > 0 && esperadaL > 0 ? ((litros - esperadaL) / esperadaL) * 100 : undefined
+  // Las bajas del día no pueden ser más que las aves que hay (al corregir, las
+  // de este día ya están descontadas y vuelven a contar).
+  const avesDisponibles =
+    lote.cantidadInicial -
+    (lote.muertosLlegada ?? 0) -
+    registros.reduce((a, r) => a + (r.id === existente?.id ? 0 : (r.mortalidad ?? 0) + (r.descarte ?? 0)), 0)
+  const errorBajas =
+    mortalidad + descarte > Math.max(0, avesDisponibles)
+      ? `Son más de las ${num(Math.max(0, avesDisponibles))} aves que hay.`
+      : undefined
   const tempNum = Number(tempMax.replace(',', '.'))
   const humedadNum = Number(humedad.replace(',', '.'))
   // Lo que no puede ser dentro de un galpón es un error al escribir: 330 por 33.
@@ -440,7 +450,14 @@ export function RegistroSheet({
         <Button
           block
           className="h-14"
-          disabled={ocupado || !!errorFecha || (tempMax !== '' && !tempValida) || (humedad !== '' && !humedadValida)}
+          disabled={
+            ocupado ||
+            !!errorFecha ||
+            !!errorBajas ||
+            (tempMax !== '' && !tempValida) ||
+            (humedad !== '' && !humedadValida)
+          }
+          motivo={errorBajas}
           onClick={enviar(guardar)}
         >
           {editar ? 'Guardar cambios' : `Guardar día ${dia}`}
@@ -818,7 +835,13 @@ export function PesajeSheet({
           />
         </Field>
 
-        <Button block className="h-14" disabled={!muestra || ocupado || !!errorFechaDelCiclo(fecha, lote)} onClick={enviar(guardar)}>
+        <Button
+          block
+          className="h-14"
+          disabled={!muestra || ocupado || !!errorFechaDelCiclo(fecha, lote)}
+          motivo={!muestra ? 'Anota al menos un peso.' : undefined}
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar cambios' : 'Guardar pesaje'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -868,7 +891,7 @@ export function GastoSheet({
     setPagadoPor(editar?.pagadoPor != null ? String(editar.pagadoPor) : '')
   }, [open, editar])
 
-  const qq = Number(quintales) || 0
+  const qq = Math.max(0, Number(quintales) || 0)
   const precioQq = qq > 0 && Number(monto) > 0 ? Number(monto) / qq : 0
 
   async function guardar() {
@@ -960,6 +983,7 @@ export function GastoSheet({
         <Button
           block
           disabled={!(Number(monto) > 0) || ocupado || !!errorFechaFutura(fecha)}
+          motivo={!(Number(monto) > 0) ? 'Falta el monto.' : undefined}
           onClick={enviar(guardar)}
         >
           {editar ? 'Guardar cambios' : 'Guardar gasto'}
@@ -1019,16 +1043,29 @@ export function IngresoSheet({
   // Vender con «Venta» las aves que quedan dejaba el ciclo abierto con el
   // galpón vacío, pidiendo el registro del día. Si esta venta se lleva las
   // últimas, se cierra con ella, como en «Vender y cerrar».
-  const nAves = Number(cantidad) || 0
+  const nAves = Math.round(Number(cantidad) || 0)
   const vendeTodo =
     !editar && lote.estado === 'activo' && metrics.avesVivas > 0 && nAves >= metrics.avesVivas
+  // No se venden aves que no hay, ni menos de cero: una venta de −200 aves
+  // «creaba» aves en el galpón. Al corregir, las de esta venta vuelven a contar.
+  const maxAves = metrics.avesVivas + (editar?.tipo === 'aves' ? editar.cantidad : 0)
+  const errorAves =
+    cantidad === ''
+      ? undefined
+      : nAves < 0
+        ? 'No puede ser negativo.'
+        : lote.estado === 'activo' && nAves > maxAves
+          ? `Solo hay ${num(maxAves)} ${plural(maxAves, 'ave', 'aves')} en el galpón.`
+          : undefined
+  const errorPeso = errorNegativo(pesoLb)
 
   const total = Number(monto) || 0
   const dio = Math.min(Number(adelanto) || 0, total)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && (!!editar || dio < total)
   // Lo ya cobrado de una venta a crédito no se puede deshacer bajando el total.
-  const yaCobrado = editar?.credito ? cobradoDe(editar) : 0
+  // Al volver a crédito una venta que se pasó a contado, sus cobros vuelven a contar.
+  const yaCobrado = aCredito && editar ? (editar.cobros ?? []).reduce((a, c) => a + c.monto, 0) : 0
   const errorTotal =
     aCredito && yaCobrado > total + 0.5
       ? `Ya te pagó ${money(yaCobrado)}: el total no puede ser menos. Quita el cobro de más.`
@@ -1122,19 +1159,23 @@ export function IngresoSheet({
           <Field
             label="Nº de aves"
             hint={!editar && lote.estado === 'activo' ? `Tienes ${num(metrics.avesVivas)} vivas` : undefined}
+            error={errorAves}
           >
             <Input
               type="number"
               inputMode="numeric"
+              min={1}
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
               placeholder="0"
+              aria-invalid={!!errorAves}
             />
           </Field>
-          <Field label="Peso total (lb)">
+          <Field label="Peso total (lb)" error={errorPeso}>
             <Input
               type="number"
               inputMode="decimal"
+              min={0}
               value={pesoLb}
               onChange={(e) => setPesoLb(e.target.value)}
               placeholder="0"
@@ -1221,10 +1262,20 @@ export function IngresoSheet({
         <Button
           block
           disabled={
+            !(nAves > 0) ||
             !(Number(monto) > 0) ||
             ocupado ||
+            !!errorAves ||
+            !!errorPeso ||
             !!errorTotal ||
             !!errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })
+          }
+          motivo={
+            !(nAves > 0)
+              ? 'Falta cuántas aves vendiste.'
+              : !(Number(monto) > 0)
+                ? 'Falta el total de la venta.'
+                : undefined
           }
           onClick={enviar(guardar)}
         >
@@ -1330,7 +1381,15 @@ export function CierreSheet({
     gananciaPorAve: avesDelCiclo > 0 ? ganancia / avesDelCiclo : 0,
   }
   const contrastes = construirContrastes(snap, real)
-  const listo = nAves > 0 && montoFinal > 0 && !errorFechaDelCiclo(fecha, lote)
+  const sobranAves = nAves > metrics.avesVivas
+  const listo = nAves > 0 && !sobranAves && montoFinal > 0 && !errorFechaDelCiclo(fecha, lote)
+  const motivoCierre = !(nAves > 0)
+    ? 'Falta cuántas aves vendiste.'
+    : sobranAves
+      ? `Solo hay ${num(metrics.avesVivas)} aves en el galpón.`
+      : !(montoFinal > 0)
+        ? 'Falta el peso y el precio, o el total de la venta.'
+        : undefined
   const reparto = gananciaPorSocio([{ socios: lote.socios, ganancia }])
 
   async function guardar() {
@@ -1478,7 +1537,7 @@ export function CierreSheet({
 
           <AvisoRetiro retiro={retiroEn(aplicaciones, fecha)} fecha={fecha} />
 
-          <Button block className="h-14" disabled={!listo} onClick={() => setPaso(2)}>
+          <Button block className="h-14" disabled={!listo} motivo={motivoCierre} onClick={() => setPaso(2)}>
             Ver el resultado
           </Button>
         </div>
@@ -1799,7 +1858,11 @@ export function AplicacionSheet({
           <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Lote del frasco, quién aplicó…" />
         </Field>
 
-        <Button block className="h-14" disabled={!nombre.trim() || ocupado || !!errorFechaDelCiclo(fecha, lote)}
+        <Button
+          block
+          className="h-14"
+          disabled={!nombre.trim() || ocupado || !!errorFechaDelCiclo(fecha, lote)}
+          motivo={!nombre.trim() ? 'Falta el nombre de lo que aplicaste.' : undefined}
           onClick={enviar(guardar)}
         >
           {editar ? 'Guardar cambios' : 'Anotar aplicación'}
@@ -1970,7 +2033,12 @@ export function DeudaSheet({
           fijas={editar?.socios?.length ?? 0}
         />
 
-        <Button block disabled={!valido || ocupado || !!errorFechaFutura(fecha)} onClick={enviar(guardar)}>
+        <Button
+          block
+          disabled={!valido || ocupado || !!errorFechaFutura(fecha)}
+          motivo={!valido ? 'Falta el concepto o el monto.' : undefined}
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar' : 'Agregar deuda'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar deuda</DangerButton>}
@@ -2083,7 +2151,12 @@ export function AbonoSheet({
             </div>
           ))}
 
-        <Button block disabled={valor <= 0 || ocupado || !!errorFechaFutura(fecha)} onClick={enviar(guardar)}>
+        <Button
+          block
+          disabled={valor <= 0 || ocupado || !!errorFechaFutura(fecha)}
+          motivo={valor <= 0 ? 'Falta el monto del abono.' : undefined}
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar' : 'Anotar abono'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar abono</DangerButton>}
@@ -2282,7 +2355,17 @@ export function EntregaSheet({
             </div>
           ))}
 
-        <Button block className="h-14" disabled={valor <= 0 || de === a || ocupado || !!errorFechaFutura(fecha)}
+        <Button
+          block
+          className="h-14"
+          disabled={valor <= 0 || de === a || ocupado || !!errorFechaFutura(fecha)}
+          motivo={
+            valor <= 0
+              ? 'Falta el monto.'
+              : de === a
+                ? 'Quien entrega y quien recibe no pueden ser el mismo.'
+                : undefined
+          }
           onClick={enviar(guardar)}
         >
           {editar ? 'Guardar' : 'Anotar entrega'}
@@ -2418,7 +2501,13 @@ export function ConteoSheet({
           </div>
         )}
 
-        <Button block className="h-14" disabled={!valido || !!errorFecha || ocupado} onClick={enviar(guardar)}>
+        <Button
+          block
+          className="h-14"
+          disabled={!valido || !!errorFecha || ocupado}
+          motivo={!valido ? 'Falta cuántos sacos quedan.' : undefined}
+          onClick={enviar(guardar)}
+        >
           {yaContado ? `Corregir el conteo del ${fechaCorta(fecha)}` : 'Guardar conteo'}
         </Button>
 
@@ -2623,6 +2712,7 @@ export function CobroSheet({
           block
           className="h-14"
           disabled={!(valor > 0) || deMas || !!errorFecha || ocupado}
+          motivo={!(valor > 0) ? 'Falta cuánto te dio.' : undefined}
           onClick={enviar(guardar)}
         >
           Guardar cobro
