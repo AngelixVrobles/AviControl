@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { proyectarVenta } from './proyeccion'
 import { computeMetrics } from './metrics'
-import { gasto, lote, registro } from '../test/fixtures'
+import { gasto, hace, lote, registro } from '../test/fixtures'
 import { pesoEstandarLb } from './standards'
 
 const gastos = [gasto({ categoria: 'alimento', monto: 76000, cantidadQq: 40 })]
@@ -136,5 +136,19 @@ describe('proyectarVenta sin precio del alimento', () => {
     const conPrecio = lote({ precioVentaLb: 60, costoInicial: 24000, precioQuintal: 1900 })
     const m = computeMetrics(conPrecio, registros, compras, [])
     expect(proyectarVenta(conPrecio, registros, compras, m, 5.5)!.sinPrecioAlimento).toBe(false)
+  })
+})
+
+describe('proyección con el peso de hoy', () => {
+  // Pesadas a 5.4 lb hace cuatro días: hoy ya pasaron las 5.5 lb. Antes decía
+  // «vender» en una fecha que ya pasó y ponía el precio con 5.5 lb.
+  it('decide si están listas con el peso estimado de hoy', () => {
+    const l = lote({ precioVentaLb: 60, fechaInicio: hace(40) })
+    const regs = [{ ...registro(36, { pesoPromedio: 5.4, alimentoLb: 9000 }), fecha: hace(4) }]
+    const m = computeMetrics(l, regs, gastos, [])
+    const p = proyectarVenta(l, regs, gastos, m, 5.5)!
+    expect(m.pesoEstimadoLb!).toBeGreaterThan(5.5)
+    expect(p.listo).toBe(true)
+    expect(p.pesoVentaLb).toBeCloseTo(m.pesoEstimadoLb!, 5)
   })
 })

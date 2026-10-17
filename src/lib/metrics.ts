@@ -34,6 +34,8 @@ export interface LoteMetrics {
   pesoVentaLb?: number
   /** El peso con que se juzga el ciclo: el de venta si ya cerró, el estimado de hoy si sigue. */
   pesoFinalLb?: number
+  /** Las libras que ya salieron vendidas: las de la báscula, y las vendidas por cabeza al peso del lote ese día. */
+  lbVendidas: number
   biomasaLb?: number
   fca?: number
   costoPorLb?: number
@@ -146,7 +148,19 @@ export function computeMetrics(
         : pesoEstandarLb(d) * factorCurva
   const pesoEstimadoLb = pesoEnDia(dias)
 
-  const pesoVendidoLb = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.pesoLb ?? 0))
+  // Lo vendido por cabeza, sin pesar, pesaba lo que el lote ese día. Antes
+  // contaba como cero libras: las aves salían del galpón pero su peso no
+  // entraba en ninguna parte, y la conversión, el costo por libra y el IEP se
+  // iban al doble.
+  const pesoVendidoLb = sum(
+    ingresos
+      .filter((i) => i.tipo === 'aves')
+      .map((i) => {
+        if ((i.pesoLb ?? 0) > 0) return i.pesoLb!
+        if (!(i.cantidad > 0)) return 0
+        return i.cantidad * (pesoEnDia(diasEntre(lote.fechaInicio, i.fecha)) ?? 0)
+      }),
+  )
   const biomasaViva = pesoEstimadoLb ? avesVivas * pesoEstimadoLb : 0
   const biomasaLb = biomasaViva + pesoVendidoLb
 
@@ -202,6 +216,7 @@ export function computeMetrics(
     pesoEstimadoLb,
     pesoVentaLb,
     pesoFinalLb,
+    lbVendidas: pesoVendidoLb,
     biomasaLb,
     fca,
     costoPorLb,

@@ -51,7 +51,10 @@ export function proyectarVenta(
 
   const ultimo = conPeso[conPeso.length - 1]
   const diaUltimo = diasEntre(lote.fechaInicio, ultimo.fecha)
-  const pesoActual = ultimo.pesoPromedio!
+  // El peso de hoy, no el del último pesaje: pesadas a 5.4 lb hace cuatro días,
+  // hoy van por 6.3. Antes decía «vender el 14-oct», que ya pasó, y ponía el
+  // precio con un peso que ya no tienen.
+  const pesoActual = m.pesoEstimadoLb ?? ultimo.pesoPromedio!
   const listo = pesoActual >= objetivoLb
 
   const diaVenta = listo ? m.dias : diaParaPeso(objetivoLb, m.factorCurva)
@@ -60,11 +63,12 @@ export function proyectarVenta(
   const fechaEstimada = listo ? hoyISO() : sumarDias(lote.fechaInicio, diaVenta)
   const diasRestantes = diasEntre(hoyISO(), fechaEstimada)
 
+  // La mortalidad que falta, sobre las aves que quedan: con 100 aves después
+  // de una venta grande, contarla sobre las 1,000 del inicio mataba 18.
   const bajasEsperadas = listo
     ? 0
     : Math.round(
-        (lote.cantidadInicial *
-          Math.max(0, mortalidadEsperadaPct(diaVenta) - mortalidadEsperadaPct(m.dias))) /
+        (m.avesVivas * Math.max(0, mortalidadEsperadaPct(diaVenta) - mortalidadEsperadaPct(m.dias))) /
           100,
       )
   const avesAlVender = Math.max(0, m.avesVivas - bajasEsperadas)
