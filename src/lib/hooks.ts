@@ -11,6 +11,7 @@ import { resumenDeudas } from './deudas'
 import { hoyISO } from './format'
 import { compradoresConocidos, cuentasPorCobrar } from './cobros'
 import { computeArranque, type Arranque } from './arranque'
+import { retiroEn, type Retiro } from './retiro'
 
 // La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
 // cuentas del ciclo dependen del día: con la app abierta de un día para otro,
@@ -62,6 +63,8 @@ export interface LoteConMetrics {
   precio?: AnalisisPrecio | null
   /** La primera semana: para comparar incubadoras en Reportes. */
   arranque?: Arranque
+  /** El retiro de una medicina que todavía no se cumple: no se vende antes. */
+  retiro?: Retiro
 }
 
 export function useLoteData(id: number | undefined) {
@@ -147,6 +150,7 @@ export function useResumen(
         }),
         precio,
         arranque: computeArranque(lote, registros, metrics.dias),
+        retiro: lote.estado === 'activo' ? retiroEn(aplicaciones, hoy) : undefined,
       })
     }
     return out

@@ -26,6 +26,7 @@ import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
 import { nombreGalpon } from "../lib/galpones";
+import { retiroEn } from "../lib/retiro";
 import { armarCiclo } from "../lib/compartido";
 import { computeArranque, tituloArranque } from "../lib/arranque";
 import { TarjetaArranque } from "../components/Arranque";
@@ -216,6 +217,7 @@ export function LoteDetail() {
   // En el reporte de un ciclo que sigue no van el costo por libra de hoy ni
   // las aves vendidas (cero): van el precio mínimo y cuándo se vende.
   const enCurso = lote.estado === "activo";
+  const enRetiro = enCurso ? retiroEn(aplicaciones, hoyISO()) : undefined;
   const analisisReporte = enCurso
     ? analizarPrecio(
         lote,
@@ -254,12 +256,16 @@ export function LoteDetail() {
     enCurso
       ? {
           label: "Venta estimada",
+          // Con el retiro de una medicina corriendo, no se vende antes.
           value:
-            metrics.fechaVentaEstimada && metrics.diaVentaEstimado != null
-              ? metrics.diaVentaEstimado <= metrics.dias
-                ? "lista"
-                : `${fecha(metrics.fechaVentaEstimada)} · día ${metrics.diaVentaEstimado}`
-              : "—",
+            enRetiro &&
+            (!metrics.fechaVentaEstimada || enRetiro.libreDesde > metrics.fechaVentaEstimada)
+              ? `desde el ${fecha(enRetiro.libreDesde)} (retiro)`
+              : metrics.fechaVentaEstimada && metrics.diaVentaEstimado != null
+                ? metrics.diaVentaEstimado <= metrics.dias
+                  ? "lista"
+                  : `${fecha(metrics.fechaVentaEstimada)} · día ${metrics.diaVentaEstimado}`
+                : "—",
         }
       : { label: "Aves vendidas", value: num(metrics.vendidas) },
   ];

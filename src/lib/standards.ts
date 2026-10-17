@@ -124,6 +124,9 @@ export const PLAN_SANITARIO_DEFAULT: HitoSanitario[] = [
 export function hitosEngorde(
   diaObjetivo: number,
   sanitarios: HitoSanitario[] = PLAN_SANITARIO_DEFAULT,
+  // El día en que termina el retiro de una medicina que se dio: antes de eso no
+  // se vende, aunque ya estén en peso.
+  finRetiroDia?: number,
 ): Hito[] {
   const cambiosAlimento: Hito[] = FASES_ALIMENTO.filter(
     (f) => f.desde > 1 && Number.isFinite(f.desde),
@@ -135,6 +138,9 @@ export function hitosEngorde(
     ...cambiosAlimento,
     { dia: diaObjetivo - DIAS_RETIRO, etiqueta: 'Retiro', tipo: 'sanitario' },
     { dia: diaObjetivo, etiqueta: 'Venta', tipo: 'venta' },
+    ...(finRetiroDia != null && finRetiroDia > 0
+      ? [{ dia: Math.min(finRetiroDia, diaObjetivo), etiqueta: 'Fin del retiro', tipo: 'sanitario' } as Hito]
+      : []),
   ]
   return hitos.filter((h) => h.dia > 0 && h.dia <= diaObjetivo).sort((a, b) => a.dia - b.dia)
 }

@@ -104,3 +104,11 @@ describe('mortalidad esperada', () => {
     expect(mortalidadEsperadaPct(200)).toBeLessThanOrEqual(5)
   })
 })
+
+describe('hito del fin del retiro', () => {
+  it('aparece en la barra cuando una medicina tiene el retiro corriendo', () => {
+    const h = hitosEngorde(35, [], 33)
+    expect(h.find((x) => x.etiqueta === 'Fin del retiro')?.dia).toBe(33)
+    expect(hitosEngorde(35, []).some((x) => x.etiqueta === 'Fin del retiro')).toBe(false)
+  })
+})
