@@ -218,3 +218,18 @@ describe('eficienciaAlimento', () => {
     expect(eficienciaAlimento(m)).toBe(1)
   })
 })
+
+describe('la conversión de los primeros días', () => {
+  // Dos sacos anotados el día que llegaron y un pesaje al día 7: el estándar
+  // del día 0 es cero y el precio mínimo salía «RD$∞».
+  it('antes del día 7 no se juzga ni escala el alimento', () => {
+    const l = lote({ fechaInicio: hace(9) })
+    const regs = [
+      { ...registro(0, { alimentoLb: 200 }), fecha: hace(9) },
+      { ...registro(7, { pesoPromedio: 0.42 }), fecha: hace(2) },
+    ]
+    const m = computeMetrics(l, regs, [], [])
+    expect(juicioFca(m)?.estado).toBe('temprano')
+    expect(eficienciaAlimento(m)).toBe(1)
+  })
+})
