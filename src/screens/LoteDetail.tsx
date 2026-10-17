@@ -191,9 +191,11 @@ export function LoteDetail() {
     nav("/lotes", { replace: true });
   }
 
-  // El ingreso llega el día de la venta: hasta entonces la ganancia solo puede
-  // decir «pérdida», y del tamaño de toda la inversión.
-  const sinVender = metrics.ingresos === 0;
+  // Mientras el ciclo sigue, la ganancia solo puede decir «pérdida», del tamaño
+  // de lo que falta por vender: se muestra lo invertido, aunque ya haya una
+  // venta. Con 300 de 4,660 aves vendidas decía «Pérdida −RD$1,302,850 ·
+  // Margen −1,754.7 %».
+  const sinVender = lote.estado === "activo" || metrics.ingresos === 0;
   const precioReferencia = lote.precioVentaLb ?? settings.precioMercadoLb;
   const valorEnPie =
     precioReferencia && metrics.pesoEstimadoLb != null
@@ -552,7 +554,13 @@ export function LoteDetail() {
                   />
                 </div>
                 <div className="mt-1 text-xs text-ink-faint tnum">
-                  {sinVender ? "todavía sin vender" : `Margen ${pct(metrics.margenPct)}`}
+                  {!sinVender
+                    ? `Margen ${pct(metrics.margenPct)}`
+                    : metrics.ingresos > 0
+                      ? `vendido hasta hoy ${money(metrics.ingresos)}`
+                      : lote.estado === "activo"
+                        ? "todavía sin vender"
+                        : "sin ventas"}
                 </div>
               </div>
               <div className="w-px bg-line" />
@@ -1843,7 +1851,11 @@ function Sociedad({
   const nota =
     (liq.conVentas
       ? `Cada uno recupera lo que puso y se queda con su parte de la ganancia, ${liq.acuerdo}.`
-      : `Lo que ha puesto cada uno, para seguir ${liq.acuerdo} con los gastos.`) +
+      : `Lo que ha puesto cada uno, para seguir ${liq.acuerdo} con los gastos.${
+          liq.ingresos > 0
+            ? " Lo cobrado de las ventas cuenta como dinero que ya recuperó quien lo recibió."
+            : ""
+        }`) +
     (liq.porCobrar >= 1
       ? ` Faltan ${money(liq.porCobrar)} por cobrar de ventas a crédito: cuando entren, la cuenta se pone al día.`
       : "");
@@ -1869,11 +1881,17 @@ function Sociedad({
       if (liq!.porCobrar >= 1)
         L.push(`Por cobrar de ventas a crédito: ${money(liq!.porCobrar)}`);
     }
-    else L.push(`Gastado hasta hoy: ${money(liq!.costos)}`);
+    else {
+      L.push(`Gastado hasta hoy: ${money(liq!.costos)}`);
+      if (liq!.ingresos > 0) L.push(`Vendido hasta hoy: ${money(liq!.ingresos)}`);
+    }
     for (const s of liq!.socios) {
       L.push("", `${s.nombre} (${pct(s.pct, 0)})`, `  Puso: ${money(s.aporte)}`);
-      if (liq!.conVentas) L.push(`  Cobró de las ventas: ${money(s.cobrado)}`);
-      else L.push(`  Le toca poner: ${money(s.leTocaPoner)}`);
+      if (liq!.conVentas || s.cobrado > 0) L.push(`  Cobró de las ventas: ${money(s.cobrado)}`);
+      if (!liq!.conVentas)
+        L.push(
+          `  Le toca poner: ${money(liq!.ingresos > 0 ? Math.max(0, -s.corresponde) : s.leTocaPoner)}`,
+        );
       if (s.recibido > 0) L.push(`  Recibió de los socios: ${money(s.recibido)}`);
       if (s.entregado > 0) L.push(`  Entregó a los socios: ${money(s.entregado)}`);
       if (liq!.conVentas)
@@ -1967,6 +1985,7 @@ function Sociedad({
               socios.length === 2 ? nombre(i === 0 ? 1 : 0) : "los socios"
             }
             conVentas={liq.conVentas}
+            hayVentas={liq.ingresos > 0}
             costos={liq.costos}
             estimada={estimada != null ? (estimada * s.pct) / 100 : undefined}
           />
@@ -2053,12 +2072,14 @@ function CuentaSocio({
   s,
   otros,
   conVentas,
+  hayVentas = false,
   costos,
   estimada,
 }: {
   s: SocioBalance;
   otros: string;
   conVentas: boolean;
+  hayVentas?: boolean;
   costos: number;
   estimada?: number;
 }) {
@@ -2093,17 +2114,29 @@ function CuentaSocio({
         },
       ]
     : [
+        // Con ventas antes de cerrar, a cada uno le toca poner su parte de lo
+        // gastado menos lo vendido, y lo que cobró de esas ventas ya es dinero
+        // que recuperó: así las tres cifras cuadran con lo que falta.
         {
           label: t("Te toca poner", "Le toca poner"),
-          valor: s.leTocaPoner,
-          detalle: `${pct(s.pct, 0)} de ${money(costos)} gastados`,
+          valor: hayVentas ? Math.max(0, -s.corresponde) : s.leTocaPoner,
+          detalle: hayVentas
+            ? `${pct(s.pct, 0)} de lo gastado menos lo vendido`
+            : `${pct(s.pct, 0)} de ${money(costos)} gastados`,
         },
         {
           label: t("Has puesto", "Ha puesto"),
-          valor: s.aporte + s.entregado - s.recibido,
-          detalle: movimientos.length
-            ? [`${t("pagaste", "pagó")} ${money(s.aporte)}`, ...movimientos].join(" · ")
-            : "en pollitos y gastos",
+          valor: s.aporte + s.entregado - s.recibido - s.cobrado,
+          detalle:
+            movimientos.length || s.cobrado > 0
+              ? [
+                  `${t("pagaste", "pagó")} ${money(s.aporte)}`,
+                  s.cobrado > 0 && `${t("cobraste", "cobró")} ${money(s.cobrado)} de ventas`,
+                  ...movimientos,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "en pollitos y gastos",
         },
       ];
 

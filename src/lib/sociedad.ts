@@ -37,7 +37,11 @@ export interface Liquidacion {
   ganancia: number
   costos: number
   ingresos: number
-  /** Ya entró dinero de ventas: la cuenta pasa de «lo que puso» a «lo que le toca». */
+  /**
+   * El ciclo cerró con ventas: la cuenta pasa de «lo que puso» a «lo que le
+   * toca». Mientras sigue, aunque haya ventas, es la cuenta de lo que pone
+   * cada uno: con 300 de 4,660 aves vendidas decía «Tu pérdida» de RD$781,710.
+   */
   conVentas: boolean
   /** Vendido a crédito que todavía no entra: no está en la mano de nadie. */
   porCobrar: number
@@ -148,7 +152,7 @@ export function computeLiquidacion(
     ganancia: m.ganancia,
     costos: m.costos,
     ingresos: m.ingresos,
-    conVentas: m.ingresos > 0,
+    conVentas: lote.estado === 'cerrado' && m.ingresos > 0,
     porCobrar: ingresos.reduce((a, i) => a + pendienteDe(i), 0),
     movido,
     acuerdo: leerAcuerdo(fr),
