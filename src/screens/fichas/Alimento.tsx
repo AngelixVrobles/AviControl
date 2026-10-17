@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import type { Gasto, Lote, Registro } from '../../db/schema'
+import type { Gasto, Ingreso, Lote, Registro } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, numCompacto, numCorto, pct, plural, porLb } from '../../lib/format'
-import { useSettings } from '../../lib/hooks'
+import { useLotes, useSettings } from '../../lib/hooks'
 import { estadoAgua, type ResumenAgua, resumenAgua } from '../../lib/agua'
 import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
 import { precioQuintalReal } from '../../lib/precios'
@@ -13,7 +12,9 @@ import { pesoObjetivoDe } from '../../lib/lote'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { db } from '../../db/schema'
 import { Banda, Seccion } from '../../components/ui'
-import { ConteoSheet } from '../../components/sheets'
+import { ConteoSheet, RegistroSheet } from '../../components/sheets'
+import { TraspasoAlimentoSheet } from '../../components/Traspaso'
+import { Button } from '../../components/ui'
 import { GraficaLineas } from '../../components/chart'
 import { Vacio } from './Vacio'
 
@@ -21,18 +22,26 @@ export function FichaAlimento({
   lote,
   registros,
   gastos,
+  ingresos = [],
   metrics,
   soloVer = false,
 }: {
   lote: Lote
   registros: Registro[]
   gastos: Gasto[]
+  ingresos?: Ingreso[]
   metrics: LoteMetrics
   soloVer?: boolean
 }) {
-  const nav = useNavigate()
   const { unidadAlimento } = useSettings()
   const [contando, setContando] = useState(false)
+  // El día se anota aquí mismo: antes llevaba al ciclo, y «Volver» regresaba a
+  // esta ficha en vez de al ciclo.
+  const [anotando, setAnotando] = useState(false)
+  const [pasando, setPasando] = useState(false)
+  // Lo que sobró al cerrar puede pasar a un ciclo en curso, con su costo.
+  const enCurso = useLotes('activo')
+  const destinos = (enCurso ?? []).filter((l) => l.id !== lote.id)
   const fases = consumoPorFase(lote, metrics).filter((f) => f.realLb > 0 || f.planALaFechaLb > 0)
   const precioQq = precioQuintalReal(gastos)
   const plan = computePlanAlimento(lote, metrics, precioQq ?? lote.precioQuintal)
@@ -44,7 +53,7 @@ export function FichaAlimento({
   const diaFca = Math.min(metrics.diaAlimento ?? metrics.dias, metrics.dias)
   const stdFca = fcaEstandar(diaFca)
   const estadoFca = juicioFca(metrics)?.estado
-  const agua = resumenAgua(lote, registros)
+  const agua = resumenAgua(lote, registros, ingresos)
   const activo = lote.estado === 'activo'
   // En un ciclo compartido no se cuenta ni se anota: lo lleva el socio.
   const anota = activo && !soloVer
@@ -68,7 +77,7 @@ export function FichaAlimento({
           compradoQq={inv?.compradoQq ?? 0}
           activo={anota}
           onContar={() => setContando(true)}
-          onAnotar={() => nav(`/lotes/${lote.id}?reg=1`)}
+          onAnotar={() => setAnotando(true)}
         />
       ) : (
         <Banda className="px-5 py-4">
@@ -90,7 +99,11 @@ export function FichaAlimento({
                   <div
                     className={
                       'font-display text-xl font-semibold leading-none tnum ' +
-                      (estadoFca === 'bien' ? 'text-forest-600' : 'text-clay-deep')
+                      (estadoFca === 'bien'
+                        ? 'text-forest-600'
+                        : estadoFca === 'temprano'
+                          ? 'text-ink'
+                          : 'text-clay-deep')
                     }
                   >
                     {num(metrics.fca, 2)}
@@ -100,7 +113,9 @@ export function FichaAlimento({
                       ? 'no cuadra: falta alimento'
                       : estadoFca === 'dudosoAlto'
                         ? 'no cuadra: revisa lo anotado'
-                        : `Cobb ${num(stdFca, 2)}${diaFca < metrics.dias ? ` · al día ${diaFca}` : ''}`}
+                        : estadoFca === 'temprano'
+                          ? 'se juzga desde el día 7'
+                          : `Cobb ${num(stdFca, 2)}${diaFca < metrics.dias ? ` · al día ${diaFca}` : ''}`}
                   </div>
                 </>
               ) : (
@@ -252,6 +267,17 @@ export function FichaAlimento({
                   ? `${inv.diasSinAnotar} ${plural(inv.diasSinAnotar, 'día', 'días')} sin dato de alimento se calcularon con el consumo esperado (${numCorto(inv.sinAnotarQq, 1)} qq): cuenta los sacos para saber lo que hay de verdad.`
                   : ''}
               </p>
+              )}
+              {!activo && !soloVer && inv.existenciaQq >= 0.5 && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <p className="text-sm leading-relaxed text-ink-soft">
+                    Si esos sacos los usa el ciclo que sigue, pásalos con su costo: este ciclo deja de cargar con
+                    ellos y el otro los tiene en su almacén.
+                  </p>
+                  <Button variant="soft" className="mt-3" onClick={() => setPasando(true)}>
+                    Pasar al ciclo que sigue
+                  </Button>
+                </div>
               )}
               {proy && !proy.listo && proy.alimentoRestanteLb > 0 && (
                 <p className="mt-2 text-sm leading-relaxed text-ink-soft tnum">
@@ -411,7 +437,20 @@ export function FichaAlimento({
       )}
 
       {!soloVer && (
-        <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
+        <>
+          <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
+          <RegistroSheet lote={lote} registros={registros} open={anotando} onClose={() => setAnotando(false)} />
+          {!activo && (
+            <TraspasoAlimentoSheet
+              lote={lote}
+              destinos={destinos}
+              sobranQq={Math.max(0, inv?.existenciaQq ?? 0)}
+              precioQq={precioQq}
+              open={pasando}
+              onClose={() => setPasando(false)}
+            />
+          )}
+        </>
       )}
     </div>
   )

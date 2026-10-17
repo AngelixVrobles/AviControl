@@ -124,3 +124,17 @@ describe('computeInventarioAlimento', () => {
     expect(fases.find((f) => f.nombre === 'Iniciador')!.porConteoLb).toBeGreaterThan(0)
   })
 })
+
+describe('alimento que pasa a otro ciclo', () => {
+  it('lo que se pasó sale de la existencia y no cuenta como compra sin cantidad', () => {
+    const l = lote()
+    const registros = [registro(1, { alimentoLb: 1000 })]
+    const gastos = [
+      gasto({ id: 1, categoria: 'alimento', monto: 40000, cantidadQq: 20 }),
+      gasto({ id: 2, categoria: 'alimento', monto: -8000, cantidadQq: -4, traspaso: { loteId: 2, gastoId: 3 } }),
+    ]
+    const inv = computeInventarioAlimento(gastos, computeMetrics(l, registros, gastos, []), 0)!
+    expect(inv.completo).toBe(true)
+    expect(inv.compradoQq).toBe(16)
+  })
+})

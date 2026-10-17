@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { Abono, Deuda } from '../db/schema'
 import { useDeudas, useLotes } from '../lib/hooks'
@@ -8,9 +7,10 @@ import { categoriaDeudaLabel, deudaPorSocio, type EstadoDeuda } from '../lib/deu
 import { Banda, Button, EmptyState, Seccion } from '../components/ui'
 import { AbonoSheet, DeudaSheet } from '../components/sheets'
 import { IconBack, IconMoney } from '../components/icons'
+import { useVolver } from '../components/useVolver'
 
 export function Deudas() {
-  const nav = useNavigate()
+  const volver = useVolver('/reportes')
   const resumen = useDeudas()
   const lotes = useLotes()
   const [nueva, setNueva] = useState(false)
@@ -30,7 +30,7 @@ export function Deudas() {
     <div>
       <header className="flex items-center gap-3 py-2">
         <button
-          onClick={() => nav(-1)}
+          onClick={volver}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver"
         >

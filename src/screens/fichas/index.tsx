@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLoteData, useSettings } from '../../lib/hooks'
 import { Button } from '../../components/ui'
 import { IconBack } from '../../components/icons'
+import { useVolver } from '../../components/useVolver'
 import { FichaAlimento } from './Alimento'
 import { FichaGalpon } from './Galpon'
 import { FichaGastos } from './Gastos'
@@ -21,6 +22,7 @@ export type TipoFicha = keyof typeof FICHAS
 export function Ficha() {
   const { id, tipo } = useParams()
   const nav = useNavigate()
+  const volver = useVolver(`/lotes/${id}`)
   const data = useLoteData(id ? Number(id) : undefined)
   const settings = useSettings()
   const ficha = FICHAS[tipo as TipoFicha]
@@ -46,7 +48,7 @@ export function Ficha() {
       </div>
     )
 
-  const { lote, registros, gastos, aplicaciones, metrics } = data
+  const { lote, registros, gastos, ingresos, aplicaciones, metrics } = data
   // Un ciclo que mandó un socio se mira y no se toca.
   const soloVer = !!lote.compartido
 
@@ -54,7 +56,7 @@ export function Ficha() {
     <div className="animate-rise">
       <header className="flex items-center gap-3 py-4">
         <button
-          onClick={() => nav(`/lotes/${lote.id}`)}
+          onClick={volver}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver al ciclo"
         >
@@ -70,9 +72,18 @@ export function Ficha() {
 
       <p className="mb-5 text-sm text-ink-faint">{ficha.sub}</p>
 
-      {tipo === 'aves' && <FichaMortalidad lote={lote} registros={registros} dia={metrics.dias} />}
+      {tipo === 'aves' && (
+        <FichaMortalidad lote={lote} registros={registros} ingresos={ingresos} dia={metrics.dias} />
+      )}
       {tipo === 'alimento' && (
-        <FichaAlimento lote={lote} registros={registros} gastos={gastos} metrics={metrics} soloVer={soloVer} />
+        <FichaAlimento
+          lote={lote}
+          registros={registros}
+          gastos={gastos}
+          ingresos={ingresos}
+          metrics={metrics}
+          soloVer={soloVer}
+        />
       )}
       {tipo === 'sanidad' && (
         <FichaSanidad
@@ -84,7 +95,16 @@ export function Ficha() {
         />
       )}
       {tipo === 'gastos' && <FichaGastos lote={lote} gastos={gastos} metrics={metrics} soloVer={soloVer} />}
-      {tipo === 'galpon' && <FichaGalpon lote={lote} metrics={metrics} settings={settings} />}
+      {tipo === 'galpon' && (
+        <FichaGalpon
+          lote={lote}
+          metrics={metrics}
+          settings={settings}
+          registros={registros}
+          ingresos={ingresos}
+          soloVer={soloVer}
+        />
+      )}
     </div>
   )
 }

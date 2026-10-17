@@ -218,3 +218,30 @@ describe('eficienciaAlimento', () => {
     expect(eficienciaAlimento(m)).toBe(1)
   })
 })
+
+describe('la conversión de los primeros días', () => {
+  // Dos sacos anotados el día que llegaron y un pesaje al día 7: el estándar
+  // del día 0 es cero y el precio mínimo salía «RD$∞».
+  it('antes del día 7 no se juzga ni escala el alimento', () => {
+    const l = lote({ fechaInicio: hace(9) })
+    const regs = [
+      { ...registro(0, { alimentoLb: 200 }), fecha: hace(9) },
+      { ...registro(7, { pesoPromedio: 0.42 }), fecha: hace(2) },
+    ]
+    const m = computeMetrics(l, regs, [], [])
+    expect(juicioFca(m)?.estado).toBe('temprano')
+    expect(eficienciaAlimento(m)).toBe(1)
+  })
+})
+
+describe('ventas por cabeza, sin pesar', () => {
+  // Vender la mitad sin anotar las libras llevaba la conversión de 1.45 a 2.81.
+  it('su peso cuenta como el del lote ese día', () => {
+    const l = lote({ cantidadInicial: 1000 })
+    const regs = [registro(30, { pesoPromedio: 4.4, alimentoLb: 6000 })]
+    const pesada = computeMetrics(l, regs, [], [ingreso({ cantidad: 500, pesoLb: 2200, monto: 60000 })])
+    const sinPesar = computeMetrics(l, regs, [], [ingreso({ cantidad: 500, monto: 60000 })])
+    expect(sinPesar.fca).toBeCloseTo(pesada.fca!, 1)
+    expect(sinPesar.lbVendidas).toBeGreaterThan(2000)
+  })
+})

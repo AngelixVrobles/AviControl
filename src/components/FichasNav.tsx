@@ -4,6 +4,7 @@ import type { Aplicacion, Lote } from '../db/schema'
 import type { LoteMetrics } from '../lib/metrics'
 import { money, num, pct, plural } from '../lib/format'
 import { LB_POR_QUINTAL } from '../lib/standards'
+import { repartido } from '../lib/reparto'
 
 export function FichasNav({
   lote,
@@ -15,7 +16,7 @@ export function FichasNav({
   aplicaciones: Aplicacion[]
 }) {
   const fichas = [
-    { tipo: 'aves', titulo: 'Aves', valor: pct(metrics.mortalidadPct, 1), pie: 'de baja', ancho: false },
+    { tipo: 'aves', titulo: 'Aves', valor: pct(metrics.mortalidadPct, 1), pie: 'mortalidad', ancho: false },
     {
       tipo: 'alimento',
       titulo: 'Alimento',
@@ -42,7 +43,7 @@ export function FichasNav({
             tipo: 'galpon',
             titulo: 'Galpón',
             valor: `${num(metrics.avesVivas)} ${plural(metrics.avesVivas, 'ave', 'aves')}`,
-            pie: 'espacio y equipo',
+            pie: repartido(lote) ? 'repartidas en varios galpones' : 'espacio y equipo',
             ancho: true,
           },
         ]

@@ -65,11 +65,13 @@ export function analizarPuntoOptimo(
 
   const puntos: PuntoVenta[] = []
   let previo: PuntoVenta | undefined
-  for (let dia = desde; dia <= Math.min(56, desde + HORIZONTE_DIAS); dia++) {
+  // Pasado el día 56 ya no hay curva que recorrer: queda solo hoy, y lo que
+  // toca es vender. Antes el recorrido quedaba vacío y la pestaña se caía.
+  const hasta = Math.max(desde, Math.min(56, desde + HORIZONTE_DIAS))
+  for (let dia = desde; dia <= hasta; dia++) {
     const pesoLb = pesoEstandarLb(dia) * m.factorCurva
     const bajas = Math.round(
-      (lote.cantidadInicial * Math.max(0, mortalidadEsperadaPct(dia) - mortalidadEsperadaPct(desde))) /
-        100,
+      (m.avesVivas * Math.max(0, mortalidadEsperadaPct(dia) - mortalidadEsperadaPct(desde))) / 100,
     )
     const aves = Math.max(0, m.avesVivas - bajas)
     const avesPromedio = (m.avesVivas + aves) / 2
@@ -92,6 +94,7 @@ export function analizarPuntoOptimo(
     previo = puntos[puntos.length - 1]
   }
 
+  if (!puntos.length) return null
   const hoy = puntos[0]
   const optimo = puntos.reduce((mejor, p) => (p.ganancia > mejor.ganancia ? p : mejor), hoy)
   const cruce = puntos.find((p) => p.costoLbMarginal > precioVentaLb)

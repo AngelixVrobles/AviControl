@@ -6,7 +6,7 @@ import { getSettings } from './settings'
 // El peso de venta de un ciclo: el suyo si se lo pusiste, si no el de Ajustes.
 // Antes los ciclos sin peso propio usaban 5.5 lb fijo y el ajuste no servía de
 // nada: cambiarlo a 6 lb no movía ni el día de venta ni el precio mínimo.
-export const pesoObjetivoDe = (lote: Lote): number => {
+export const pesoObjetivoDe = (lote: Pick<Lote, 'pesoObjetivoLb'>): number => {
   const propio = lote.pesoObjetivoLb
   return propio != null && propio > 0 ? propio : getSettings().pesoObjetivoLb
 }
@@ -62,6 +62,7 @@ export function erroresLote(
   const out: { fechaInicio?: string; cantidad?: string; muertosLlegada?: string } = {}
   const doa = datos.muertosLlegada ?? 0
   if (!datos.fechaInicio) out.fechaInicio = 'Pon el día en que llegaron los pollitos.'
+  else if (datos.fechaInicio > hoyISO()) out.fechaInicio = 'Esa fecha todavía no llega.'
   else if (limites.fechaCierre && datos.fechaInicio > limites.fechaCierre)
     out.fechaInicio = `El ciclo cerró el ${fecha(limites.fechaCierre)}.`
   else if (limites.primeraFecha && datos.fechaInicio > limites.primeraFecha)
@@ -75,3 +76,8 @@ export function erroresLote(
     }.`
   return out
 }
+
+// Un número que no puede ser negativo: el teclado de Android tiene el menos, y
+// un costo de −45 por ave dejaba el ciclo con −45,000 de costo.
+export const errorNegativo = (texto: string): string | undefined =>
+  Number(texto) < 0 ? 'No puede ser negativo.' : undefined

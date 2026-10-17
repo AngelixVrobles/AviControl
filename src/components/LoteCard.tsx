@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
-import { fecha, money, num, plural } from '../lib/format'
+import { diasEntre, fecha, money, num, plural } from '../lib/format'
 import { RAZA } from '../lib/labels'
 import { desviaciones } from '../lib/desviaciones'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
@@ -15,7 +15,10 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
   const total = metrics.diaObjetivo
   const dia = Math.min(metrics.dias, total)
   const pos = (d: number) => `${Math.max(0, Math.min(100, (d / total) * 100))}%`
-  const hitos = hitosEngorde(total, settings.planSanitario)
+  // Si una medicina tiene el retiro corriendo, la venta no puede ser antes.
+  const retiro = data.retiro
+  const diaFinRetiro = retiro ? diasEntre(lote.fechaInicio, retiro.libreDesde) : undefined
+  const hitos = hitosEngorde(total, settings.planSanitario, diaFinRetiro)
   const marcas = agruparHitos(hitos, total)
   const proximo = hitos.find((h) => h.dia > metrics.dias)
   const tieneDatos = metrics.pesoPromedioLb != null
@@ -104,7 +107,15 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             </div>
           ) : (
             metrics.fechaVentaEstimada &&
-            metrics.diaVentaEstimado != null && (
+            metrics.diaVentaEstimado != null &&
+            (retiro && retiro.libreDesde > metrics.fechaVentaEstimada ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-amber-tint px-3.5 py-2.5">
+                <span className="text-sm font-medium text-amber-text">En retiro de {retiro.nombre}</span>
+                <span className="shrink-0 text-sm font-bold text-amber-text tnum">
+                  se vende desde el {fecha(retiro.libreDesde)}
+                </span>
+              </div>
+            ) : (
               <div className="mt-3 flex items-center justify-between rounded-xl bg-forest-50 px-3.5 py-2.5">
                 <span className="text-sm font-medium text-forest-800">Venta estimada</span>
                 <span className="text-sm font-bold text-forest-800 tnum">
@@ -113,7 +124,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
                     : `${fecha(metrics.fechaVentaEstimada)} · ${enDias(metrics.diaVentaEstimado - metrics.dias)}`}
                 </span>
               </div>
-            )
+            ))
           )}
         </>
       ) : (

@@ -39,7 +39,15 @@ describe('tabla Cobb 500', () => {
       expect(Number.isFinite(pesoEstandarLb(d))).toBe(true)
       expect(Number.isFinite(alimentoAcumEstandarLb(d))).toBe(true)
     }
-    expect(pesoEstandarLb(200)).toBe(pesoEstandarLb(56))
+    expect(pesoEstandarLb(200)).toBe(pesoEstandarLb(84))
+  })
+
+  // Un ciclo que se pasa del día 56 sigue creciendo y comiendo al último ritmo:
+  // antes el consumo diario caía a cero y el alimento «alcanzaba» semanas.
+  it('después del día 56 sigue el último ritmo de la tabla', () => {
+    expect(pesoEstandarLb(58)).toBeGreaterThan(pesoEstandarLb(56))
+    expect(alimentoDiaEstandarLb(60)).toBeCloseTo(alimentoDiaEstandarLb(56), 5)
+    expect(alimentoDiaEstandarLb(60)).toBeGreaterThan(0.5)
   })
 
   it('el consumo diario nunca es negativo', () => {
@@ -94,5 +102,13 @@ describe('mortalidad esperada', () => {
     expect(mortalidadEsperadaPct(0)).toBe(0)
     expect(mortalidadEsperadaPct(42)).toBeGreaterThan(mortalidadEsperadaPct(7))
     expect(mortalidadEsperadaPct(200)).toBeLessThanOrEqual(5)
+  })
+})
+
+describe('hito del fin del retiro', () => {
+  it('aparece en la barra cuando una medicina tiene el retiro corriendo', () => {
+    const h = hitosEngorde(35, [], 33)
+    expect(h.find((x) => x.etiqueta === 'Fin del retiro')?.dia).toBe(33)
+    expect(hitosEngorde(35, []).some((x) => x.etiqueta === 'Fin del retiro')).toBe(false)
   })
 })

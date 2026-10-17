@@ -80,7 +80,9 @@ export function EditorSocios({
                   type="number"
                   inputMode="numeric"
                   value={String(s.pct)}
-                  onChange={(e) => set(i, { pct: Number(e.target.value) || 0 })}
+                  min={0}
+                  max={100}
+                  onChange={(e) => set(i, { pct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
                   aria-label={`Parte del socio ${i + 1}, en %`}
                   className="pr-7 text-center"
                 />

@@ -8,7 +8,9 @@ import { EditorSocios } from '../components/Socios'
 import { DatosRecibo } from '../components/Recibo'
 import { reciboParaGuardar } from '../lib/arranque'
 import { useEnvio } from '../components/useEnvio'
-import { hoyISO, num } from '../lib/format'
+import { useVolver } from '../components/useVolver'
+import { fecha as fechaCorta, hoyISO, num } from '../lib/format'
+import { errorFechaFutura, errorNegativo } from '../lib/lote'
 import { useLotes, useSettings } from '../lib/hooks'
 import { galponDe, galponLibre } from '../lib/galpones'
 import type { Galpon } from '../lib/settings'
@@ -19,6 +21,7 @@ import { diaParaPeso } from '../lib/standards'
 
 export function NuevoLote() {
   const nav = useNavigate()
+  const volver = useVolver('/lotes')
   const settings = useSettings()
   // Un toque crea un ciclo: con dos seguidos se creaban dos iguales.
   const { ocupado, enviar } = useEnvio()
@@ -49,18 +52,50 @@ export function NuevoLote() {
     settings.galpones.find((g) => g.id === galponElegido) ??
     (activos ? galponLibre(settings.galpones, activos) : galponDe(undefined, settings))
   const varios = settings.galpones.length > 1
+  // Desde que llegan, parte de los pollitos puede ir a otro galpón: queda como
+  // un movimiento del primer día, igual que si se pasaran después.
+  const [repartir, setRepartir] = useState(false)
+  const [otroElegido, setOtroElegido] = useState<string>()
+  const [avesOtro, setAvesOtro] = useState('')
+  const otrosGalpones = settings.galpones.filter((g) => g.id !== galpon?.id)
+  const otro =
+    otrosGalpones.find((g) => g.id === otroElegido) ??
+    (activos ? galponLibre(otrosGalpones, activos) : otrosGalpones[0])
 
-  const cantidadNum = Number(cantidad) || 0
+  const cantidadNum = Math.max(0, Math.round(Number(cantidad) || 0))
+  const colocados = Math.max(0, cantidadNum - Math.max(0, Math.round(Number(muertosLlegada) || 0)))
+  const nOtro = repartir && otro ? Math.max(0, Math.round(Number(avesOtro) || 0)) : 0
+  const errorOtro =
+    repartir && avesOtro !== '' && nOtro >= colocados && colocados > 0
+      ? 'Son todos los pollitos: elige ese galpón arriba.'
+      : errorNegativo(avesOtro)
   const pesoNum = Number(pesoVenta) || 0
   const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
   const errorMuertos =
     cantidadNum > 0 && (Number(muertosLlegada) || 0) >= cantidadNum
       ? 'Son más de los pollitos que recibiste.'
       : undefined
-  const valido = cantidadNum > 0 && fechaInicio && !errorMuertos
+  // El calendario del iPhone no respeta el máximo: una fecha que todavía no
+  // llega dejaba el ciclo en el día 0, sin poder anotar nada.
+  const errorInicio = errorFechaFutura(fechaInicio)
+  const errores = {
+    costo: errorNegativo(costoAve),
+    quintal: errorNegativo(precioQuintal),
+    precio: errorNegativo(precioLb),
+    peso: errorNegativo(pesoVenta),
+  }
+  const negativo = Object.values(errores).some(Boolean)
+  const valido = cantidadNum > 0 && !errorInicio && !errorMuertos && !negativo && !errorOtro
+  const motivo = !(cantidadNum > 0)
+    ? 'Falta cuántos pollitos recibiste.'
+    : errorInicio
+      ? 'La fecha de inicio todavía no llega.'
+      : negativo
+        ? 'Hay un número negativo.'
+        : (errorMuertos ?? errorOtro)
 
   async function crear() {
-    const costoInicial = (Number(costoAve) || 0) * cantidadNum
+    const costoInicial = Math.max(0, Number(costoAve) || 0) * cantidadNum
     const guardados = enSociedad
       ? sociosParaGuardar(socios, pagoAves !== '' ? Number(pagoAves) : undefined)
       : null
@@ -79,6 +114,10 @@ export function NuevoLote() {
       socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoInicial > 0 ? reparto.pagador : undefined,
       galponId: varios ? galpon?.id : undefined,
+      movimientos:
+        varios && galpon && otro && nOtro > 0
+          ? [{ fecha: fechaInicio, de: galpon.id, a: otro.id, aves: nOtro }]
+          : undefined,
       ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
       notas: notas.trim() || undefined,
       creado: Date.now(),
@@ -90,7 +129,7 @@ export function NuevoLote() {
     <div className="mx-auto min-h-dvh max-w-md bg-paper px-5 pb-10 safe-t">
       <header className="flex items-center gap-3 py-4">
         <button
-          onClick={() => nav(-1)}
+          onClick={volver}
           className="grid h-11 w-11 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver"
         >
@@ -112,8 +151,14 @@ export function NuevoLote() {
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Fecha de inicio">
-            <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
+          <Field label="Fecha de inicio" error={errorInicio}>
+            <Input
+              type="date"
+              value={fechaInicio}
+              max={hoyISO()}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              aria-invalid={!!errorInicio}
+            />
           </Field>
           <Field label="Nº de pollitos">
             <Input
@@ -127,7 +172,7 @@ export function NuevoLote() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Costo por ave" hint={`En ${settings.moneda}.`}>
+          <Field label="Costo por ave" hint={`En ${settings.moneda}.`} error={errores.costo}>
             <Input
               type="number"
               inputMode="decimal"
@@ -136,7 +181,7 @@ export function NuevoLote() {
               placeholder="0"
             />
           </Field>
-          <Field label="Precio del quintal" hint="Alimento, 100 lb.">
+          <Field label="Precio del quintal" hint="Alimento, 100 lb." error={errores.quintal}>
             <Input
               type="number"
               inputMode="decimal"
@@ -148,7 +193,11 @@ export function NuevoLote() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Peso de venta" hint={`Cobb lo alcanza hacia el día ${diaParaPeso(pesoQueRige)}.`}>
+          <Field
+            label="Peso de venta"
+            hint={`Cobb lo alcanza hacia el día ${diaParaPeso(pesoQueRige)}.`}
+            error={errores.peso}
+          >
             <div className="relative">
               <Input
                 type="number"
@@ -163,7 +212,7 @@ export function NuevoLote() {
               </span>
             </div>
           </Field>
-          <Field label="Precio por libra" hint="Opcional. Con esto se proyecta la ganancia.">
+          <Field label="Precio por libra" hint="Opcional. Con esto se proyecta la ganancia." error={errores.precio}>
             <Input
               type="number"
               inputMode="decimal"
@@ -186,7 +235,66 @@ export function NuevoLote() {
           </Field>
         )}
 
-        {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} pesoVentaLb={pesoQueRige} galpon={galpon} />}
+        {varios &&
+          (repartir ? (
+            <div className="space-y-3 rounded-xl2 border border-line bg-paper-raised p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Otro galpón">
+                  <Select value={otro?.id ?? ''} onChange={(e) => setOtroElegido(e.target.value)}>
+                    {otrosGalpones.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Pollitos ahí" error={errorOtro}>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={avesOtro}
+                    onChange={(e) => setAvesOtro(e.target.value)}
+                    placeholder="0"
+                    aria-invalid={!!errorOtro}
+                  />
+                </Field>
+              </div>
+              {nOtro > 0 && galpon && !errorOtro && (
+                <p className="text-sm text-ink-soft tnum">
+                  {num(colocados - nOtro)} en {galpon.nombre} y {num(nOtro)} en {otro?.nombre}. Si se pasan más
+                  después, se anota en la ficha Galpón del ciclo.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setRepartir(false)
+                  setAvesOtro('')
+                }}
+                className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600"
+              >
+                Todos van en {galpon?.nombre ?? 'el mismo galpón'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRepartir(true)}
+              className="-mx-2 -my-3 block px-2 py-3 text-sm font-medium text-forest-600"
+            >
+              + Parte va en otro galpón
+            </button>
+          ))}
+
+        {cantidadNum > 0 && (
+          <EquipoNecesario
+            aves={nOtro > 0 && !errorOtro ? colocados - nOtro : cantidadNum}
+            pesoVentaLb={pesoQueRige}
+            galpon={galpon}
+          />
+        )}
+        {nOtro > 0 && !errorOtro && otro && <EquipoNecesario aves={nOtro} pesoVentaLb={pesoQueRige} galpon={otro} />}
 
         <DatosRecibo
           incubadora={incubadora}
@@ -230,7 +338,7 @@ export function NuevoLote() {
       </div>
 
       <div className="mt-8">
-        <Button block disabled={!valido || ocupado} onClick={enviar(crear)}>
+        <Button block disabled={!valido || ocupado} motivo={motivo} onClick={enviar(crear)}>
           Crear ciclo
         </Button>
       </div>
@@ -238,8 +346,10 @@ export function NuevoLote() {
   )
 }
 
+// «Ciclo 17-oct»: como dice la app, y con la fecha como se lee aquí. Antes
+// salía «Lote 2026-10-17».
 function autoNombre(fecha: string) {
-  return `Lote ${fecha}`
+  return `Ciclo ${fechaCorta(fecha)}`
 }
 
 // Antes de recibir los pollitos: lo que hace falta montar en el galpón para esa

@@ -16,8 +16,9 @@ export async function guardarCicloCompartido(c: CicloCompartido): Promise<{ id: 
     [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.aplicaciones, db.entregas],
     async () => {
       const previa = (await db.lotes.toArray()).find((l) => l.compartido?.origen === origen)
-      // El galpón es del otro teléfono: aquí no dice nada.
-      const { id: _id, galponId: _g, ...datos } = c.lote
+      // Los galpones son del otro teléfono: aquí no dicen nada, ni el del ciclo
+      // ni a cuál se pasaron aves o de cuál salió una venta.
+      const { id: _id, galponId: _g, movimientos: _m, ...datos } = c.lote
       const lote: Omit<Lote, 'id'> = {
         ...datos,
         compartido: { de: c.de, exportado: c.exportado, origen },
@@ -36,8 +37,9 @@ export async function guardarCicloCompartido(c: CicloCompartido): Promise<{ id: 
       }
       await Promise.all([
         db.registros.bulkAdd(sinId(c.registros, id)),
-        db.gastos.bulkAdd(sinId(c.gastos, id)),
-        db.ingresos.bulkAdd(sinId(c.ingresos, id)),
+        // Un traspaso de alimento apunta a ciclos del otro teléfono.
+        db.gastos.bulkAdd(sinId(c.gastos.map(({ traspaso: _t, ...g }) => g) as typeof c.gastos, id)),
+        db.ingresos.bulkAdd(sinId(c.ingresos.map(({ galponId: _gv, ...i }) => i) as typeof c.ingresos, id)),
         db.pesajes.bulkAdd(sinId(c.pesajes, id)),
         db.aplicaciones.bulkAdd(sinId(c.aplicaciones, id)),
         db.entregas.bulkAdd(sinId(c.entregas, id)),

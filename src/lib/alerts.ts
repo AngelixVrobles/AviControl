@@ -1,4 +1,4 @@
-import type { Aplicacion, Gasto, Lote, Registro } from '../db/schema'
+import type { Aplicacion, Gasto, Ingreso, Lote, Registro } from '../db/schema'
 import { juicioFca, type LoteMetrics } from './metrics'
 import { resumenAgua } from './agua'
 import { calorReciente, fraseCalor, gradosCalor } from './calor'
@@ -6,7 +6,9 @@ import { retiroEn } from './retiro'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
 import { sinAves } from './lote'
 import { agendaSanitaria } from './sanidad'
-import { getSettings } from './settings'
+import { getSettings, type Settings } from './settings'
+import { galponInicial, nombreDeGalpon } from './galpones'
+import { avesPorGalpon, caben } from './reparto'
 import { diasEntre, fecha, hoyISO, num, pct, plural, sumarDias } from './format'
 import {
   DIAS_RETIRO,
@@ -30,7 +32,7 @@ export function computeAlertas(
   registros: Registro[],
   gastos: Gasto[],
   m: LoteMetrics,
-  sanidad: { plan?: HitoSanitario[]; aplicaciones?: Aplicacion[] } = {},
+  sanidad: { plan?: HitoSanitario[]; aplicaciones?: Aplicacion[]; ingresos?: Ingreso[]; settings?: Settings } = {},
 ): Alerta[] {
   // Lo de un ciclo compartido lo resuelve quien lo lleva, en su teléfono.
   if (lote.estado !== 'activo' || lote.compartido) return []
@@ -111,7 +113,7 @@ export function computeAlertas(
 
   // El agua avisa antes que nada: una caída de golpe precede al síntoma en un
   // día entero, así que va con la prioridad más alta.
-  const agua = resumenAgua(lote, registros)
+  const agua = resumenAgua(lote, registros, sanidad.ingresos)
   if (agua?.caidaPct != null) {
     alertas.push({
       nivel: 'bad',
@@ -159,7 +161,17 @@ export function computeAlertas(
         nivel: 'warn',
         texto: `Diste ${num(inv.consumidoQq, 1)} qq y solo hay ${num(inv.compradoQq, 1)} comprados: falta anotar una compra`,
       })
-    } else if (inv.existenciaQq > 0 && inv.diasQueAlcanza <= 3) {
+    } else if (inv.existenciaQq <= 0) {
+      // Por lo anotado y lo estimado de los días sin dato ya no queda: antes,
+      // justo cuando se acababa, el aviso desaparecía.
+      alertas.push({
+        nivel: 'bad',
+        texto:
+          inv.diasSinAnotar > 0
+            ? 'Por lo que se ha dado ya no queda alimento comprado (aprox.): cuenta los sacos o anota la compra'
+            : 'Ya no queda alimento comprado: anota la compra que falta o cuenta los sacos',
+      })
+    } else if (inv.diasQueAlcanza <= 3) {
       const aprox = inv.diasSinAnotar > 0 ? ' (aprox., cuenta los sacos)' : ''
       alertas.push({
         nivel: 'bad',
@@ -221,6 +233,23 @@ export function computeAlertas(
       nivel: 'info',
       texto: `Faltan ${DIAS_RETIRO} días para la venta: retira el alimento medicado`,
     })
+  }
+
+  // El espacio de cada galpón al peso de venta: 1,000 pollitos caben en un
+  // galpón de 8.6 × 8.6 m de chiquitos, pero de grandes no. Se avisa desde la
+  // segunda semana, con tiempo para preparar el otro galpón, y sube de tono
+  // cuando ya están grandes.
+  if (m.dias >= 10) {
+    const s = sanidad.settings ?? getSettings()
+    const varios = s.galpones.length > 1
+    for (const c of avesPorGalpon(lote, galponInicial(lote, s), registros, sanidad.ingresos ?? [], hoy)) {
+      const tope = caben(c.aves, lote, s, s.galpones.find((g) => g.id === c.galponId))
+      if (tope == null || c.aves <= tope) continue
+      alertas.push({
+        nivel: m.dias >= 21 ? 'bad' : 'warn',
+        texto: `${varios ? nombreDeGalpon(c.galponId, s) : 'El galpón'} aguanta ${num(tope)} aves al peso de venta y tiene ${num(c.aves)}: pasa ${num(c.aves - tope)} a otro galpón en la ficha Galpón, o vende antes`,
+      })
+    }
   }
 
   return alertas

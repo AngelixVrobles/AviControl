@@ -12,7 +12,10 @@ export interface LoteMetrics {
   bajas: number
   vendidas: number
   avesVivas: number
+  /** Muertas sobre las aves que entraron (sin las que llegaron muertas). */
   mortalidadPct: number
+  /** Descartadas sobre las aves que entraron. */
+  descartePct: number
   alimentoTotalLb: number
   // De dónde sale el alimento: lo anotado cada día más lo que dicen los conteos
   // de sacos. `diaAlimento` es el último día con dato, y a ese día se mide el FCA.
@@ -34,6 +37,8 @@ export interface LoteMetrics {
   pesoVentaLb?: number
   /** El peso con que se juzga el ciclo: el de venta si ya cerró, el estimado de hoy si sigue. */
   pesoFinalLb?: number
+  /** Las libras que ya salieron vendidas: las de la báscula, y las vendidas por cabeza al peso del lote ese día. */
+  lbVendidas: number
   biomasaLb?: number
   fca?: number
   costoPorLb?: number
@@ -70,8 +75,14 @@ export function computeMetrics(
   const vendidas = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.cantidad))
   // Los que llegaron muertos en las cajas no entraron al galpón: no están vivos,
   // pero tampoco son mortalidad de la granja.
-  const avesVivas = Math.max(0, lote.cantidadInicial - (lote.muertosLlegada ?? 0) - bajas - descartes - vendidas)
-  const mortalidadPct = lote.cantidadInicial > 0 ? (bajas / lote.cantidadInicial) * 100 : 0
+  const colocados = Math.max(0, lote.cantidadInicial - (lote.muertosLlegada ?? 0))
+  const avesVivas = Math.max(0, colocados - bajas - descartes - vendidas)
+  // La mortalidad es la de las aves que entraron al galpón, en toda la app: la
+  // tarjeta, la ficha Aves, Reportes y el Excel. Antes la ficha contaba los
+  // descartes y la tarjeta no, y con 20 muertas y 30 descartadas una decía 2 %
+  // y la otra 5 %. Los descartes se llevan aparte.
+  const mortalidadPct = colocados > 0 ? (bajas / colocados) * 100 : 0
+  const descartePct = colocados > 0 ? (descartes / colocados) * 100 : 0
 
   const alimento = consumoAlimento(lote, registros, gastos)
   const alimentoTotalLb = alimento.totalLb
@@ -105,6 +116,7 @@ export function computeMetrics(
     vendidas,
     avesVivas,
     mortalidadPct,
+    descartePct,
     alimentoTotalLb,
     alimento,
     diaAlimento: alimento.hastaDia,
@@ -146,7 +158,19 @@ export function computeMetrics(
         : pesoEstandarLb(d) * factorCurva
   const pesoEstimadoLb = pesoEnDia(dias)
 
-  const pesoVendidoLb = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.pesoLb ?? 0))
+  // Lo vendido por cabeza, sin pesar, pesaba lo que el lote ese día. Antes
+  // contaba como cero libras: las aves salían del galpón pero su peso no
+  // entraba en ninguna parte, y la conversión, el costo por libra y el IEP se
+  // iban al doble.
+  const pesoVendidoLb = sum(
+    ingresos
+      .filter((i) => i.tipo === 'aves')
+      .map((i) => {
+        if ((i.pesoLb ?? 0) > 0) return i.pesoLb!
+        if (!(i.cantidad > 0)) return 0
+        return i.cantidad * (pesoEnDia(diasEntre(lote.fechaInicio, i.fecha)) ?? 0)
+      }),
+  )
   const biomasaViva = pesoEstimadoLb ? avesVivas * pesoEstimadoLb : 0
   const biomasaLb = biomasaViva + pesoVendidoLb
 
@@ -176,7 +200,7 @@ export function computeMetrics(
   // Índice de eficiencia productiva europeo (EPEF/IEP), rango típico 250–400.
   const iep =
     pesoFinalLb != null && fca != null && fca > 0 && dias > 0
-      ? (((100 - mortalidadPct) * (pesoFinalLb * KG_POR_LB)) / (dias * fca)) * 100
+      ? (((100 - mortalidadPct - descartePct) * (pesoFinalLb * KG_POR_LB)) / (dias * fca)) * 100
       : undefined
 
   let diaVentaEstimado: number | undefined
@@ -202,6 +226,7 @@ export function computeMetrics(
     pesoEstimadoLb,
     pesoVentaLb,
     pesoFinalLb,
+    lbVendidas: pesoVendidoLb,
     biomasaLb,
     fca,
     costoPorLb,
@@ -214,7 +239,10 @@ export function computeMetrics(
   }
 }
 
-export type EstadoFca = 'bien' | 'alto' | 'dudosoBajo' | 'dudosoAlto'
+// `temprano`: antes del día 7 el pollito pesa gramos y el alimento del recibo
+// (los comederos llenos) pesa más que todo lo que se comió: la conversión de
+// esos días no dice nada y no se juzga.
+export type EstadoFca = 'bien' | 'alto' | 'dudosoBajo' | 'dudosoAlto' | 'temprano'
 
 // Cómo va la conversión. Se mide al último día con dato de alimento, así que se
 // compara con el estándar Cobb de ese mismo día y no con el de hoy: el estándar
@@ -229,6 +257,7 @@ export function juicioFca(
   if (m.fca == null) return undefined
   const dia = Math.min(m.diaAlimento ?? m.dias, m.dias)
   const estandar = fcaEstandar(dia)
+  if (dia < 7 || !(estandar > 0)) return { dia, estandar, estado: 'temprano' }
   if (dia >= 7 && m.fca < estandar * 0.75) return { dia, estandar, estado: 'dudosoBajo' }
   if (dia >= 7 && m.fca > estandar * 2) return { dia, estandar, estado: 'dudosoAlto' }
   return { dia, estandar, estado: m.fca > estandar + 0.1 ? 'alto' : 'bien' }
@@ -241,10 +270,12 @@ export const fcaDudoso = (m: Pick<LoteMetrics, 'fca' | 'diaAlimento' | 'dias'>) 
 
 // Qué tanto peor (o mejor) que el estándar convierte el lote, para escalar el
 // consumo que viene. Un FCA dudoso no escala nada: con uno bajísimo el alimento
-// que falta salía casi gratis y el precio mínimo, más bajo de lo real.
+// que falta salía casi gratis y el precio mínimo, más bajo de lo real. Antes del
+// día 7 tampoco: con el alimento anotado solo el día que llegaron, el estándar
+// del día 0 es cero y el precio mínimo salía «RD$∞».
 export function eficienciaAlimento(m: LoteMetrics): number {
   const j = juicioFca(m)
-  if (!j || !m.fca || m.fca <= 0.5 || fcaDudoso(m)) return 1
+  if (!j || j.estado === 'temprano' || !m.fca || m.fca <= 0.5 || fcaDudoso(m)) return 1
   return m.fca / j.estandar
 }
 

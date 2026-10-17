@@ -4,8 +4,9 @@ import { db, type Lote, type Socio } from '../db/schema'
 import { borrarCiclo } from '../db/ciclo'
 import { enumerar, money, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
-import { galponDe } from '../lib/galpones'
-import { erroresLote, type LimitesLote } from '../lib/lote'
+import { galponDe, galponesOcupados, galponInicial, nombreDeGalpon, nombresGalpones } from '../lib/galpones'
+import { repartido } from '../lib/reparto'
+import { errorNegativo, erroresLote, type LimitesLote } from '../lib/lote'
 import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
 import { confirmar, toast } from './confirm'
@@ -92,6 +93,9 @@ function FormLote({
   const [muertosLlegada, setMuertosLlegada] = useState(aTexto(lote.muertosLlegada))
   const varios = settings.galpones.length > 1
   const [galponId, setGalponId] = useState(() => galponDe(lote, settings)?.id ?? '')
+  // Con la pollada repartida, el galpón donde llegaron no se cambia aquí: los
+  // movimientos salen de él, y cambiarlo los dejaría sin aves que mover.
+  const enVarios = repartido(lote)
 
   const cantidadNum = Number(cantidad) || 0
   const costoNum = Number(costo) || 0
@@ -100,7 +104,17 @@ function FormLote({
     { fechaInicio, cantidad: cantidadNum, muertosLlegada: Number(muertosLlegada) || 0 },
     limites,
   )
-  const valido = !errores.fechaInicio && !errores.cantidad && !errores.muertosLlegada
+  const negativos = {
+    costo: errorNegativo(costo),
+    quintal: errorNegativo(precioQuintal),
+    precio: errorNegativo(precioLb),
+    peso: errorNegativo(pesoVenta),
+  }
+  const valido =
+    !errores.fechaInicio &&
+    !errores.cantidad &&
+    !errores.muertosLlegada &&
+    !Object.values(negativos).some(Boolean)
   const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
 
   async function guardar() {
@@ -109,19 +123,70 @@ function FormLote({
       : null
     // Con menos de dos socios no hay sociedad que llevar.
     const reparto = guardados && guardados.socios.length >= 2 ? guardados : null
-    await db.lotes.update(lote.id, {
-      nombre: nombre.trim() || lote.nombre,
-      fechaInicio,
-      cantidadInicial: cantidadNum,
-      costoInicial: costoNum,
-      precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
-      precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
-      pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
-      socios: reparto?.socios,
-      costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
-      galponId: varios ? galponId || undefined : lote.galponId,
-      ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
-      notas: notas.trim() || undefined,
+
+    // Quitar la sociedad borraba los socios sin avisar: las entregas se
+    // quedaban guardadas pero sin pantalla donde verlas ni corregirlas, y los
+    // gastos seguían a nombre de un socio que ya no existía. Ahora se avisa, y
+    // las entregas se van y lo pagado o cobrado por cada uno pasa a ser común.
+    const quitaSociedad = sociosAntes >= 2 && !reparto
+    let limpiar: (() => Promise<void>) | undefined
+    if (quitaSociedad) {
+      const [entregas, gastos, ingresos] = await Promise.all([
+        db.entregas.where('loteId').equals(lote.id).toArray(),
+        db.gastos.where('loteId').equals(lote.id).toArray(),
+        db.ingresos.where('loteId').equals(lote.id).toArray(),
+      ])
+      const aNombre =
+        gastos.filter((g) => g.pagadoPor != null).length +
+        ingresos.filter((i) => i.recibidoPor != null || (i.cobros ?? []).some((c) => c.recibidoPor != null))
+          .length +
+        (lote.costoInicialPagadoPor != null ? 1 : 0)
+      if (entregas.length || aNombre) {
+        const ok = await confirmar({
+          titulo: 'Quitar la sociedad',
+          mensaje: [
+            entregas.length === 1
+              ? 'Se borra la entrega entre socios.'
+              : entregas.length > 1
+                ? `Se borran las ${num(entregas.length)} entregas entre socios.`
+                : '',
+            aNombre ? 'Lo que pagó o cobró cada socio pasa a ser común.' : '',
+          ]
+            .filter(Boolean)
+            .join(' '),
+          confirmar: 'Quitar la sociedad',
+          peligro: true,
+        })
+        if (!ok) return false
+        limpiar = async () => {
+          await db.entregas.bulkDelete(entregas.map((e) => e.id))
+          for (const g of gastos) if (g.pagadoPor != null) await db.gastos.update(g.id, { pagadoPor: undefined })
+          for (const i of ingresos)
+            if (i.recibidoPor != null || (i.cobros ?? []).some((c) => c.recibidoPor != null))
+              await db.ingresos.update(i.id, {
+                recibidoPor: undefined,
+                cobros: i.cobros?.map((c) => ({ ...c, recibidoPor: undefined })),
+              })
+        }
+      }
+    }
+
+    await db.transaction('rw', [db.lotes, db.entregas, db.gastos, db.ingresos], async () => {
+      await limpiar?.()
+      await db.lotes.update(lote.id, {
+        nombre: nombre.trim() || lote.nombre,
+        fechaInicio,
+        cantidadInicial: cantidadNum,
+        costoInicial: costoNum,
+        precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
+        precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
+        pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
+        socios: reparto?.socios,
+        costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
+        galponId: varios && !enVarios ? galponId || undefined : lote.galponId,
+        ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
+        notas: notas.trim() || undefined,
+      })
     })
     toast('Ciclo corregido.')
     onClose()
@@ -184,7 +249,7 @@ function FormLote({
 
       <div className="grid grid-cols-2 gap-3">
         <Field
-          label="Lo que costaron"
+          label="Lo que costaron" error={negativos.costo}
           hint={
             costoNum > 0 && cantidadNum > 0
               ? `${money(costoNum / cantidadNum, { decimales: 2 })} por pollito`
@@ -199,7 +264,7 @@ function FormLote({
             placeholder="0"
           />
         </Field>
-        <Field label="Precio del quintal" hint="Alimento, 100 lb.">
+        <Field label="Precio del quintal" hint="Alimento, 100 lb." error={negativos.quintal}>
           <Input
             type="number"
             inputMode="decimal"
@@ -211,7 +276,11 @@ function FormLote({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Peso de venta" hint={`Cobb lo alcanza hacia el día ${diaParaPeso(pesoQueRige)}.`}>
+        <Field
+          label="Peso de venta"
+          hint={`Cobb lo alcanza hacia el día ${diaParaPeso(pesoQueRige)}.`}
+          error={negativos.peso}
+        >
           <div className="relative">
             <Input
               type="number"
@@ -226,7 +295,7 @@ function FormLote({
             </span>
           </div>
         </Field>
-        <Field label="Precio por libra" hint="Al que piensas vender.">
+        <Field label="Precio por libra" hint="Al que piensas vender." error={negativos.precio}>
           <Input
             type="number"
             inputMode="decimal"
@@ -252,7 +321,7 @@ function FormLote({
         errorMuertos={errores.muertosLlegada}
       />
 
-      {varios && (
+      {varios && !enVarios && (
         <Field label="Galpón">
           <Select value={galponId} onChange={(e) => setGalponId(e.target.value)}>
             {settings.galpones.map((g) => (
@@ -262,6 +331,13 @@ function FormLote({
             ))}
           </Select>
         </Field>
+      )}
+      {enVarios && (
+        <p className="rounded-xl bg-paper-sunken px-4 py-3 text-sm leading-relaxed text-ink-soft">
+          Llegaron a {nombreDeGalpon(galponInicial(lote, settings), settings)} y están repartidas en{' '}
+          {nombresGalpones(galponesOcupados(lote, settings), settings)}. Lo que se pasó de un galpón a otro se
+          corrige en la ficha Galpón.
+        </p>
       )}
 
       <EditorSocios
@@ -300,7 +376,14 @@ function FormLote({
       </Field>
 
       <div className="space-y-2 pt-1">
-        <Button block disabled={!valido || ocupado} onClick={enviar(guardar)}>
+        <Button
+          block
+          disabled={!valido || ocupado}
+          motivo={
+            errores.fechaInicio ?? errores.cantidad ?? errores.muertosLlegada ?? (!valido ? 'Hay un número negativo.' : undefined)
+          }
+          onClick={enviar(guardar)}
+        >
           Guardar cambios
         </Button>
         <DangerButton onClick={borrar}>Borrar este ciclo</DangerButton>

@@ -78,6 +78,14 @@
     outline: none;
   }
 
+  /* El gris de Tailwind para el texto de ejemplo daba 2.5 de contraste: al sol
+     no se leía. Este llega a AA sin confundirse con lo que se escribe. */
+  input::placeholder,
+  textarea::placeholder {
+    color: theme('colors.ink.faint');
+    opacity: 1;
+  }
+
   button {
     font-family: inherit;
   }
@@ -149,6 +157,50 @@
 
 .animate-rise {
   animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* La hoja sube desde abajo con el freno de las hojas de iOS, y el aviso breve
+   sube un poco. Sin `both`: al terminar manda el estilo de la hoja, que es lo
+   que la mueve al arrastrarla y al cerrarla. */
+@keyframes hoja-sube {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes aviso-sube {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-hoja {
+  animation: hoja-sube 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.animate-aparecer {
+  animation: aparecer 0.2s ease-out;
+}
+
+.animate-aviso {
+  animation: aviso-sube 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

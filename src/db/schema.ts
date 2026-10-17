@@ -29,6 +29,17 @@ export interface ConteoAlimento {
   qq: number
 }
 
+// Aves que se pasan de un galpón a otro sin dejar el ciclo: llegaron 1,000
+// pollitos a un galpón de 8.6 × 8.6 m, crecieron, ya no cabían y 350 se pasaron
+// a otro. Sigue siendo la misma pollada, con sus mismas cuentas.
+export interface MovimientoAves {
+  fecha: string
+  /** El galpón de donde salen y al que van: el id de Ajustes. */
+  de: string
+  a: string
+  aves: number
+}
+
 export interface Lote {
   id: number
   tipo: TipoLote
@@ -45,8 +56,10 @@ export interface Lote {
   fechaCierre?: string
   cierre?: CierreCiclo
   conteosAlimento?: ConteoAlimento[]
-  // En qué galpón de la granja está; sin él, el primero.
+  // En qué galpón de la granja está; sin él, el primero. Si la pollada se
+  // reparte, es donde llegaron los pollitos, y `movimientos` dice el resto.
   galponId?: string
+  movimientos?: MovimientoAves[]
   // El recibo: de qué incubadora vinieron, lo que pesaban al llegar (en gramos,
   // como se pesa el pollito) y cuántos llegaron muertos en las cajas. Los que
   // llegaron muertos están en `cantidadInicial` pero nunca entraron al galpón.
@@ -59,6 +72,10 @@ export interface Lote {
   notas?: string
   creado: number
 }
+
+// De qué murió la mayoría ese día. Al final del ciclo dice de qué se muere el
+// lote: no es lo mismo perder 60 por calor que por enfermedad.
+export type CausaBaja = 'calor' | 'amontonadas' | 'enfermedad' | 'subita' | 'ascitis' | 'otra'
 
 export interface Registro {
   id: number
@@ -73,6 +90,7 @@ export interface Registro {
   tempMaxC?: number
   humedadPct?: number
   pesoPromedio?: number
+  causa?: CausaBaja
   nota?: string
   // Lo creó un pesaje en un día sin registro: trae el peso y nada más. No cuenta
   // como el registro del día —faltan las bajas y el alimento— hasta que se
@@ -111,6 +129,8 @@ export type CategoriaGasto =
   | 'alimento'
   | 'aves'
   | 'medicina'
+  | 'cama'
+  | 'energia'
   | 'mano_obra'
   | 'transporte'
   | 'equipo'
@@ -125,6 +145,9 @@ export interface Gasto {
   descripcion?: string
   cantidadQq?: number
   pagadoPor?: number
+  // Alimento que sobró y se pasó de un ciclo a otro: el gasto va en los dos,
+  // en negativo en el que lo pasó, y cada uno apunta al otro.
+  traspaso?: { loteId: number; gastoId?: number }
   creado: number
 }
 
@@ -155,6 +178,9 @@ export interface Ingreso {
   // de la venta.
   credito?: boolean
   cobros?: Cobro[]
+  // Con la pollada en varios galpones, de cuál salieron las aves vendidas.
+  // Sin él, la venta se reparte entre los galpones según las aves de cada uno.
+  galponId?: string
   creado: number
 }
 

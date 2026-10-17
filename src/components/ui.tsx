@@ -1,9 +1,9 @@
 import { clsx } from 'clsx'
-import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { ButtonHTMLAttributes, ComponentProps, ReactNode, SelectHTMLAttributes } from 'react'
 import { IconChevron, IconClose } from './icons'
+import { useArrastreHoja, usePresencia } from './usePresencia'
 
 // El papel es la superficie, no la tarjeta: una banda a sangre con filete
 // arriba y abajo, como el renglón de una hoja de control impresa. Ya no hay
@@ -51,10 +51,13 @@ export function Seccion({
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'ghost' | 'soft'
   block?: boolean
+  // Por qué está gris: un botón apagado que no dice qué falta deja al
+  // productor tocándolo sin saber qué hacer.
+  motivo?: string
 }
 
-export function Button({ variant = 'primary', block, className, children, ...rest }: BtnProps) {
-  return (
+export function Button({ variant = 'primary', block, className, children, motivo, ...rest }: BtnProps) {
+  const boton = (
     <button
       {...rest}
       className={clsx(
@@ -68,6 +71,13 @@ export function Button({ variant = 'primary', block, className, children, ...res
     >
       {children}
     </button>
+  )
+  if (!motivo || !rest.disabled) return boton
+  return (
+    <>
+      {boton}
+      <p className="mt-1.5 text-center text-xs leading-relaxed text-ink-faint">{motivo}</p>
+    </>
   )
 }
 
@@ -86,16 +96,18 @@ export function Field({
   label,
   hint,
   error,
+  className,
   children,
 }: {
   label: string
   hint?: string
   // Lo que impide guardar: va en lugar de la ayuda y en otro color.
   error?: string
+  className?: string
   children: ReactNode
 }) {
   return (
-    <label className="block">
+    <label className={clsx('block', className)}>
       <span className="mb-1.5 block text-sm font-medium text-ink-soft">{label}</span>
       {children}
       {error ? (
@@ -110,7 +122,7 @@ export function Field({
 }
 
 const inputBase =
-  'w-full rounded-xl border border-line bg-paper-raised px-4 py-3 text-ink outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100'
+  'w-full rounded-xl border border-borde bg-paper-raised px-4 py-3 text-ink outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100'
 
 // ComponentProps y no InputHTMLAttributes: en React 19 el ref viaja como prop y
 // así llega al <input> de verdad, que es lo que hace falta para devolverle el foco.
@@ -161,7 +173,7 @@ export function Segmentado<T extends string>({
           onClick={() => onCambio(o.id)}
           aria-pressed={valor === o.id}
           className={clsx(
-            'h-10 flex-1 rounded-full px-3.5 text-sm font-semibold transition',
+            'h-11 flex-1 rounded-full px-3.5 text-sm font-semibold transition',
             valor === o.id ? 'bg-paper-raised text-ink shadow-card' : 'text-ink-soft',
           )}
         >
@@ -194,6 +206,9 @@ export function Pill({
   )
 }
 
+// Lo que tarda la hoja en bajar al cerrarse.
+const SALIDA_HOJA_MS = 240
+
 export function Sheet({
   open,
   onClose,
@@ -205,7 +220,8 @@ export function Sheet({
   title: string
   children: ReactNode
 }) {
-  const arrastre = useDragControls()
+  const { montado, saliendo } = usePresencia(open, SALIDA_HOJA_MS)
+  const { dy, arrastrando, manejadores } = useArrastreHoja(open, onClose)
 
   useEffect(() => {
     if (!open) return
@@ -219,65 +235,107 @@ export function Sheet({
     }
   }, [open, onClose])
 
+  if (!montado) return null
+
   // Portal: dentro de una pantalla con animate-rise, el transform residual
   // convertiría al contenedor en containing block del overlay fixed.
+  // La que se está yendo ya no cuenta: sin esto, al pasar de una hoja a otra
+  // había dos diálogos a la vez para el lector de pantalla.
   return createPortal(
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <div className="absolute inset-0 bg-ink/30 backdrop-blur-[2px]" onClick={onClose} />
-          {/* La hoja tiene techo y su contenido corre por dentro: antes crecía
-              hacia arriba sin límite, lo de arriba quedaba fuera de la pantalla
-              y el gesto de bajar para alcanzarlo era el mismo que la cerraba.
-              Ahora solo se arrastra desde el asa y el título. */}
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-            className="sheet-max-h relative flex w-full max-w-md flex-col rounded-t-xl3 border-t border-line bg-paper shadow-pop"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-            drag="y"
-            dragControls={arrastre}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 90 || info.velocity.y > 600) onClose()
-            }}
-          >
-            <div
-              className="shrink-0 touch-none px-5 pt-3"
-              onPointerDown={(e) => arrastre.start(e)}
+    <div
+      className={clsx('fixed inset-0 z-50 flex items-end justify-center', saliendo && 'pointer-events-none')}
+      aria-hidden={saliendo || undefined}
+      inert={saliendo || undefined}
+    >
+      <div
+        className="animate-aparecer absolute inset-0 bg-ink/30 backdrop-blur-[2px] transition-opacity duration-200"
+        style={saliendo ? { opacity: 0 } : undefined}
+        onClick={onClose}
+      />
+      {/* La hoja tiene techo y su contenido corre por dentro: antes crecía
+          hacia arriba sin límite, lo de arriba quedaba fuera de la pantalla
+          y el gesto de bajar para alcanzarlo era el mismo que la cerraba.
+          Ahora solo se arrastra desde el asa y el título. */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="animate-hoja sheet-max-h relative flex w-full max-w-md flex-col rounded-t-xl3 border-t border-line bg-paper shadow-pop"
+        style={{
+          transform: saliendo ? 'translateY(100%)' : dy > 0 ? `translateY(${dy}px)` : undefined,
+          transition: arrastrando
+            ? 'none'
+            : saliendo
+              ? `transform ${SALIDA_HOJA_MS}ms cubic-bezier(0.4, 0, 1, 1)`
+              : 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+      >
+        <div className="shrink-0 touch-none px-5 pt-3" {...manejadores}>
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line" />
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="min-w-0 font-display text-xl font-semibold">{title}</h2>
+            <button
+              onClick={onClose}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken text-ink-soft"
+              aria-label="Cerrar"
             >
-              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line" />
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="min-w-0 font-display text-xl font-semibold">{title}</h2>
-                <button
-                  onClick={onClose}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken text-ink-soft"
-                  aria-label="Cerrar"
-                >
-                  <IconClose width={19} height={19} />
-                </button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-              {children}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+              <IconClose width={19} height={19} />
+            </button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+          {children}
+        </div>
+      </div>
+    </div>,
     document.body,
+  )
+}
+
+// Las pestañas de una pantalla: la marcada lleva el fondo claro, que se
+// desliza de una a otra.
+export function Pestanas<T extends string>({
+  valor,
+  opciones,
+  onCambio,
+  etiqueta,
+  className,
+}: {
+  valor: T
+  opciones: { id: T; label: string }[]
+  onCambio: (v: T) => void
+  etiqueta: string
+  className?: string
+}) {
+  const n = opciones.length
+  const i = Math.max(0, opciones.findIndex((o) => o.id === valor))
+  return (
+    <div role="tablist" aria-label={etiqueta} className={clsx('relative flex gap-1 rounded-full bg-sunken p-1', className)}>
+      <span
+        aria-hidden
+        className="absolute inset-y-1 left-1 rounded-full bg-paper-raised shadow-card transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+        style={{
+          width: `calc((100% - 0.5rem - ${n - 1} * 0.25rem) / ${n})`,
+          transform: `translateX(calc(${i} * (100% + 0.25rem)))`,
+        }}
+      />
+      {opciones.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="tab"
+          aria-selected={o.id === valor}
+          onClick={() => onCambio(o.id)}
+          className={clsx(
+            'relative flex-1 rounded-full py-3 text-sm font-semibold transition-colors',
+            o.id === valor ? 'text-ink' : 'text-ink-soft',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   )
 }
 

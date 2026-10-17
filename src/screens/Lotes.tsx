@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { clsx } from 'clsx'
-import { motion } from 'motion/react'
 import { LoteCard } from '../components/LoteCard'
-import { Button, EmptyState, Seccion } from '../components/ui'
+import { Button, EmptyState, Pestanas, Seccion } from '../components/ui'
 import { IconPlus, IconPulso } from '../components/icons'
 import { useResumen } from '../lib/hooks'
 
@@ -28,26 +26,17 @@ export function Lotes() {
         </Link>
       </div>
 
-      <div className="mt-4 flex gap-1 rounded-full bg-paper-sunken p-1">
-        {(['activo', 'cerrado', 'todos'] as Filtro[]).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFiltro(f)}
-            className="relative flex-1 rounded-full py-2.5 text-sm font-semibold"
-          >
-            {filtro === f && (
-              <motion.span
-                layoutId="filtro-activo"
-                className="absolute inset-0 rounded-full bg-paper-raised shadow-card"
-                transition={{ type: 'spring', stiffness: 500, damping: 42 }}
-              />
-            )}
-            <span className={clsx('relative transition', filtro === f ? 'text-ink' : 'text-ink-faint')}>
-              {f === 'activo' ? 'Activos' : f === 'cerrado' ? 'Cerrados' : 'Todos'}
-            </span>
-          </button>
-        ))}
-      </div>
+      <Pestanas
+        className="mt-4"
+        etiqueta="Qué ciclos ver"
+        valor={filtro}
+        onCambio={setFiltro}
+        opciones={[
+          { id: 'activo', label: 'Activos' },
+          { id: 'cerrado', label: 'Cerrados' },
+          { id: 'todos', label: 'Todos' },
+        ]}
+      />
 
       <div className="mt-4 space-y-3">
         {lista.length === 0 && compartidos.length === 0 ? (

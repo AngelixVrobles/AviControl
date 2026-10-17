@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { aguaEsperadaL, caidaDeAgua, resumenAgua } from './agua'
-import { lote, registro } from '../test/fixtures'
+import { ingreso, lote, registro } from '../test/fixtures'
 
 const dia = (d: number, alimentoLb: number, aguaL: number) => registro(d, { alimentoLb, aguaL })
 
@@ -65,5 +65,23 @@ describe('caidaDeAgua', () => {
   // arranque (cuando beben poquísimo) taparía cualquier caída del final.
   it('compara solo contra los días recientes', () => {
     expect(caidaDeAgua(serie([10, 20, 100, 100, 100, 70]))).toBeCloseTo(30, 5)
+  })
+})
+
+describe('agua con conteo de sacos y con ventas', () => {
+  // Quien cuenta sacos no anota el alimento del día: antes cada día salía
+  // «bebiendo poco, 0.00 L por libra».
+  it('sin el alimento del día no se juzga como «bebiendo poco»', () => {
+    const r = resumenAgua(lote(), [10, 11, 12, 13].map((d) => registro(d, { aguaL: 300 })))!
+    expect(r.estado).toBe('normal')
+  })
+
+  // Vender la mitad del lote no es que dejaron de beber.
+  it('una venta no parece una caída de agua', () => {
+    const l = lote({ cantidadInicial: 1000 })
+    const regs = [20, 21, 22, 23].map((d) => registro(d, { aguaL: d === 23 ? 300 : 600, alimentoLb: d === 23 ? 360 : 720 }))
+    const venta = ingreso({ cantidad: 500, fecha: registro(22).fecha })
+    expect(resumenAgua(l, regs, [venta])!.caidaPct).toBeUndefined()
+    expect(resumenAgua(l, regs)!.caidaPct).toBeGreaterThan(40)
   })
 })

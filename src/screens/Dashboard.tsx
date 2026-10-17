@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertaChip } from '../components/AlertaChip'
 import { AnimatedNumber } from '../components/AnimatedNumber'
@@ -10,20 +10,29 @@ import { alimentoEn, desdeHace, fechaLarga, hoyISO, money, num, pct, plural, por
 import { precioMinimoConjunto } from '../lib/precios'
 import { sinAves } from '../lib/lote'
 import { nombreGalpon } from '../lib/galpones'
-import { usePorCobrar, useResumen, useSettings } from '../lib/hooks'
+import { useCuentaCerrados, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
+import { ListaNovedades } from '../components/Novedades'
+import { leerNovedadesVistas, marcarNovedadesVistas, NOVEDADES, tocaNovedades } from '../lib/novedades'
 
 export function Dashboard() {
   const activos = useResumen('activo')
-  const cerrados = useResumen('cerrado')
+  const cerrados = useCuentaCerrados()
   const compartidos = useResumen('activo', { compartidos: 'solo' })
   const settings = useSettings()
+  const [novedadesVistas, setNovedadesVistas] = useState(leerNovedadesVistas)
+  const sinDatos = activos != null && cerrados === 0 && activos.length === 0
 
-  if (!activos || !cerrados) return <SkeletonHeader />
+  // Quien estrena la app empieza con esta versión: lo nuevo no le dice nada.
+  useEffect(() => {
+    if (sinDatos && novedadesVistas == null) marcarNovedadesVistas()
+  }, [sinDatos, novedadesVistas])
+
+  if (!activos || cerrados == null) return <SkeletonHeader />
 
   const hoy = capitalizar(fechaLarga(hoyISO()))
-  const recordar = tocaRecordarRespaldo(settings.ultimoRespaldo, activos.length + cerrados.length > 0)
+  const recordar = tocaRecordarRespaldo(settings.ultimoRespaldo, activos.length + cerrados > 0)
 
   return (
     <div className="animate-rise">
@@ -35,15 +44,34 @@ export function Dashboard() {
         <LogoAviControl size={40} tile className="shrink-0 rounded-[9px] shadow-card" />
       </header>
 
+      {tocaNovedades(novedadesVistas, activos.length + cerrados > 0) && (
+        <section className="mt-6 rounded-xl2 border border-forest-200 bg-forest-50 p-4">
+          <h2 className="mb-2 font-display text-base font-semibold text-forest-800">
+            Lo nuevo de la versión {NOVEDADES.version}
+          </h2>
+          <ListaNovedades corta />
+          <button
+            type="button"
+            onClick={() => {
+              marcarNovedadesVistas()
+              setNovedadesVistas(NOVEDADES.version)
+            }}
+            className="mt-2 block h-11 rounded-full bg-forest-500 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
+          >
+            Entendido
+          </button>
+        </section>
+      )}
+
       {activos.length === 0 ? (
         <div className="mt-6">
           <Compartidos lista={compartidos} />
           <EmptyState
             icon={<IconScale width={28} height={28} />}
-            title={cerrados.length ? 'No tienes ciclos en curso' : 'Aún no tienes ciclos'}
+            title={cerrados ? 'No tienes ciclos en curso' : 'Aún no tienes ciclos'}
             text={
-              cerrados.length
-                ? `Cerraste ${cerrados.length === 1 ? 'tu último ciclo' : `${cerrados.length} ciclos`}. El resultado está en Reportes; cuando recibas los pollitos, abre el siguiente.`
+              cerrados
+                ? `Cerraste ${cerrados === 1 ? 'tu último ciclo' : `${num(cerrados)} ciclos`}. El resultado está en Reportes; cuando recibas los pollitos, abre el siguiente.`
                 : 'Crea tu primer ciclo de engorde para empezar a llevar el control.'
             }
             action={
@@ -51,7 +79,7 @@ export function Dashboard() {
                 <Link to="/lotes/nuevo">
                   <Button>Crear ciclo</Button>
                 </Link>
-                {cerrados.length > 0 && (
+                {cerrados > 0 && (
                   <Link to="/reportes">
                     <Button variant="soft">Ver el resultado</Button>
                   </Link>

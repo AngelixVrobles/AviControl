@@ -335,3 +335,20 @@ describe('sociedad con ventas a crédito', () => {
     expect(liq.porCobrar).toBe(0)
   })
 })
+
+describe('sociedad con ventas antes de cerrar', () => {
+  // Con una venta parcial, la cuenta seguía como si el ciclo hubiera cerrado:
+  // «Tu pérdida» del tamaño de todo lo que falta por vender.
+  it('mientras el ciclo sigue, es la cuenta de lo que pone cada uno', () => {
+    const l = lote({ socios: [{ nombre: 'Yo', pct: 50 }, { nombre: 'Pedro', pct: 50 }], costoInicial: 0 })
+    const gastos = [gasto({ monto: 100000, pagadoPor: 0 }), gasto({ id: 2, monto: 100000, pagadoPor: 1 })]
+    const ingresos = [ingreso({ cantidad: 100, monto: 30000, recibidoPor: 0 })]
+    const m = computeMetrics(l, [], gastos, ingresos)
+    const liq = computeLiquidacion(l, gastos, ingresos, m)!
+    expect(liq.conVentas).toBe(false)
+    // Yo cobró los 30,000: la mitad es de Pedro.
+    expect(liq.traspasos[0]).toMatchObject({ de: 'Yo', a: 'Pedro', monto: 15000 })
+    const cerrado = computeLiquidacion({ ...l, estado: 'cerrado' }, gastos, ingresos, m)!
+    expect(cerrado.conVentas).toBe(true)
+  })
+})

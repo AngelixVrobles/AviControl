@@ -24,8 +24,18 @@ const esFecha = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.t
 const esNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
 const esNumOpc = (v: unknown) => v == null || esNum(v)
 const esTexto = (v: unknown) => typeof v === 'string'
+const esTextoOpc = (v: unknown) => v == null || esTexto(v)
 const esId = (v: unknown) => esNum(v) && Number.isInteger(v)
 const esIdOpc = (v: unknown) => v == null || esId(v)
+// Lo que va dentro de una fila también se revisa: un cobro con el monto como
+// texto pasaba, y los montos se juntaban como letras («050003000»), dando la
+// venta por pagada.
+const listaDe = (v: unknown, cada: (f: Fila) => boolean) =>
+  v == null || (Array.isArray(v) && v.every((x) => esObjeto(x) && cada(x)))
+const esSocio = (s: Fila) => esTexto(s.nombre) && esNumOpc(s.pct)
+const esCobro = (c: Fila) => esFecha(c.fecha) && esNum(c.monto) && esIdOpc(c.recibidoPor)
+const esConteo = (c: Fila) => esFecha(c.fecha) && esNum(c.qq)
+const esMovimiento = (m: Fila) => esFecha(m.fecha) && esTexto(m.de) && esTexto(m.a) && esNum(m.aves)
 
 const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
   lotes: (l) =>
@@ -34,32 +44,51 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
     esNum(l.cantidadInicial) &&
     esNumOpc(l.costoInicial) &&
     (l.estado === 'activo' || l.estado === 'cerrado') &&
-    (l.socios == null || Array.isArray(l.socios)),
+    listaDe(l.socios, esSocio) &&
+    listaDe(l.conteosAlimento, esConteo) &&
+    listaDe(l.movimientos, esMovimiento) &&
+    (l.cierre == null || esObjeto(l.cierre)),
   registros: (r) =>
-    esId(r.loteId) && esFecha(r.fecha) && esNumOpc(r.mortalidad) && esNumOpc(r.descarte) && esNumOpc(r.alimentoLb),
-  gastos: (g) => esIdOpc(g.loteId) && esFecha(g.fecha) && esNum(g.monto),
+    esId(r.loteId) &&
+    esFecha(r.fecha) &&
+    esNumOpc(r.mortalidad) &&
+    esNumOpc(r.descarte) &&
+    esNumOpc(r.alimentoLb) &&
+    esTextoOpc(r.causa),
+  gastos: (g) =>
+    esIdOpc(g.loteId) &&
+    esFecha(g.fecha) &&
+    esNum(g.monto) &&
+    (g.traspaso == null || (esObjeto(g.traspaso) && esId(g.traspaso.loteId) && esIdOpc(g.traspaso.gastoId))),
   ingresos: (i) =>
-    esIdOpc(i.loteId) && esFecha(i.fecha) && esNum(i.monto) && (i.cobros == null || Array.isArray(i.cobros)),
+    esIdOpc(i.loteId) && esFecha(i.fecha) && esNum(i.monto) && listaDe(i.cobros, esCobro) && esTextoOpc(i.galponId),
   pesajes: (p) => esId(p.loteId) && esFecha(p.fecha) && Array.isArray(p.pesos) && p.pesos.every(esNum),
   aplicaciones: (a) => esId(a.loteId) && esFecha(a.fecha) && esTexto(a.nombre),
-  deudas: (d) => esTexto(d.concepto) && esNum(d.monto) && esFecha(d.fecha),
+  deudas: (d) => esTexto(d.concepto) && esNum(d.monto) && esFecha(d.fecha) && listaDe(d.socios, esSocio),
   abonos: (a) => esId(a.deudaId) && esFecha(a.fecha) && esNum(a.monto),
   entregas: (e) => esId(e.loteId) && esFecha(e.fecha) && esId(e.de) && esId(e.a) && esNum(e.monto),
 }
 
-const NOMBRES: Record<Tabla, [string, string]> = {
-  lotes: ['ciclo', 'ciclos'],
-  registros: ['día anotado', 'días anotados'],
-  gastos: ['gasto', 'gastos'],
-  ingresos: ['venta', 'ventas'],
-  pesajes: ['pesaje', 'pesajes'],
-  aplicaciones: ['vacuna o medicina', 'vacunas y medicinas'],
-  deudas: ['deuda', 'deudas'],
-  abonos: ['abono', 'abonos'],
-  entregas: ['entrega entre socios', 'entregas entre socios'],
+// Con su género, para que la frase concuerde: «1 venta viene incompleta».
+const NOMBRES: Record<Tabla, [string, string, 'm' | 'f']> = {
+  lotes: ['ciclo', 'ciclos', 'm'],
+  registros: ['día anotado', 'días anotados', 'm'],
+  gastos: ['gasto', 'gastos', 'm'],
+  ingresos: ['venta', 'ventas', 'f'],
+  pesajes: ['pesaje', 'pesajes', 'm'],
+  aplicaciones: ['vacuna o medicina', 'vacunas y medicinas', 'f'],
+  deudas: ['deuda', 'deudas', 'f'],
+  abonos: ['abono', 'abonos', 'm'],
+  entregas: ['entrega entre socios', 'entregas entre socios', 'f'],
 }
 
-const cuantos = (n: number, tabla: Tabla) => `${num(n)} ${plural(n, ...NOMBRES[tabla])}`
+const cuantos = (n: number, tabla: Tabla) => `${num(n)} ${plural(n, NOMBRES[tabla][0], NOMBRES[tabla][1])}`
+const dañado = (n: number, tabla: Tabla) => {
+  const f = NOMBRES[tabla][2] === 'f'
+  return n === 1
+    ? `viene ${f ? 'incompleta o dañada' : 'incompleto o dañado'}`
+    : `vienen ${f ? 'incompletas o dañadas' : 'incompletos o dañados'}`
+}
 
 /**
  * Revisa una lista del archivo. Devuelve qué está mal, en palabras del
@@ -69,7 +98,7 @@ const cuantos = (n: number, tabla: Tabla) => `${num(n)} ${plural(n, ...NOMBRES[t
 export function revisarFilas(tabla: Tabla, filas: unknown, { conId = true } = {}): string | undefined {
   if (!Array.isArray(filas)) return `la lista de ${NOMBRES[tabla][1]} no se puede leer`
   const malas = filas.filter((f) => !esObjeto(f) || (conId && !esId(f.id)) || !REVISAR[tabla](f)).length
-  if (malas) return `${cuantos(malas, tabla)} ${malas === 1 ? 'viene incompleto o dañado' : 'vienen incompletos o dañados'}`
+  if (malas) return `${cuantos(malas, tabla)} ${dañado(malas, tabla)}`
   if (conId) {
     const ids = new Set<unknown>()
     let repetidas = 0

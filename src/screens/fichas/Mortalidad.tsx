@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import type { Lote, Registro } from '../../db/schema'
+import type { Ingreso, Lote, Registro } from '../../db/schema'
 import { fecha, num, pct, plural } from '../../lib/format'
-import { resumenMortalidad } from '../../lib/mortalidad'
+import { causasDelCiclo, resumenMortalidad, type CausaDelCiclo } from '../../lib/mortalidad'
+import { causaLabel } from '../../lib/labels'
 import { computeArranque, tituloArranque } from '../../lib/arranque'
 import { TarjetaArranque } from '../../components/Arranque'
 import { CALOR_C, calorDelCiclo, type CalorDelCiclo } from '../../lib/calor'
@@ -10,9 +11,19 @@ import { Banda, Seccion } from '../../components/ui'
 import { GraficaBarras } from '../../components/chart'
 import { Vacio } from './Vacio'
 
-export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registros: Registro[]; dia: number }) {
+export function FichaMortalidad({
+  lote,
+  registros,
+  ingresos = [],
+  dia,
+}: {
+  lote: Lote
+  registros: Registro[]
+  ingresos?: Ingreso[]
+  dia: number
+}) {
   const [foco, setFoco] = useState<number>()
-  const r = resumenMortalidad(lote, registros)
+  const r = resumenMortalidad(lote, registros, ingresos)
   if (!r) return <Vacio texto="Todavía no has registrado ningún día de este ciclo." />
 
   const arranque = computeArranque(lote, registros, dia)
@@ -24,7 +35,8 @@ export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registro
     : -1
   const enfocada = foco != null ? r.semanas[foco] : undefined
   const bajasDelPeorDia = r.peorDia ? r.peorDia.muertes + r.peorDia.descartes : 0
-  const calor = calorDelCiclo(lote, registros)
+  const calor = calorDelCiclo(lote, registros, ingresos)
+  const causas = causasDelCiclo(registros)
 
   return (
     <div className="space-y-6">
@@ -36,11 +48,11 @@ export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registro
               <AnimatedNumber value={r.bajas + r.descartes} format={(n) => num(n)} />
             </div>
             <div className="mt-1 text-sm text-ink-soft tnum">
-              de {num(lote.cantidadInicial)} · quedan {num(r.vivas)}
+              de {num(lote.cantidadInicial - (lote.muertosLlegada ?? 0))} · quedan {num(r.vivas)}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-ink-faint">Acumulada</div>
+            <div className="text-xs text-ink-faint">Mortalidad</div>
             <div
               className={
                 'font-display text-xl font-semibold leading-none tnum ' +
@@ -56,7 +68,8 @@ export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registro
         </div>
         {r.descartes > 0 && (
           <div className="mt-3 border-t border-line pt-3 text-sm text-ink-soft tnum">
-            {num(r.bajas)} muertas y {num(r.descartes)} descartadas
+            {num(r.bajas)} muertas y {num(r.descartes)} descartadas ({pct(r.pctDescarte, 1)} de
+            descarte, aparte de la mortalidad)
           </div>
         )}
       </Banda>
@@ -104,7 +117,53 @@ export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registro
         </p>
       </div>
 
+      {causas && <Causas causas={causas.causas} sinCausa={causas.sinCausa} />}
+
       {calor && <Calor c={calor} />}
+    </div>
+  )
+}
+
+// De qué se murió el lote, con lo que se anotó cada día.
+function Causas({ causas, sinCausa }: { causas: CausaDelCiclo[]; sinCausa: number }) {
+  const primera = causas[0]
+  const conCausa = causas.reduce((a, c) => a + c.muertes, 0)
+  const cual = causaLabel(primera.causa)!.toLowerCase()
+  // «Casi todas» habla de todas las muertes, no solo de las que tienen causa:
+  // con 45 de calor anotadas y 300 sin anotar, no se puede decir eso.
+  const titulo =
+    primera.muertes / (conCausa + sinCausa) >= 0.5
+      ? `Casi todas de ${cual}`
+      : sinCausa >= conCausa
+        ? `Las que anotaste, más que nada de ${cual}`
+        : `Más que nada de ${cual}`
+  return (
+    <div>
+      <Seccion
+        etiqueta="De qué se murieron"
+        titulo={titulo}
+        nota={
+          sinCausa > 0
+            ? `Con la causa anotada en el registro del día. ${num(sinCausa)} ${plural(sinCausa, 'muerte', 'muertes')} sin causa no ${plural(sinCausa, 'cuenta', 'cuentan')} aquí.`
+            : 'Con la causa anotada en el registro del día.'
+        }
+      />
+      <Banda className="mt-3 divide-y divide-line">
+        {causas.map((c) => (
+          <div key={c.causa} className="px-5 py-3">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-medium">{causaLabel(c.causa)}</span>
+              <span className="tnum">
+                <span className="font-display text-base font-semibold">{num(c.muertes)}</span>
+                <span className="ml-2 text-ink-faint">{pct(c.pct, 0)}</span>
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-sunken" aria-hidden>
+              <div className="h-full rounded-full bg-clay" style={{ width: `${Math.max(2, c.pct)}%` }} />
+            </div>
+          </div>
+        ))}
+      </Banda>
     </div>
   )
 }

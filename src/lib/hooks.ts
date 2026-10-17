@@ -11,6 +11,7 @@ import { resumenDeudas } from './deudas'
 import { hoyISO } from './format'
 import { compradoresConocidos, cuentasPorCobrar } from './cobros'
 import { computeArranque, type Arranque } from './arranque'
+import { retiroEn, type Retiro } from './retiro'
 
 // La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
 // cuentas del ciclo dependen del día: con la app abierta de un día para otro,
@@ -54,6 +55,13 @@ export function useLotes(estado?: 'activo' | 'cerrado') {
   }, [estado])
 }
 
+// Inicio solo necesita saber cuántos ciclos se cerraron: sacar las cuentas de
+// cada uno para contarlos eran 248 consultas con 60 ciclos, y la pantalla se
+// quedaba en blanco hasta terminar.
+export function useCuentaCerrados() {
+  return useLiveQuery(() => db.lotes.where('estado').equals('cerrado').filter((l) => !l.compartido).count(), [])
+}
+
 export interface LoteConMetrics {
   lote: Lote
   metrics: LoteMetrics
@@ -62,6 +70,8 @@ export interface LoteConMetrics {
   precio?: AnalisisPrecio | null
   /** La primera semana: para comparar incubadoras en Reportes. */
   arranque?: Arranque
+  /** El retiro de una medicina que todavía no se cumple: no se vende antes. */
+  retiro?: Retiro
 }
 
 export function useLoteData(id: number | undefined) {
@@ -97,6 +107,8 @@ export function useLoteData(id: number | undefined) {
       alertas: computeAlertas(lote, registros, gastos, metrics, {
         plan: settings.planSanitario,
         aplicaciones,
+        ingresos,
+        settings,
       }),
     }
   }, [id, hoy, settings])
@@ -142,9 +154,12 @@ export function useResumen(
         alertas: computeAlertas(lote, registros, gastos, metrics, {
           plan: settings.planSanitario,
           aplicaciones,
+          ingresos,
+          settings,
         }),
         precio,
         arranque: computeArranque(lote, registros, metrics.dias),
+        retiro: lote.estado === 'activo' ? retiroEn(aplicaciones, hoy) : undefined,
       })
     }
     return out

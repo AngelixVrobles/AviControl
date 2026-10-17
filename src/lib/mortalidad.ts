@@ -1,4 +1,4 @@
-import type { Lote, Registro } from '../db/schema'
+import type { CausaBaja, Ingreso, Lote, Registro } from '../db/schema'
 import { diasEntre } from './format'
 import { mortalidadEsperadaPct } from './standards'
 
@@ -25,7 +25,9 @@ export interface ResumenMortalidad {
   semanas: SemanaMortalidad[]
   bajas: number
   descartes: number
+  /** Muertas sobre las aves que entraron: la misma mortalidad de la tarjeta. */
   pct: number
+  pctDescarte: number
   esperadoPct: number
   primeraSemana: number
   primeraSemanaPct: number
@@ -37,17 +39,28 @@ export interface ResumenMortalidad {
 // del arranque, no del manejo del resto del ciclo. Sobre 1 % ya es señal.
 export const LIMITE_PRIMERA_SEMANA_PCT = 1
 
-export function resumenMortalidad(lote: Lote, registros: Registro[]): ResumenMortalidad | null {
+// Las cuentas van sobre las aves que entraron al galpón —sin las que llegaron
+// muertas en las cajas—, como en el resto de la app. Las que quedan restan
+// también lo vendido hasta ese día: antes decía «quedan 950» con 600 vendidas.
+export function resumenMortalidad(
+  lote: Lote,
+  registros: Registro[],
+  ingresos: Ingreso[] = [],
+): ResumenMortalidad | null {
   if (!registros.length) return null
 
-  const inicial = lote.cantidadInicial
+  const inicial = Math.max(0, lote.cantidadInicial - (lote.muertosLlegada ?? 0))
   const ordenados = [...registros].sort((a, b) => a.fecha.localeCompare(b.fecha))
+  const ventas = ingresos.filter((i) => i.tipo === 'aves')
+  const vendidasHasta = (f: string) => ventas.filter((i) => i.fecha <= f).reduce((a, i) => a + i.cantidad, 0)
 
   let acumuladas = 0
+  let muertasAcum = 0
   const dias: DiaMortalidad[] = ordenados.map((r) => {
     const muertes = r.mortalidad ?? 0
     const descartes = r.descarte ?? 0
     acumuladas += muertes + descartes
+    muertasAcum += muertes
     const dia = diasEntre(lote.fechaInicio, r.fecha)
     return {
       dia,
@@ -55,9 +68,9 @@ export function resumenMortalidad(lote: Lote, registros: Registro[]): ResumenMor
       muertes,
       descartes,
       acumuladas,
-      pctAcum: inicial > 0 ? (acumuladas / inicial) * 100 : 0,
+      pctAcum: inicial > 0 ? (muertasAcum / inicial) * 100 : 0,
       pctEsperado: mortalidadEsperadaPct(dia),
-      vivas: Math.max(0, inicial - (lote.muertosLlegada ?? 0) - acumuladas),
+      vivas: Math.max(0, inicial - acumuladas - vendidasHasta(r.fecha)),
     }
   })
 
@@ -75,6 +88,7 @@ export function resumenMortalidad(lote: Lote, registros: Registro[]): ResumenMor
     s.esperadoPct = Math.max(0, hasta - desde)
   }
 
+  // Desde el día que llegaron: lo que muere el día 0 también es del arranque.
   const primeraSemana = dias.filter((d) => d.dia <= 7).reduce((a, d) => a + d.muertes + d.descartes, 0)
   const conBajas = dias.filter((d) => d.muertes + d.descartes > 0)
   const ultimo = dias[dias.length - 1]
@@ -85,6 +99,7 @@ export function resumenMortalidad(lote: Lote, registros: Registro[]): ResumenMor
     bajas: dias.reduce((a, d) => a + d.muertes, 0),
     descartes: dias.reduce((a, d) => a + d.descartes, 0),
     pct: ultimo.pctAcum,
+    pctDescarte: inicial > 0 ? (dias.reduce((a, d) => a + d.descartes, 0) / inicial) * 100 : 0,
     esperadoPct: mortalidadEsperadaPct(ultimo.dia),
     primeraSemana,
     primeraSemanaPct: inicial > 0 ? (primeraSemana / inicial) * 100 : 0,
@@ -93,4 +108,33 @@ export function resumenMortalidad(lote: Lote, registros: Registro[]): ResumenMor
       : undefined,
     vivas: ultimo.vivas,
   }
+}
+
+export interface CausaDelCiclo {
+  causa: CausaBaja
+  muertes: number
+  /** De las muertes con causa anotada. */
+  pct: number
+}
+
+// De qué se murió el lote, con lo anotado día por día. Las muertes de los días
+// sin causa se cuentan aparte: si son la mayoría, el resto dice poco.
+export function causasDelCiclo(registros: Pick<Registro, 'mortalidad' | 'causa'>[]): {
+  causas: CausaDelCiclo[]
+  sinCausa: number
+} | null {
+  const por = new Map<CausaBaja, number>()
+  let sinCausa = 0
+  for (const r of registros) {
+    const n = r.mortalidad ?? 0
+    if (n <= 0) continue
+    if (r.causa) por.set(r.causa, (por.get(r.causa) ?? 0) + n)
+    else sinCausa += n
+  }
+  const conCausa = [...por.values()].reduce((a, n) => a + n, 0)
+  if (!conCausa) return null
+  const causas = [...por.entries()]
+    .map(([causa, muertes]) => ({ causa, muertes, pct: (muertes / conCausa) * 100 }))
+    .sort((a, b) => b.muertes - a.muertes)
+  return { causas, sinCausa }
 }

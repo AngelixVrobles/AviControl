@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
 import { createPortal } from 'react-dom'
 import { Button, DangerButton, Sheet } from './ui'
+import { usePresencia } from './usePresencia'
 
 interface Opciones {
   titulo: string
@@ -27,6 +27,10 @@ export function toast(mensaje: string) {
 
 export function ToastHost() {
   const [msg, setMsg] = useState<string | null>(null)
+  // Mientras se va, sigue diciendo lo último que dijo.
+  const [visto, setVisto] = useState<string | null>(null)
+  if (msg && msg !== visto) setVisto(msg)
+  const { montado, saliendo } = usePresencia(!!msg, 200)
 
   useEffect(() => {
     let t = 0
@@ -41,26 +45,23 @@ export function ToastHost() {
     }
   }, [])
 
+  if (!montado) return null
   return createPortal(
-    <AnimatePresence>
-      {msg && (
-        <motion.div
-          className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5"
-          style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 12 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-        >
-          <div
-            role="status"
-            className="max-w-[22rem] rounded-2xl bg-ink px-4 py-3 text-center text-sm font-medium text-paper-raised shadow-pop"
-          >
-            {msg}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+    <div
+      aria-hidden={saliendo || undefined}
+      className="animate-aviso pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5 transition-[opacity,transform] duration-200"
+      style={{
+        bottom: 'calc(6rem + env(safe-area-inset-bottom))',
+        ...(saliendo ? { opacity: 0, transform: 'translateY(12px)' } : {}),
+      }}
+    >
+      <div
+        role="status"
+        className="max-w-[22rem] rounded-2xl bg-ink px-4 py-3 text-center text-sm font-medium text-paper-raised shadow-pop"
+      >
+        {msg ?? visto}
+      </div>
+    </div>,
     document.body,
   )
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLoteData, useSettings } from '../lib/hooks'
 import { fecha, hoyISO, money, num, pct, porLb } from '../lib/format'
@@ -8,9 +8,12 @@ import { pendienteDe } from '../lib/cobros'
 import { retiroDe } from '../lib/retiro'
 import { semanasDelCiclo } from '../lib/exportar'
 import { nombreSocio } from '../lib/sociedad'
+import { galponInicial, nombreDeGalpon } from '../lib/galpones'
+import { avesPorGalpon, repartido } from '../lib/reparto'
 import { LB_POR_QUINTAL } from '../lib/standards'
 import { Button } from '../components/ui'
 import { IconBack } from '../components/icons'
+import { useVolver } from '../components/useVolver'
 
 // El reporte del ciclo en una hoja para imprimir o guardar en PDF: lo que pide
 // el banco, el contador o el socio que no usa la app. En el teléfono, «Imprimir»
@@ -18,8 +21,26 @@ import { IconBack } from '../components/icons'
 export function Imprimir() {
   const { id } = useParams()
   const nav = useNavigate()
+  const volver = useVolver(id ? `/lotes/${id}` : '/lotes')
   const data = useLoteData(id ? Number(id) : undefined)
   const settings = useSettings()
+  const [sinVista, setSinVista] = useState(false)
+
+  // Con la app instalada en el iPhone, imprimir a veces no hace nada. Si la
+  // vista previa no se abrió, se ofrece abrir el reporte en el navegador, donde
+  // sí se imprime o se guarda en PDF.
+  function imprimir() {
+    let abrio = false
+    const marcar = () => {
+      abrio = true
+    }
+    window.addEventListener('beforeprint', marcar)
+    window.print()
+    window.setTimeout(() => {
+      window.removeEventListener('beforeprint', marcar)
+      setSinVista(!abrio)
+    }, 1500)
+  }
 
   if (data === undefined) return <div className="pt-10 text-center text-ink-faint">Cargando…</div>
   if (data === null)
@@ -50,6 +71,11 @@ export function Imprimir() {
   const semanas = semanasDelCiclo(lote, registros)
   const ventas = [...ingresos].sort((a, b) => a.fecha.localeCompare(b.fecha))
   const socios = lote.socios && lote.socios.length >= 2 ? lote.socios : undefined
+  // La pollada repartida: lo que se pasó de un galpón a otro y, en curso, lo
+  // que hay hoy en cada uno.
+  const enVarios = repartido(lote) && !lote.compartido
+  const enCasas =
+    enVarios && !cerrado ? avesPorGalpon(lote, galponInicial(lote, settings), registros, ingresos, hasta) : []
   const totalPct = socios?.reduce((a, s) => a + (s.pct || 0), 0) ?? 0
 
   const kpis: [string, string][] = [
@@ -72,7 +98,7 @@ export function Imprimir() {
     <div className="impresion mx-auto min-h-dvh max-w-3xl bg-white px-6 pb-12 text-ink safe-t print:max-w-none print:px-0 print:pb-0">
       <div className="sticky top-0 z-10 -mx-6 mb-6 flex items-center gap-3 border-b border-line bg-white/95 px-6 py-3 backdrop-blur print:hidden">
         <button
-          onClick={() => nav(-1)}
+          onClick={volver}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver"
         >
@@ -81,8 +107,20 @@ export function Imprimir() {
         <p className="min-w-0 flex-1 text-sm leading-snug text-ink-soft">
           En la vista previa elige «Guardar como PDF» o compártelo.
         </p>
-        <Button onClick={() => window.print()}>Imprimir</Button>
+        <Button onClick={imprimir}>Imprimir</Button>
       </div>
+
+      {sinVista && (
+        <div className="mb-6 rounded-xl2 border border-amber-line bg-amber-tint p-4 text-sm leading-relaxed text-amber-text print:hidden">
+          <p>
+            La vista previa no se abrió: con la app instalada en el iPhone a veces pasa. Ábrelo en el navegador y
+            ahí toca Compartir → Imprimir, o «Guardar en Archivos» para el PDF.
+          </p>
+          <Button variant="soft" className="mt-3" onClick={() => window.open(window.location.href, '_blank')}>
+            Abrir en el navegador
+          </Button>
+        </div>
+      )}
 
       <header className="border-b-2 border-ink pb-4">
         <div className="text-xs font-semibold uppercase tracking-widest text-ink-soft">Reporte del ciclo</div>
@@ -143,6 +181,29 @@ export function Imprimir() {
               pendienteDe(i) >= 1 ? money(pendienteDe(i)) : '—',
             ])}
           />
+        </Bloque>
+      )}
+
+      {enVarios && (
+        <Bloque titulo="Galpones">
+          <Tabla
+            columnas={['Fecha', 'Salen de', 'Van a', 'Aves']}
+            texto={3}
+            filas={(lote.movimientos ?? []).map((mv) => [
+              fecha(mv.fecha),
+              nombreDeGalpon(mv.de, settings),
+              nombreDeGalpon(mv.a, settings),
+              num(mv.aves),
+            ])}
+          />
+          {enCasas.length > 0 && (
+            <div className="mt-3">
+              <Tabla
+                columnas={['Hoy en cada galpón', 'Aves']}
+                filas={enCasas.map((c) => [nombreDeGalpon(c.galponId, settings), num(c.aves)])}
+              />
+            </div>
+          )}
         </Bloque>
       )}
 

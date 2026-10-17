@@ -53,18 +53,25 @@ const defaults: Settings = {
 // campos nuevos y aun así tiene que quedar completo tras importar.
 export function getSettings(): Settings {
   try {
-    const guardado = JSON.parse(localStorage.getItem(KEY) ?? '{}')
-    return {
-      ...defaults,
-      ...guardado,
-      planSanitario:
-        Array.isArray(guardado.planSanitario) && guardado.planSanitario.length
-          ? guardado.planSanitario
-          : defaults.planSanitario,
-      galpones: leerGalpones(guardado),
-    }
+    return completar(JSON.parse(localStorage.getItem(KEY) ?? '{}'))
   } catch {
     return defaults
+  }
+}
+
+// Lo guardado, completado con los defaults. El plan sanitario vacío es un
+// plan: quien no vacuna o no quiere avisos lo deja así. Antes, al quitar la
+// última vacuna, volvían las tres de fábrica con sus avisos. Las medidas
+// sueltas de antes pasan al «Galpón 1» y no se vuelven a escribir.
+function completar(guardado: Record<string, unknown>): Settings {
+  const { galponLargoM: _l, galponAnchoM: _a, ...resto } = guardado
+  return {
+    ...defaults,
+    ...(resto as Partial<Settings>),
+    planSanitario: Array.isArray(guardado.planSanitario)
+      ? (guardado.planSanitario as HitoSanitario[])
+      : defaults.planSanitario,
+    galpones: leerGalpones(guardado),
   }
 }
 
@@ -86,6 +93,16 @@ export function leerGalpones(guardado: Record<string, unknown>): Galpon[] {
       anchoM: medida(guardado.galponAnchoM),
     },
   ]
+}
+
+// Al restaurar un respaldo, sus ajustes reemplazan a los de este teléfono: antes
+// se mezclaban, y el precio de mercado del teléfono viejo sobrevivía a la
+// restauración.
+export function reemplazarSettings(nuevos: Record<string, unknown>) {
+  const next = completar(nuevos)
+  localStorage.setItem(KEY, JSON.stringify(next))
+  window.dispatchEvent(new Event('settings-changed'))
+  return next
 }
 
 export function saveSettings(patch: Partial<Settings>) {
