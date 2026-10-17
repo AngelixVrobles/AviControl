@@ -8,6 +8,8 @@ import { pendienteDe } from '../lib/cobros'
 import { retiroDe } from '../lib/retiro'
 import { semanasDelCiclo } from '../lib/exportar'
 import { nombreSocio } from '../lib/sociedad'
+import { galponInicial, nombreDeGalpon } from '../lib/galpones'
+import { avesPorGalpon, repartido } from '../lib/reparto'
 import { LB_POR_QUINTAL } from '../lib/standards'
 import { Button } from '../components/ui'
 import { IconBack } from '../components/icons'
@@ -69,6 +71,11 @@ export function Imprimir() {
   const semanas = semanasDelCiclo(lote, registros)
   const ventas = [...ingresos].sort((a, b) => a.fecha.localeCompare(b.fecha))
   const socios = lote.socios && lote.socios.length >= 2 ? lote.socios : undefined
+  // La pollada repartida: lo que se pasó de un galpón a otro y, en curso, lo
+  // que hay hoy en cada uno.
+  const enVarios = repartido(lote) && !lote.compartido
+  const enCasas =
+    enVarios && !cerrado ? avesPorGalpon(lote, galponInicial(lote, settings), registros, ingresos, hasta) : []
   const totalPct = socios?.reduce((a, s) => a + (s.pct || 0), 0) ?? 0
 
   const kpis: [string, string][] = [
@@ -174,6 +181,29 @@ export function Imprimir() {
               pendienteDe(i) >= 1 ? money(pendienteDe(i)) : '—',
             ])}
           />
+        </Bloque>
+      )}
+
+      {enVarios && (
+        <Bloque titulo="Galpones">
+          <Tabla
+            columnas={['Fecha', 'Salen de', 'Van a', 'Aves']}
+            texto={3}
+            filas={(lote.movimientos ?? []).map((mv) => [
+              fecha(mv.fecha),
+              nombreDeGalpon(mv.de, settings),
+              nombreDeGalpon(mv.a, settings),
+              num(mv.aves),
+            ])}
+          />
+          {enCasas.length > 0 && (
+            <div className="mt-3">
+              <Tabla
+                columnas={['Hoy en cada galpón', 'Aves']}
+                filas={enCasas.map((c) => [nombreDeGalpon(c.galponId, settings), num(c.aves)])}
+              />
+            </div>
+          )}
         </Bloque>
       )}
 

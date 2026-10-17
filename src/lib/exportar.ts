@@ -5,6 +5,9 @@ import { categoriaLabel, RAZA, tipoIngresoLabel } from './labels'
 import type { LoteMetrics } from './metrics'
 import { analizarMuestra } from './muestreo'
 import { retiroDe } from './retiro'
+import { galponInicial, nombreDeGalpon } from './galpones'
+import { avesPorGalpon, repartido } from './reparto'
+import type { Galpon } from './settings'
 import { nombreSocio } from './sociedad'
 import { LB_POR_QUINTAL } from './standards'
 import type { Celda, Hoja } from './xlsx'
@@ -26,8 +29,13 @@ const redondo = (v: number | undefined, dec = 2) => (v == null ? undefined : Mat
 
 // El ciclo en hojas de cálculo: un resumen y cada cosa anotada en su hoja, para
 // sacar las cuentas a mano, mandárselas al contador o guardarlas aparte.
-export function hojasDelCiclo(d: DatosDelCiclo, granja: string): Hoja[] {
+export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon[] = []): Hoja[] {
   const { lote, metrics: m } = d
+  // Con la pollada repartida, los galpones van en su hoja y cada venta dice de
+  // cuál salió. Los nombres son los de esta granja.
+  const enVarios = repartido(lote) && !lote.compartido
+  const granjaGalpones = { galpones }
+  const galpon = (id?: string) => (id ? nombreDeGalpon(id, granjaGalpones) : 'De todos')
   const porFecha = <T extends { fecha: string }>(xs: T[]) => [...xs].sort((a, b) => a.fecha.localeCompare(b.fecha))
   const quien = (i: number | undefined) =>
     i != null && lote.socios?.[i] ? nombreSocio(lote.socios[i], i) : lote.socios?.length ? 'Común' : undefined
@@ -98,7 +106,7 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string): Hoja[] {
   ]
 
   const ventas: Celda[][] = [
-    ['Fecha', 'Comprador', 'Tipo', 'Aves', 'Libras', 'Monto', 'Cobrado', 'Falta'],
+    ['Fecha', 'Comprador', 'Tipo', 'Aves', 'Libras', 'Monto', 'Cobrado', 'Falta', ...(enVarios ? ['Galpón'] : [])],
     ...porFecha(d.ingresos).map((i) => [
       fecha(i.fecha),
       i.comprador ?? i.descripcion,
@@ -108,6 +116,7 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string): Hoja[] {
       i.monto,
       redondo(cobradoDe(i)),
       redondo(pendienteDe(i)) || undefined,
+      ...(enVarios ? [i.tipo === 'aves' ? galpon(i.galponId) : undefined] : []),
     ]),
   ]
 
@@ -144,6 +153,27 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string): Hoja[] {
     { nombre: 'Pesajes', filas: pesajes },
     { nombre: 'Sanidad', filas: sanidad },
   ]
+  if (enVarios) {
+    // Con el ciclo en curso, debajo, lo que hay hoy en cada galpón.
+    const hoy =
+      lote.estado === 'activo'
+        ? avesPorGalpon(lote, galponInicial(lote, granjaGalpones), d.registros, d.ingresos, '9999-12-31')
+        : []
+    hojas.push({
+      nombre: 'Galpones',
+      filas: [
+        ['Fecha', 'Día', 'Salen de', 'Van a', 'Aves'],
+        ...porFecha(lote.movimientos ?? []).map((mv) => [
+          fecha(mv.fecha),
+          diasEntre(lote.fechaInicio, mv.fecha),
+          galpon(mv.de),
+          galpon(mv.a),
+          mv.aves,
+        ]),
+        ...(hoy.length ? [[], ['Hoy en cada galpón', 'Aves'], ...hoy.map((c) => [galpon(c.galponId), c.aves])] : []),
+      ],
+    })
+  }
   if (d.entregas.length && lote.socios?.length) {
     hojas.push({
       nombre: 'Entregas',

@@ -1,7 +1,9 @@
-import type { Lote } from '../../db/schema'
+import { useState } from 'react'
+import { clsx } from 'clsx'
+import type { Ingreso, Lote, Registro } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
 import { saveSettings, type Galpon, type Settings } from '../../lib/settings'
-import { num, plural } from '../../lib/format'
+import { fecha, num, plural } from '../../lib/format'
 import {
   EQUIPOS,
   aMedida,
@@ -14,9 +16,11 @@ import {
   type ItemEquipo,
   type TipoEquipo,
 } from '../../lib/equipo'
-import { galponDe } from '../../lib/galpones'
-import { pesoObjetivoDe } from '../../lib/lote'
-import { Banda, Segmentado, Seccion } from '../../components/ui'
+import { galponDe, galponInicial, nombreDeGalpon, nombresGalpones } from '../../lib/galpones'
+import { avesPorGalpon, caben, fraseMovimiento, repartido } from '../../lib/reparto'
+import { pesoObjetivoDe, topeDelCiclo } from '../../lib/lote'
+import { Banda, Button, Pestanas, Segmentado, Seccion } from '../../components/ui'
+import { MoverAvesSheet } from '../../components/MoverAves'
 
 function Fila({
   label,
@@ -44,25 +48,117 @@ export function FichaGalpon({
   lote,
   metrics,
   settings,
+  registros = [],
+  ingresos = [],
+  soloVer = false,
 }: {
   lote: Lote
   metrics: LoteMetrics
   settings: Settings
+  registros?: Registro[]
+  ingresos?: Ingreso[]
+  soloVer?: boolean
 }) {
+  const [elegido, setElegido] = useState<string>()
+  const [mover, setMover] = useState<{ abierta: boolean; editar?: number }>({ abierta: false })
   // El galpón de un ciclo compartido es del socio: sus medidas no están aquí.
   const ajeno = !!lote.compartido
-  const aves = metrics.avesVivas > 0 ? metrics.avesVivas : lote.cantidadInicial
+  const anota = lote.estado === 'activo' && !soloVer && !ajeno
+  // Con la pollada repartida, cada galpón con sus aves: la ficha muestra el que
+  // se elija, con su espacio y su equipo.
+  const enCasas = ajeno ? [] : avesPorGalpon(lote, galponInicial(lote, settings), registros, ingresos, topeDelCiclo(lote))
+  const varias = enCasas.length > 1 || (repartido(lote) && enCasas.length > 0)
+  const casa = enCasas.find((c) => c.galponId === elegido) ?? enCasas[0]
+  const aves = varias && casa ? casa.aves : metrics.avesVivas > 0 ? metrics.avesVivas : lote.cantidadInicial
   const pesoObjetivo = pesoObjetivoDe(lote)
-  const galpon = ajeno ? null : galponDe(lote, settings)
+  const galpon = ajeno
+    ? null
+    : varias && casa
+      ? (settings.galpones.find((x) => x.id === casa.galponId) ?? null)
+      : galponDe(lote, settings)
   const plan = equipoDeLaGranja(aves, pesoObjetivo, metrics.diaObjetivo, settings, galpon)
   if (!plan) return null
   const g = plan.galpon
   const u = settings.unidadMedida
   const largo = (m: number, dec = 1) => (u === 'pies' ? `${num(enPies(m), dec)} pies` : `${num(m, dec)} m`)
+  const nombreCasa = varias && casa ? nombreDeGalpon(casa.galponId, settings) : undefined
+  const pasarAves = (
+    <Button variant="soft" onClick={() => setMover({ abierta: true })}>
+      Pasar aves a otro galpón
+    </Button>
+  )
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-ink-faint">Para las {num(aves)} aves que tienes hoy.</p>
+      {varias && (
+        <div>
+          <Seccion
+            className="mb-3"
+            etiqueta="Dónde están"
+            titulo={`Repartidas en ${nombresGalpones(
+              enCasas.map((c) => c.galponId),
+              settings,
+            )}`}
+            nota="Las bajas y las ventas se reparten según las aves de cada galpón, salvo la venta que dice de cuál salieron."
+          />
+          <Banda className="divide-y divide-line">
+            {enCasas.map((c) => {
+              const tope = caben(c.aves, lote, settings, settings.galpones.find((x) => x.id === c.galponId))
+              const apretado = tope != null && c.aves > tope
+              return (
+                <div key={c.galponId} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">{nombreDeGalpon(c.galponId, settings)}</div>
+                    <div className={clsx('text-xs tnum', apretado ? 'font-medium text-clay-text' : 'text-ink-faint')}>
+                      {tope == null
+                        ? 'sin medidas'
+                        : apretado
+                          ? `aguanta ${num(tope)} al peso de venta: sobran ${num(c.aves - tope)}`
+                          : `aguanta ${num(tope)} al peso de venta`}
+                    </div>
+                  </div>
+                  <div className="shrink-0 font-display text-xl font-semibold tnum leading-none">{num(c.aves)}</div>
+                </div>
+              )
+            })}
+          </Banda>
+          {(lote.movimientos?.length ?? 0) > 0 && (
+            <>
+              <p className="mb-2 mt-4 text-xs font-medium text-ink-faint">
+                {anota ? 'Lo que se pasó · toca uno para corregirlo' : 'Lo que se pasó'}
+              </p>
+              <Banda className="divide-y divide-line">
+                {lote.movimientos!.map((m, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={!anota}
+                    onClick={() => setMover({ abierta: true, editar: i })}
+                    className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
+                  >
+                    <span className="shrink-0 whitespace-nowrap font-medium tnum">{fecha(m.fecha)}</span>
+                    <span className="min-w-0 text-right text-ink-soft tnum">{fraseMovimiento(m, settings)}</span>
+                  </button>
+                ))}
+              </Banda>
+            </>
+          )}
+          {anota && <div className="mt-3">{pasarAves}</div>}
+        </div>
+      )}
+
+      {varias && casa && enCasas.length > 1 && (
+        <Pestanas
+          etiqueta="Galpón"
+          valor={casa.galponId}
+          onCambio={setElegido}
+          opciones={enCasas.map((c) => ({ id: c.galponId, label: nombreDeGalpon(c.galponId, settings) }))}
+        />
+      )}
+
+      <p className="text-xs text-ink-faint">
+        Para las {num(aves)} aves que tienes hoy{nombreCasa ? ` en ${nombreCasa}` : ''}.
+      </p>
 
       <div>
         <Seccion className="mb-3" etiqueta="Lo que hace falta" />
@@ -161,14 +257,15 @@ export function FichaGalpon({
             {g.sobrepoblado && (
               <div className="mt-2 rounded-xl2 border-l-4 border-amber-400 bg-amber-tint p-4">
                 <div className="font-display text-base font-semibold text-amber-text">
-                  El galpón queda apretado al peso de venta
+                  {nombreCasa ?? 'El galpón'} queda apretado al peso de venta
                 </div>
                 <p className="mt-1 text-sm leading-relaxed text-amber-text">
                   Con {num(aves)} aves llegas a {num(g.kgM2AlVender, 1)} kg/m²
                   {g.limitePorPeso ? ', sobre los 30 kg/m² que aguanta un galpón abierto en calor' : ` y ${num(g.avesPorM2Hoy, 1)} aves por m²`}.
-                  Saca {num(Math.max(0, aves - g.avesMaximas))} aves antes (raleo) o vende un poco más
-                  liviano.
+                  Pasa {num(Math.max(0, aves - g.avesMaximas))} aves a otro galpón, sácalas antes (raleo) o
+                  vende un poco más liviano.
                 </p>
+                {anota && <div className="mt-3">{pasarAves}</div>}
               </div>
             )}
 
@@ -194,6 +291,28 @@ export function FichaGalpon({
           </>
         )}
       </div>
+      )}
+
+      {anota && !varias && !g?.sobrepoblado && (
+        <div>
+          <Seccion
+            className="mb-3"
+            etiqueta="Otro galpón"
+            nota="Si parte de la pollada se pasa a otro galpón porque de grandes ya no caben, anótalo: sigue siendo el mismo ciclo, y aquí ves el espacio de cada galpón."
+          />
+          {pasarAves}
+        </div>
+      )}
+
+      {anota && (
+        <MoverAvesSheet
+          lote={lote}
+          registros={registros}
+          ingresos={ingresos}
+          open={mover.abierta}
+          editar={mover.editar}
+          onClose={() => setMover({ abierta: false })}
+        />
       )}
     </div>
   )
@@ -222,7 +341,7 @@ function FilaEquipo({ item, settings }: { item: ItemEquipo; settings: Settings }
                 avesPorEquipo: { ...settings.avesPorEquipo, [tipo]: v > 0 && v !== porDefecto ? v : undefined },
               })
             }}
-            className="h-9 w-14 rounded-lg border border-line bg-paper-raised px-1 text-center text-sm font-semibold text-ink tnum outline-none focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+            className="h-11 w-14 rounded-lg border border-borde bg-paper-raised px-1 text-center text-sm font-semibold text-ink tnum outline-none focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
           />
           <span>aves · {item.regla}</span>
         </div>
@@ -329,7 +448,7 @@ export function MedidasGalpon({ settings, galpon }: { settings: Settings; galpon
               })
             }}
             placeholder="0"
-            className="h-12 w-full rounded-xl border border-line bg-paper-raised px-4 text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+            className="h-12 w-full rounded-xl border border-borde bg-paper-raised px-4 text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
           />
         </label>
       ))}

@@ -6,7 +6,7 @@ import { getSettings } from './settings'
 // El peso de venta de un ciclo: el suyo si se lo pusiste, si no el de Ajustes.
 // Antes los ciclos sin peso propio usaban 5.5 lb fijo y el ajuste no servía de
 // nada: cambiarlo a 6 lb no movía ni el día de venta ni el precio mínimo.
-export const pesoObjetivoDe = (lote: Lote): number => {
+export const pesoObjetivoDe = (lote: Pick<Lote, 'pesoObjetivoLb'>): number => {
   const propio = lote.pesoObjetivoLb
   return propio != null && propio > 0 ? propio : getSettings().pesoObjetivoLb
 }

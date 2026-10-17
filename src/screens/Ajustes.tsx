@@ -4,7 +4,8 @@ import { db, type Lote } from '../db/schema'
 import { reemplazarSettings, saveSettings, type Galpon, type Settings } from '../lib/settings'
 import { useLotes, useSettings } from '../lib/hooks'
 import { enumerar, fecha, haceCuanto, num } from '../lib/format'
-import { galponDe, nuevoGalpon } from '../lib/galpones'
+import { galponDe, galponesOcupados, galponInicial, nuevoGalpon } from '../lib/galpones'
+import { repartido } from '../lib/reparto'
 import { borrarTodo as borrarTodoDeLaBase } from '../db/ciclo'
 import { borrarBorradoresDe } from '../lib/borrador'
 import { diasSinRespaldo, validarRespaldo } from '../lib/respaldo'
@@ -367,6 +368,19 @@ function Galpones({ settings: s }: { settings: Settings }) {
   }
 
   async function quitar(g: Galpon) {
+    // Una pollada repartida que tiene aves ahí, o que llegó ahí, no se puede
+    // pasar a otro galpón de un golpe: sus movimientos quedarían sin sentido.
+    const repartidos = (activos ?? [])
+      .filter((l) => repartido(l) && (galponInicial(l, s) === g.id || galponesOcupados(l, s).includes(g.id)))
+      .map((l) => `«${l.nombre}»`)
+    if (repartidos.length) {
+      await confirmar({
+        titulo: `${g.nombre} tiene aves`,
+        mensaje: `${repartidos.length === 1 ? `El ciclo ${repartidos[0]} tiene` : `Los ciclos ${repartidos.slice(0, -1).join(', ')} y ${repartidos[repartidos.length - 1]} tienen`} aves repartidas en este galpón. Pásalas a otro en la ficha Galpón del ciclo y después lo quitas.`,
+        confirmar: 'Entendido',
+      })
+      return
+    }
     const resto = s.galpones.filter((x) => x.id !== g.id)
     const enEl = (activos ?? []).filter((l) => galponDe(l, s)?.id === g.id).map((l) => l.nombre)
     const lista = enEl.length > 1 ? `${enEl.slice(0, -1).join(', ')} y ${enEl[enEl.length - 1]}` : enEl[0]

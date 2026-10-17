@@ -52,8 +52,23 @@ export function NuevoLote() {
     settings.galpones.find((g) => g.id === galponElegido) ??
     (activos ? galponLibre(settings.galpones, activos) : galponDe(undefined, settings))
   const varios = settings.galpones.length > 1
+  // Desde que llegan, parte de los pollitos puede ir a otro galpón: queda como
+  // un movimiento del primer día, igual que si se pasaran después.
+  const [repartir, setRepartir] = useState(false)
+  const [otroElegido, setOtroElegido] = useState<string>()
+  const [avesOtro, setAvesOtro] = useState('')
+  const otrosGalpones = settings.galpones.filter((g) => g.id !== galpon?.id)
+  const otro =
+    otrosGalpones.find((g) => g.id === otroElegido) ??
+    (activos ? galponLibre(otrosGalpones, activos) : otrosGalpones[0])
 
   const cantidadNum = Math.max(0, Math.round(Number(cantidad) || 0))
+  const colocados = Math.max(0, cantidadNum - Math.max(0, Math.round(Number(muertosLlegada) || 0)))
+  const nOtro = repartir && otro ? Math.max(0, Math.round(Number(avesOtro) || 0)) : 0
+  const errorOtro =
+    repartir && avesOtro !== '' && nOtro >= colocados && colocados > 0
+      ? 'Son todos los pollitos: elige ese galpón arriba.'
+      : errorNegativo(avesOtro)
   const pesoNum = Number(pesoVenta) || 0
   const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
   const errorMuertos =
@@ -70,14 +85,14 @@ export function NuevoLote() {
     peso: errorNegativo(pesoVenta),
   }
   const negativo = Object.values(errores).some(Boolean)
-  const valido = cantidadNum > 0 && !errorInicio && !errorMuertos && !negativo
+  const valido = cantidadNum > 0 && !errorInicio && !errorMuertos && !negativo && !errorOtro
   const motivo = !(cantidadNum > 0)
     ? 'Falta cuántos pollitos recibiste.'
     : errorInicio
       ? 'La fecha de inicio todavía no llega.'
       : negativo
         ? 'Hay un número negativo.'
-        : errorMuertos
+        : (errorMuertos ?? errorOtro)
 
   async function crear() {
     const costoInicial = Math.max(0, Number(costoAve) || 0) * cantidadNum
@@ -99,6 +114,10 @@ export function NuevoLote() {
       socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoInicial > 0 ? reparto.pagador : undefined,
       galponId: varios ? galpon?.id : undefined,
+      movimientos:
+        varios && galpon && otro && nOtro > 0
+          ? [{ fecha: fechaInicio, de: galpon.id, a: otro.id, aves: nOtro }]
+          : undefined,
       ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
       notas: notas.trim() || undefined,
       creado: Date.now(),
@@ -216,7 +235,66 @@ export function NuevoLote() {
           </Field>
         )}
 
-        {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} pesoVentaLb={pesoQueRige} galpon={galpon} />}
+        {varios &&
+          (repartir ? (
+            <div className="space-y-3 rounded-xl2 border border-line bg-paper-raised p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Otro galpón">
+                  <Select value={otro?.id ?? ''} onChange={(e) => setOtroElegido(e.target.value)}>
+                    {otrosGalpones.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Pollitos ahí" error={errorOtro}>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={avesOtro}
+                    onChange={(e) => setAvesOtro(e.target.value)}
+                    placeholder="0"
+                    aria-invalid={!!errorOtro}
+                  />
+                </Field>
+              </div>
+              {nOtro > 0 && galpon && !errorOtro && (
+                <p className="text-sm text-ink-soft tnum">
+                  {num(colocados - nOtro)} en {galpon.nombre} y {num(nOtro)} en {otro?.nombre}. Si se pasan más
+                  después, se anota en la ficha Galpón del ciclo.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setRepartir(false)
+                  setAvesOtro('')
+                }}
+                className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600"
+              >
+                Todos van en {galpon?.nombre ?? 'el mismo galpón'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRepartir(true)}
+              className="-mx-2 -my-3 block px-2 py-3 text-sm font-medium text-forest-600"
+            >
+              + Parte va en otro galpón
+            </button>
+          ))}
+
+        {cantidadNum > 0 && (
+          <EquipoNecesario
+            aves={nOtro > 0 && !errorOtro ? colocados - nOtro : cantidadNum}
+            pesoVentaLb={pesoQueRige}
+            galpon={galpon}
+          />
+        )}
+        {nOtro > 0 && !errorOtro && otro && <EquipoNecesario aves={nOtro} pesoVentaLb={pesoQueRige} galpon={otro} />}
 
         <DatosRecibo
           incubadora={incubadora}
