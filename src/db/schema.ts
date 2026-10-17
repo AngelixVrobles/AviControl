@@ -47,6 +47,12 @@ export interface Lote {
   conteosAlimento?: ConteoAlimento[]
   // En qué galpón de la granja está; sin él, el primero.
   galponId?: string
+  // El recibo: de qué incubadora vinieron, lo que pesaban al llegar (en gramos,
+  // como se pesa el pollito) y cuántos llegaron muertos en las cajas. Los que
+  // llegaron muertos están en `cantidadInicial` pero nunca entraron al galpón.
+  incubadora?: string
+  pesoLlegadaG?: number
+  muertosLlegada?: number
   // Un ciclo que mandó un socio desde su teléfono: se mira, no se toca, y no
   // entra en las cuentas de esta granja. Se pone al día cuando lo manda otra vez.
   compartido?: { de: string; exportado: string; origen: string }

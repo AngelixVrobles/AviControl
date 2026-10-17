@@ -10,6 +10,7 @@ import { getSettings, type Settings } from './settings'
 import { resumenDeudas } from './deudas'
 import { hoyISO } from './format'
 import { compradoresConocidos, cuentasPorCobrar } from './cobros'
+import { computeArranque, type Arranque } from './arranque'
 
 // La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
 // cuentas del ciclo dependen del día: con la app abierta de un día para otro,
@@ -59,6 +60,8 @@ export interface LoteConMetrics {
   alertas: Alerta[]
   /** A cómo vender: solo en los ciclos activos que ya tienen un pesaje. */
   precio?: AnalisisPrecio | null
+  /** La primera semana: para comparar incubadoras en Reportes. */
+  arranque?: Arranque
 }
 
 export function useLoteData(id: number | undefined) {
@@ -141,6 +144,7 @@ export function useResumen(
           aplicaciones,
         }),
         precio,
+        arranque: computeArranque(lote, registros, metrics.dias),
       })
     }
     return out
@@ -180,6 +184,26 @@ export function useGastosPorCiclo() {
     }
     return lotes.map((lote) => ({ lote, gastos: porLote.get(lote.id) ?? [] }))
   }, [hoy])
+}
+
+// Las incubadoras de los ciclos de antes, la más reciente primero, para no
+// escribirla cada vez y para que «Pollos del Este» no salga de tres maneras.
+export function useIncubadoras(): string[] {
+  return (
+    useLiveQuery(async () => {
+      const lotes = (await db.lotes.orderBy('fechaInicio').reverse().toArray()).filter((l) => !l.compartido)
+      // Por cada incubadora, como más veces se escribió; la más reciente primero.
+      const vistas = new Map<string, Map<string, number>>()
+      for (const l of lotes) {
+        const n = l.incubadora?.trim()
+        if (!n) continue
+        const formas = vistas.get(n.toLowerCase()) ?? new Map<string, number>()
+        formas.set(n, (formas.get(n) ?? 0) + 1)
+        vistas.set(n.toLowerCase(), formas)
+      }
+      return [...vistas.values()].map((formas) => [...formas].reduce((a, b) => (b[1] > a[1] ? b : a))[0])
+    }, []) ?? []
+  )
 }
 
 // Los compradores de antes, para no escribir el nombre cada vez.

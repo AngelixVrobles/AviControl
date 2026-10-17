@@ -68,7 +68,9 @@ export function computeMetrics(
   const bajas = sum(registros.map((r) => r.mortalidad ?? 0))
   const descartes = sum(registros.map((r) => r.descarte ?? 0))
   const vendidas = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.cantidad))
-  const avesVivas = Math.max(0, lote.cantidadInicial - bajas - descartes - vendidas)
+  // Los que llegaron muertos en las cajas no entraron al galpón: no están vivos,
+  // pero tampoco son mortalidad de la granja.
+  const avesVivas = Math.max(0, lote.cantidadInicial - (lote.muertosLlegada ?? 0) - bajas - descartes - vendidas)
   const mortalidadPct = lote.cantidadInicial > 0 ? (bajas / lote.cantidadInicial) * 100 : 0
 
   const alimento = consumoAlimento(lote, registros, gastos)

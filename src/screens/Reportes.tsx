@@ -9,6 +9,8 @@ import { gananciaPorSocio } from '../lib/sociedad'
 import { GraficaBarras } from '../components/chart'
 import { ComparacionLotes } from '../components/Comparacion'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
+import { LIMITE_DOA_PCT, porIncubadora } from '../lib/arranque'
+import { LIMITE_PRIMERA_SEMANA_PCT } from '../lib/mortalidad'
 
 type Segmento = 'cerrado' | 'activo'
 
@@ -62,6 +64,7 @@ export function Reportes() {
           {lista.length === 1 && <FichaDelCiclo r={lista[0]} enCurso={seg === 'activo'} />}
           <VasMejorando lista={lista} />
           <ComparacionLotes resumen={lista} />
+          {seg === 'cerrado' && <PorIncubadora lista={lista} />}
         </>
       )}
 
@@ -392,6 +395,56 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
         )}
       </Banda>
     </>
+  )
+}
+
+// Los ciclos cerrados de cada incubadora, una junto a otra: la que manda
+// pollitos que llegan muertos o arrancan flojos se nota.
+function PorIncubadora({ lista }: { lista: LoteConMetrics[] }) {
+  const grupos = porIncubadora(
+    lista
+      .filter((r) => r.arranque)
+      .map((r) => ({ arranque: r.arranque!, mortalidadPct: r.metrics.mortalidadPct, fca: r.metrics.fca })),
+  )
+  if (grupos.length === 0) return null
+  return (
+    <>
+      <Seccion
+        className="mt-8"
+        etiqueta="Por incubadora"
+        titulo={grupos.length > 1 ? 'Cómo arrancan los pollitos de cada una' : `Los pollitos de ${grupos[0].incubadora}`}
+        nota={`Promedio de los ciclos cerrados. En la primera semana lo normal es hasta ${pct(LIMITE_PRIMERA_SEMANA_PCT, 0)}, y en las cajas hasta ${pct(LIMITE_DOA_PCT, 1)}.`}
+      />
+      <Banda className="mt-3 divide-y divide-line">
+        {grupos.map((g) => (
+          <div key={g.incubadora} className="px-5 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate font-medium">{g.incubadora}</span>
+              <span className="shrink-0 text-xs text-ink-faint">
+                {num(g.ciclos)} {plural(g.ciclos, 'ciclo', 'ciclos')}
+              </span>
+            </div>
+            <div className="mt-1.5 grid grid-cols-4 gap-2 text-xs text-ink-faint">
+              <Cifra valor={pct(g.doaPct, 2)} label="en las cajas" mal={g.doaPct > LIMITE_DOA_PCT} />
+              <Cifra valor={pct(g.pct7, 2)} label="1ª semana" mal={g.pct7 > LIMITE_PRIMERA_SEMANA_PCT} />
+              <Cifra valor={pct(g.mortalidadPct, 1)} label="mortalidad" />
+              <Cifra valor={g.fca != null ? num(g.fca, 2) : '—'} label="conversión" />
+            </div>
+          </div>
+        ))}
+      </Banda>
+    </>
+  )
+}
+
+function Cifra({ valor, label, mal }: { valor: string; label: string; mal?: boolean }) {
+  return (
+    <div>
+      <div className={clsx('font-display text-base font-semibold tnum', mal ? 'text-clay-deep' : 'text-ink')}>
+        {valor}
+      </div>
+      {label}
+    </div>
   )
 }
 

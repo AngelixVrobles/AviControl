@@ -107,9 +107,12 @@ export interface CalorDelCiclo {
 // Lo que murió los días de calor contra los demás, por cada mil aves que había
 // esa mañana. La primera semana se deja fuera: lo que muere ahí viene del
 // pollito y del recibo.
-export function calorDelCiclo(lote: Pick<Lote, 'fechaInicio' | 'cantidadInicial'>, registros: Registro[]): CalorDelCiclo | null {
+export function calorDelCiclo(
+  lote: Pick<Lote, 'fechaInicio' | 'cantidadInicial' | 'muertosLlegada'>,
+  registros: Registro[],
+): CalorDelCiclo | null {
   const ordenados = [...registros].sort((a, b) => a.fecha.localeCompare(b.fecha))
-  let vivas = lote.cantidadInicial
+  let vivas = lote.cantidadInicial - (lote.muertosLlegada ?? 0)
   const calor = { dias: 0, bajas: 0, aves: 0 }
   const normal = { dias: 0, bajas: 0, aves: 0 }
   let anotados = 0

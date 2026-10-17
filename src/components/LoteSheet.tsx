@@ -10,6 +10,8 @@ import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
 import { confirmar, toast } from './confirm'
 import { EditorSocios } from './Socios'
+import { DatosRecibo } from './Recibo'
+import { reciboParaGuardar } from '../lib/arranque'
 import { useEnvio } from './useEnvio'
 import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
 
@@ -85,14 +87,20 @@ function FormLote({
     lote.costoInicialPagadoPor != null ? String(lote.costoInicialPagadoPor) : '',
   )
   const [notas, setNotas] = useState(lote.notas ?? '')
+  const [incubadora, setIncubadora] = useState(lote.incubadora ?? '')
+  const [pesoLlegada, setPesoLlegada] = useState(aTexto(lote.pesoLlegadaG))
+  const [muertosLlegada, setMuertosLlegada] = useState(aTexto(lote.muertosLlegada))
   const varios = settings.galpones.length > 1
   const [galponId, setGalponId] = useState(() => galponDe(lote, settings)?.id ?? '')
 
   const cantidadNum = Number(cantidad) || 0
   const costoNum = Number(costo) || 0
   const pesoNum = Number(pesoVenta) || 0
-  const errores = erroresLote({ fechaInicio, cantidad: cantidadNum }, limites)
-  const valido = !errores.fechaInicio && !errores.cantidad
+  const errores = erroresLote(
+    { fechaInicio, cantidad: cantidadNum, muertosLlegada: Number(muertosLlegada) || 0 },
+    limites,
+  )
+  const valido = !errores.fechaInicio && !errores.cantidad && !errores.muertosLlegada
   const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
 
   async function guardar() {
@@ -112,6 +120,7 @@ function FormLote({
       socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
       galponId: varios ? galponId || undefined : lote.galponId,
+      ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
       notas: notas.trim() || undefined,
     })
     toast('Ciclo corregido.')
@@ -232,6 +241,16 @@ function FormLote({
           Vacío, el ciclo usa el peso de Ajustes ({num(settings.pesoObjetivoLb, 1)} lb).
         </p>
       )}
+
+      <DatosRecibo
+        incubadora={incubadora}
+        onIncubadora={setIncubadora}
+        pesoG={pesoLlegada}
+        onPesoG={setPesoLlegada}
+        muertos={muertosLlegada}
+        onMuertos={setMuertosLlegada}
+        errorMuertos={errores.muertosLlegada}
+      />
 
       {varios && (
         <Field label="Galpón">
