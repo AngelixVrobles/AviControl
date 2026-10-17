@@ -2,6 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Las letras van con la app: antes se bajaban de Google al abrirla, y la
+   primera vez sin señal —o con el teléfono que nunca la había abierto con
+   internet— salía todo con la letra del sistema. Solo el juego latino, que es
+   el que lleva el español: lo demás no se baja ni se guarda. Fraunces es la
+   variable con el eje de tamaño óptico, como la de antes: se dibuja distinto en
+   un título grande que en una cifra pequeña. */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2') format('woff2-variations'),
+    url('@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('@fontsource/geist/files/geist-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('@fontsource/geist/files/geist-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('@fontsource/geist/files/geist-latin-600-normal.woff2') format('woff2');
+}
+
 @layer base {
   :root {
     color-scheme: light;
