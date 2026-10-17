@@ -12,9 +12,10 @@ import {
   type Pesaje,
   type Registro,
 } from '../db/schema'
-import { saveSettings, type Settings } from '../lib/settings'
-import { useSettings } from '../lib/hooks'
+import { leerGalpones, saveSettings, type Galpon, type Settings } from '../lib/settings'
+import { useLotes, useSettings } from '../lib/hooks'
 import { enumerar, fecha, num } from '../lib/format'
+import { galponDe, nuevoGalpon } from '../lib/galpones'
 import { borrarTodo as borrarTodoDeLaBase } from '../db/ciclo'
 import { borrarBorradoresDe } from '../lib/borrador'
 import { diasSinRespaldo } from '../lib/respaldo'
@@ -159,7 +160,9 @@ export function Ajustes() {
     // Los pesajes a medias eran de los ciclos de antes: con los del respaldo
     // aparecerían como si fueran suyos.
     borrarBorradoresDe()
-    if (data.settings) saveSettings(data.settings)
+    // Un respaldo de antes de los galpones trae las medidas sueltas: pasan a
+    // ser las del primer galpón en vez de perderse.
+    if (data.settings) saveSettings({ ...data.settings, galpones: leerGalpones(data.settings) })
     toast('Respaldo restaurado.')
   }
 
@@ -238,8 +241,8 @@ export function Ajustes() {
 
       <Seccion
         className="mb-3 mt-8"
-        etiqueta="Galpón y equipo"
-        nota="Con esto la app dice cuántos bebederos y comederos hacen falta, cuántas aves caben y cómo repartirlos."
+        etiqueta={s.galpones.length > 1 ? 'Galpones y equipo' : 'Galpón y equipo'}
+        nota="Con esto la app dice cuántos bebederos y comederos hacen falta, cuántas aves caben y cómo repartirlos. Si tienes más de un galpón, cada ciclo dice en cuál está."
       />
       <Banda className="space-y-4 px-5 py-4">
         <div className="flex items-center justify-between gap-3">
@@ -255,7 +258,7 @@ export function Ajustes() {
             className="w-48"
           />
         </div>
-        <MedidasGalpon settings={s} />
+        <Galpones settings={s} />
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-medium">Bebederos</span>
           <Segmentado
@@ -363,6 +366,72 @@ function AvisoRespaldo({
         </button>
       </div>
     </div>
+  )
+}
+
+// Los galpones de la granja con sus medidas. Con uno solo no hace falta
+// nombrarlo y se ve como antes; con varios, cada uno con su nombre, que es el
+// que aparece en el ciclo.
+function Galpones({ settings: s }: { settings: Settings }) {
+  const activos = useLotes('activo')
+  const varios = s.galpones.length > 1
+
+  function renombrar(g: Galpon, nombre: string) {
+    const limpio = nombre.trim()
+    if (!limpio || limpio === g.nombre) return
+    saveSettings({ galpones: s.galpones.map((x) => (x.id === g.id ? { ...x, nombre: limpio } : x)) })
+  }
+
+  async function quitar(g: Galpon) {
+    const resto = s.galpones.filter((x) => x.id !== g.id)
+    const enEl = (activos ?? []).filter((l) => galponDe(l, s)?.id === g.id).map((l) => l.nombre)
+    const lista = enEl.length > 1 ? `${enEl.slice(0, -1).join(', ')} y ${enEl[enEl.length - 1]}` : enEl[0]
+    const ok = await confirmar({
+      titulo: `Quitar ${g.nombre}`,
+      mensaje:
+        enEl.length === 0
+          ? 'Se quitan su nombre y sus medidas.'
+          : enEl.length === 1
+            ? `El ciclo ${lista}, que está en este galpón, pasa a ${resto[0].nombre}.`
+            : `Los ciclos ${lista}, que están en este galpón, pasan a ${resto[0].nombre}.`,
+      confirmar: 'Quitar',
+      peligro: true,
+    })
+    if (ok) saveSettings({ galpones: resto })
+  }
+
+  return (
+    <>
+      {s.galpones.map((g) => (
+        <div key={g.id} className={varios ? 'space-y-3 rounded-xl border border-line p-3' : undefined}>
+          {varios && (
+            <div className="flex items-center gap-2">
+              <Input
+                key={`${g.id}-${g.nombre}`}
+                defaultValue={g.nombre}
+                onBlur={(e) => renombrar(g, e.target.value)}
+                aria-label="Nombre del galpón"
+                className="flex-1"
+              />
+              <button
+                onClick={() => quitar(g)}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-soft active:bg-paper-sunken"
+                aria-label={`Quitar ${g.nombre}`}
+              >
+                <IconClose width={18} height={18} />
+              </button>
+            </div>
+          )}
+          <MedidasGalpon settings={s} galpon={g} />
+        </div>
+      ))}
+      <button
+        onClick={() => saveSettings({ galpones: [...s.galpones, nuevoGalpon(s.galpones)] })}
+        className="-mx-2 -my-3 block px-2 py-3 text-sm font-medium text-forest-600"
+      >
+        + Agregar galpón
+      </button>
+    </>
   )
 }
 

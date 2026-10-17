@@ -9,6 +9,7 @@ import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
 import { alimentoEn, desdeHace, fechaLarga, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { precioMinimoConjunto } from '../lib/precios'
 import { sinAves } from '../lib/lote'
+import { nombreGalpon } from '../lib/galpones'
 import { usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
@@ -176,7 +177,13 @@ function Alertas({ activos }: { activos: LoteConMetrics[] }) {
 
 function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
   const nav = useNavigate()
-  const { unidadAlimento } = useSettings()
+  const settings = useSettings()
+  const { unidadAlimento } = settings
+  // Con varios galpones, el nombre del ciclo no siempre dice dónde está.
+  const donde = (r: LoteConMetrics) => {
+    const g = nombreGalpon(r.lote, settings)
+    return g ? `${g} · ` : ''
+  }
   // El ciclo que ya no tiene aves no tiene día que anotar: su aviso es cerrarlo.
   const activos = todos.filter((r) => !sinAves(r.metrics))
   const listos = activos.filter((r) => r.metrics.registroHoy).length
@@ -212,7 +219,10 @@ function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold leading-tight">
-                    {r.lote.nombre} <span className="font-normal text-ink-faint">· día {r.metrics.dias}</span>
+                    {r.lote.nombre}{' '}
+                    <span className="font-normal text-ink-faint">
+                      · {donde(r)}día {r.metrics.dias}
+                    </span>
                   </div>
                   {resumen && <div className="text-sm text-ink-soft tnum">{resumen}</div>}
                 </div>
@@ -229,7 +239,10 @@ function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold leading-tight">
-                  {r.lote.nombre} <span className="font-normal text-ink-soft">· día {r.metrics.dias}</span>
+                  {r.lote.nombre}{' '}
+                  <span className="font-normal text-ink-soft">
+                    · {donde(r)}día {r.metrics.dias}
+                  </span>
                 </div>
                 <div className="text-sm font-medium text-amber-text">Falta el de hoy</div>
               </div>
