@@ -1,0 +1,241 @@
+import type { ReactNode } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useLoteData, useSettings } from '../lib/hooks'
+import { fecha, hoyISO, money, num, pct, porLb } from '../lib/format'
+import { categoriaLabel, RAZA } from '../lib/labels'
+import { agruparGastos } from '../lib/metrics'
+import { pendienteDe } from '../lib/cobros'
+import { retiroDe } from '../lib/retiro'
+import { semanasDelCiclo } from '../lib/exportar'
+import { nombreSocio } from '../lib/sociedad'
+import { LB_POR_QUINTAL } from '../lib/standards'
+import { Button } from '../components/ui'
+import { IconBack } from '../components/icons'
+
+// El reporte del ciclo en una hoja para imprimir o guardar en PDF: lo que pide
+// el banco, el contador o el socio que no usa la app. En el teléfono, «Imprimir»
+// abre la vista previa, y desde ahí se guarda como PDF o se comparte.
+export function Imprimir() {
+  const { id } = useParams()
+  const nav = useNavigate()
+  const data = useLoteData(id ? Number(id) : undefined)
+  const settings = useSettings()
+
+  if (data === undefined) return <div className="pt-10 text-center text-ink-faint">Cargando…</div>
+  if (data === null)
+    return (
+      <div className="pt-10 text-center">
+        <p className="text-ink-faint">Este ciclo no existe.</p>
+        <Button variant="soft" className="mt-4" onClick={() => nav('/lotes')}>
+          Volver a los ciclos
+        </Button>
+      </div>
+    )
+
+  const { lote, registros, gastos, ingresos, aplicaciones, metrics: m } = data
+  const hasta = lote.fechaCierre ?? hoyISO()
+  const cerrado = lote.estado === 'cerrado'
+  // Con el ciclo en curso lo vendido es solo una parte: lo que va no es una
+  // pérdida, es lo que falta por vender.
+  const resultado: [string, string] = cerrado
+    ? [m.ganancia >= 0 ? 'Ganancia' : 'Pérdida', money(m.ganancia)]
+    : m.ingresos > 0
+      ? ['Vendido menos invertido', money(m.ganancia)]
+      : ['Invertido', money(m.costos)]
+  const costos = [
+    ...(lote.costoInicial > 0 ? [{ categoria: 'Pollitos', total: lote.costoInicial }] : []),
+    ...agruparGastos(gastos).map((g) => ({ categoria: categoriaLabel(g.categoria), total: g.total })),
+  ]
+  const totalCostos = costos.reduce((a, c) => a + c.total, 0)
+  const semanas = semanasDelCiclo(lote, registros)
+  const ventas = [...ingresos].sort((a, b) => a.fecha.localeCompare(b.fecha))
+  const socios = lote.socios && lote.socios.length >= 2 ? lote.socios : undefined
+  const totalPct = socios?.reduce((a, s) => a + (s.pct || 0), 0) ?? 0
+
+  const kpis: [string, string][] = [
+    ['Pollitos recibidos', num(lote.cantidadInicial)],
+    [cerrado ? 'Aves vendidas' : 'Aves en el galpón', num(cerrado ? m.vendidas : m.avesVivas)],
+    ['Mortalidad', pct(m.mortalidadPct)],
+    ['Peso promedio', m.pesoFinalLb != null ? `${num(m.pesoFinalLb, 2)} lb` : '—'],
+    ['Conversión (FCA)', m.fca != null ? num(m.fca, 2) : '—'],
+    ['Alimento', `${num(m.alimentoTotalLb / LB_POR_QUINTAL, 1)} qq`],
+    ['Costos', money(m.costos)],
+    ['Ventas', money(m.ingresos)],
+    resultado,
+    ['Costo por libra', m.costoPorLb != null ? porLb(m.costoPorLb) : '—'],
+    ...(m.porCobrar > 0 ? [['Por cobrar', money(m.porCobrar)] as [string, string]] : []),
+  ]
+
+  return (
+    <div className="impresion mx-auto min-h-dvh max-w-3xl bg-white px-6 pb-12 text-ink safe-t print:max-w-none print:px-0 print:pb-0">
+      <div className="sticky top-0 z-10 -mx-6 mb-6 flex items-center gap-3 border-b border-line bg-white/95 px-6 py-3 backdrop-blur print:hidden">
+        <button
+          onClick={() => nav(-1)}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken"
+          aria-label="Volver"
+        >
+          <IconBack width={22} height={22} />
+        </button>
+        <p className="min-w-0 flex-1 text-sm leading-snug text-ink-soft">
+          En la vista previa elige «Guardar como PDF» o compártelo.
+        </p>
+        <Button onClick={() => window.print()}>Imprimir</Button>
+      </div>
+
+      <header className="border-b-2 border-ink pb-4">
+        <div className="text-xs font-semibold uppercase tracking-widest text-ink-soft">Reporte del ciclo</div>
+        <h1 className="mt-1 font-display text-3xl font-semibold leading-tight">{lote.nombre}</h1>
+        <p className="mt-1 text-sm text-ink-soft tnum">
+          {lote.compartido?.de ?? settings.granja} · {RAZA} · del {fecha(lote.fechaInicio)} al {fecha(hasta)} · día{' '}
+          {m.dias}
+          {cerrado ? ' · cerrado' : ' · en curso'}
+        </p>
+      </header>
+
+      <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 print:grid-cols-4">
+        {kpis.map(([label, valor]) => (
+          <div key={label} className="break-inside-avoid">
+            <div className="font-display text-xl font-semibold leading-none tnum">{valor}</div>
+            <div className="mt-1 text-xs text-ink-soft">{label}</div>
+          </div>
+        ))}
+      </section>
+
+      {socios && (
+        <Bloque titulo="Reparto entre socios">
+          <Tabla
+            columnas={['Socio', 'Parte', cerrado ? 'Ganancia' : 'Le toca poner']}
+            filas={socios.map((s, i) => {
+              const parte = totalPct > 0 ? (s.pct || 0) / totalPct : 1 / socios.length
+              return [nombreSocio(s, i), pct(parte * 100, 0), money(parte * (cerrado ? m.ganancia : m.costos))]
+            })}
+          />
+        </Bloque>
+      )}
+
+      {costos.length > 0 && (
+        <Bloque titulo="Costos">
+          <Tabla
+            columnas={['Concepto', 'Monto', 'Del total']}
+            filas={[
+              ...costos.map((c) => [c.categoria, money(c.total), pct((c.total / totalCostos) * 100, 0)]),
+              ['Total', money(totalCostos), ''],
+            ]}
+            total
+          />
+        </Bloque>
+      )}
+
+      {ventas.length > 0 && (
+        <Bloque titulo="Ventas">
+          <Tabla
+            columnas={['Fecha', 'Comprador', 'Aves', 'Libras', 'Monto', 'Falta']}
+            texto={2}
+            filas={ventas.map((i) => [
+              fecha(i.fecha),
+              i.comprador ?? i.descripcion ?? '—',
+              i.cantidad ? num(i.cantidad) : '—',
+              i.pesoLb ? num(i.pesoLb) : '—',
+              money(i.monto),
+              pendienteDe(i) >= 1 ? money(pendienteDe(i)) : '—',
+            ])}
+          />
+        </Bloque>
+      )}
+
+      {semanas.length > 0 && (
+        <Bloque titulo="Semana a semana">
+          <Tabla
+            columnas={['Semana', 'Bajas', 'Del lote', 'Alimento', 'Peso']}
+            filas={semanas.map((s) => [
+              `Semana ${s.semana}`,
+              num(s.bajas),
+              pct(s.pctLote, 2),
+              s.alimentoLb > 0 ? `${num(s.alimentoLb / LB_POR_QUINTAL, 1)} qq` : '—',
+              s.pesoLb != null ? `${num(s.pesoLb, 2)} lb` : '—',
+            ])}
+          />
+        </Bloque>
+      )}
+
+      {aplicaciones.length > 0 && (
+        <Bloque titulo="Vacunas y medicinas">
+          <Tabla
+            columnas={['Fecha', 'Nombre', 'Vía', 'Retiro']}
+            texto={4}
+            filas={aplicaciones.map((a) => {
+              const r = retiroDe(a)
+              return [
+                fecha(a.fecha),
+                a.nombre,
+                a.via ?? '—',
+                r ? `${num(r.dias)} días · desde el ${fecha(r.libreDesde)}` : '—',
+              ]
+            })}
+          />
+        </Bloque>
+      )}
+
+      <footer className="mt-10 border-t border-line pt-3 text-xs text-ink-faint">
+        Hecho con AviControl el {fecha(hoyISO())}.
+      </footer>
+    </div>
+  )
+}
+
+function Bloque({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <section className="mt-8 break-inside-avoid">
+      <h2 className="mb-2 font-display text-lg font-semibold">{titulo}</h2>
+      {children}
+    </section>
+  )
+}
+
+// Las primeras `texto` columnas son palabras y van a la izquierda; las cifras, a
+// la derecha para que se lean en columna.
+function Tabla({
+  columnas,
+  filas,
+  total,
+  texto = 1,
+}: {
+  columnas: string[]
+  filas: string[][]
+  total?: boolean
+  texto?: number
+}) {
+  // En el teléfono una tabla ancha se desliza dentro de su caja en vez de
+  // ensanchar la página; en papel cabe entera.
+  return (
+    <div className="-mx-6 overflow-x-auto px-6 print:mx-0 print:overflow-visible print:px-0">
+    <table className="w-full border-collapse whitespace-nowrap text-sm tnum">
+      <thead>
+        <tr className="border-b border-ink">
+          {columnas.map((c, i) => (
+            <th key={c} className={'py-1.5 pr-3 font-semibold last:pr-0 ' + (i < texto ? 'text-left' : 'text-right')}>
+              {c}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {filas.map((f, r) => (
+          <tr
+            key={r}
+            className={
+              'break-inside-avoid border-b border-line ' + (total && r === filas.length - 1 ? 'font-semibold' : '')
+            }
+          >
+            {f.map((v, i) => (
+              <td key={i} className={'py-1.5 pr-3 last:pr-0 ' + (i < texto ? 'text-left' : 'text-right')}>
+                {v}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    </div>
+  )
+}

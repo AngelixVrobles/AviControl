@@ -77,6 +77,13 @@ const router = createBrowserRouter([
     errorElement: <ErrorDeRuta />,
     hydrateFallbackElement: <PantallaCargando />,
   },
+  // El reporte para imprimir va sin la barra de abajo: es una hoja de papel.
+  {
+    path: '/lotes/:id/imprimir',
+    lazy: pantalla(() => import('./screens/Imprimir'), (m) => m.Imprimir),
+    errorElement: <ErrorDeRuta />,
+    hydrateFallbackElement: <PantallaCargando />,
+  },
 ])
 
 // Que el navegador no borre la base cuando le falte espacio: la granja entera

@@ -167,3 +167,19 @@
 .animate-aparecer {
   animation: aparecer 0.6s ease-out both;
 }
+
+/* El reporte impreso: hoja blanca, sin el grano del papel ni lo que es de la pantalla. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  body::after {
+    display: none;
+  }
+}
