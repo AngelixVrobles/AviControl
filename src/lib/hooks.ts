@@ -9,6 +9,7 @@ import { proyectarVenta } from './proyeccion'
 import { getSettings, type Settings } from './settings'
 import { resumenDeudas } from './deudas'
 import { hoyISO } from './format'
+import { compradoresConocidos, cuentasPorCobrar } from './cobros'
 
 // La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
 // cuentas del ciclo dependen del día: con la app abierta de un día para otro,
@@ -167,5 +168,19 @@ export function useGastosPorCiclo() {
       else porLote.set(g.loteId, [g])
     }
     return lotes.map((lote) => ({ lote, gastos: porLote.get(lote.id) ?? [] }))
+  }, [hoy])
+}
+
+// Los compradores de antes, para no escribir el nombre cada vez.
+export function useCompradores(): string[] {
+  return useLiveQuery(async () => compradoresConocidos(await db.ingresos.toArray()), []) ?? []
+}
+
+// Lo que te deben de las ventas a crédito, de todos los ciclos.
+export function usePorCobrar() {
+  const hoy = useHoy()
+  return useLiveQuery(async () => {
+    const [ingresos, lotes] = await Promise.all([db.ingresos.toArray(), db.lotes.toArray()])
+    return cuentasPorCobrar(ingresos, lotes, hoy)
   }, [hoy])
 }

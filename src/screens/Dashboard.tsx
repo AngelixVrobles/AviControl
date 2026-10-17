@@ -6,10 +6,10 @@ import { LoteCard } from '../components/LoteCard'
 import type { LoteConMetrics } from '../lib/hooks'
 import { Button, EmptyState, Seccion } from '../components/ui'
 import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
-import { alimentoEn, fechaLarga, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
+import { alimentoEn, desdeHace, fechaLarga, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { precioMinimoConjunto } from '../lib/precios'
 import { sinAves } from '../lib/lote'
-import { useResumen, useSettings } from '../lib/hooks'
+import { usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 
@@ -56,6 +56,7 @@ export function Dashboard() {
               </div>
             }
           />
+          <TeDeben />
           {recordar && <RecordarRespaldo ultimo={settings.ultimoRespaldo} />}
         </div>
       ) : (
@@ -63,6 +64,8 @@ export function Dashboard() {
           <RegistroDeHoy activos={activos} />
 
           <Alertas activos={activos} />
+
+          <TeDeben />
 
           {recordar && <RecordarRespaldo ultimo={settings.ultimoRespaldo} />}
 
@@ -87,6 +90,30 @@ export function Dashboard() {
         </>
       )}
     </div>
+  )
+}
+
+// Lo vendido a crédito que no ha entrado, de todos los ciclos, con quién debe
+// más y desde cuándo.
+function TeDeben() {
+  const r = usePorCobrar()
+  if (!r || r.total < 1) return null
+  const masVieja = Math.max(...r.compradores.map((c) => c.masVieja))
+  return (
+    <Link
+      to="/cobros"
+      className="mt-7 block rounded-xl2 border border-line bg-paper-raised p-4 transition active:scale-[0.99]"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-sm font-medium text-ink-soft">Te deben</span>
+        <span className="font-display text-xl font-semibold tnum">{money(r.total)}</span>
+      </div>
+      <p className="mt-1 text-sm text-ink-soft tnum">
+        {r.compradores.length === 1
+          ? `${r.compradores[0].comprador} te debe ${desdeHace(masVieja)}`
+          : `${num(r.compradores.length)} compradores · ${r.compradores[0].comprador} debe más · lo más viejo, ${desdeHace(masVieja)}`}
+      </p>
+    </Link>
   )
 }
 

@@ -25,6 +25,7 @@ import { analizarPuntoOptimo } from "../lib/optimo";
 import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
+import { pendienteDe } from "../lib/cobros";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
 import {
   computeLiquidacion,
@@ -71,6 +72,7 @@ import {
 import {
   ActionButton,
   CierreSheet,
+  CobroSheet,
   EntregaSheet,
   GastoSheet,
   IngresoSheet,
@@ -85,6 +87,7 @@ type SheetKind =
   | "ingreso"
   | "cierre"
   | "lote"
+  | "cobro"
   | null;
 type Tab = "hoy" | "crecimiento" | "dinero";
 const TABS: { id: Tab; label: string }[] = [
@@ -103,6 +106,7 @@ export function LoteDetail() {
   const [editGasto, setEditGasto] = useState<Gasto>();
   const [editIngreso, setEditIngreso] = useState<Ingreso>();
   const [editPesaje, setEditPesaje] = useState<Pesaje>();
+  const [cobroDe, setCobroDe] = useState<number>();
   const [todoHistorial, setTodoHistorial] = useState(false);
 
   function abrir(kind: SheetKind) {
@@ -497,6 +501,20 @@ export function LoteDetail() {
             </div>
           </Banda>
 
+          {metrics.porCobrar >= 1 && (
+            <Link
+              to="/cobros"
+              className="mt-3 flex items-center justify-between gap-3 rounded-xl2 border border-amber-line bg-amber-tint px-4 py-3 text-sm text-amber-text"
+            >
+              <span>
+                De lo vendido faltan{" "}
+                <span className="font-semibold tnum">{money(metrics.porCobrar)}</span> por
+                cobrar
+              </span>
+              <span className="shrink-0 font-semibold">Ver →</span>
+            </Link>
+          )}
+
           <PrecioMinimo
             lote={lote}
             registros={registros}
@@ -568,9 +586,11 @@ export function LoteDetail() {
                       }}
                       className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
                     >
-                      <div>
-                        <div className="font-medium">
-                          {i.descripcion || tipoIngresoLabel(i.tipo)}
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {i.comprador?.trim() ||
+                            i.descripcion ||
+                            tipoIngresoLabel(i.tipo)}
                         </div>
                         <div className="text-xs text-ink-faint tnum">
                           {fecha(i.fecha)}
@@ -578,8 +598,15 @@ export function LoteDetail() {
                           {i.pesoLb ? ` · ${num(i.pesoLb)} lb` : ""}
                         </div>
                       </div>
-                      <span className="font-display font-semibold text-forest-600 tnum">
-                        +{money(i.monto)}
+                      <span className="shrink-0 text-right tnum">
+                        <span className="block font-display font-semibold text-forest-600">
+                          +{money(i.monto)}
+                        </span>
+                        {pendienteDe(i) >= 1 && (
+                          <span className="block text-xs font-medium text-amber-text">
+                            faltan {money(pendienteDe(i))}
+                          </span>
+                        )}
                       </span>
                     </button>
                   ))}
@@ -665,6 +692,16 @@ export function LoteDetail() {
         open={sheet === "ingreso"}
         onClose={() => setSheet(null)}
         editar={editIngreso}
+        onCobrar={(i) => {
+          setCobroDe(i.id);
+          setSheet("cobro");
+        }}
+      />
+      <CobroSheet
+        ingreso={ingresos.find((i) => i.id === cobroDe)}
+        lote={lote}
+        open={sheet === "cobro"}
+        onClose={() => setSheet(null)}
       />
       <EditarLoteSheet
         lote={lote}
@@ -1641,9 +1678,15 @@ function Sociedad({
     : liq.traspasos.length === 1
       ? `${antes}${money(liq.traspasos[0].monto)}${despues}`
       : `Faltan ${num(liq.traspasos.length)} entregas para quedar parejos`;
-  const nota = liq.conVentas
-    ? `Cada uno recupera lo que puso y se queda con su parte de la ganancia, ${liq.acuerdo}.`
-    : `Lo que ha puesto cada uno, para seguir ${liq.acuerdo} con los gastos.`;
+  // Lo vendido a crédito que no ha entrado no lo tiene nadie: la cuenta lo
+  // espera, y se dice para que nadie pida lo que todavía no se cobra.
+  const nota =
+    (liq.conVentas
+      ? `Cada uno recupera lo que puso y se queda con su parte de la ganancia, ${liq.acuerdo}.`
+      : `Lo que ha puesto cada uno, para seguir ${liq.acuerdo} con los gastos.`) +
+    (liq.porCobrar >= 1
+      ? ` Faltan ${money(liq.porCobrar)} por cobrar de ventas a crédito: cuando entren, la cuenta se pone al día.`
+      : "");
 
   function anotar(t?: Traspaso) {
     setEditar(undefined);
@@ -1657,12 +1700,15 @@ function Sociedad({
       `${lote.nombre} · ${lote.estado === "cerrado" ? "ciclo cerrado" : `día ${metrics.dias}`}`,
       "",
     ];
-    if (liq!.conVentas)
+    if (liq!.conVentas) {
       L.push(
         `Ventas: ${money(liq!.ingresos)}`,
         `Costos: ${money(liq!.costos)}`,
         `${liq!.ganancia >= 0 ? "Ganancia" : "Pérdida"}: ${money(liq!.ganancia)}`,
       );
+      if (liq!.porCobrar >= 1)
+        L.push(`Por cobrar de ventas a crédito: ${money(liq!.porCobrar)}`);
+    }
     else L.push(`Gastado hasta hoy: ${money(liq!.costos)}`);
     for (const s of liq!.socios) {
       L.push("", `${s.nombre} (${pct(s.pct, 0)})`, `  Puso: ${money(s.aporte)}`);

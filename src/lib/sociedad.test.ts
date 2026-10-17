@@ -300,3 +300,38 @@ describe('sociosParaGuardar', () => {
     ])
   })
 })
+
+describe('sociedad con ventas a crédito', () => {
+  // Venta de 100.000 a crédito, sin cobrar nada: nadie tiene ese dinero, así
+  // que nadie le debe entregar nada a nadie por ella.
+  it('lo que falta por cobrar no está en la mano de ningún socio', () => {
+    const l = lote({ socios, costoInicial: 0 })
+    const gastos = [gasto({ monto: 80000, pagadoPor: 0 })]
+    const ingresos = [ingreso({ cantidad: 400, monto: 100000, credito: true, cobros: [] })]
+    const m = computeMetrics(l, [registro(1)], gastos, ingresos)
+    const liq = computeLiquidacion(l, gastos, ingresos, m)!
+    expect(liq.porCobrar).toBe(100000)
+    expect(liq.socios.map((s) => s.cobrado)).toEqual([0, 0])
+    expect(liq.traspasos).toEqual([])
+  })
+
+  it('cada cobro cuenta para quien lo recibió', () => {
+    const l = lote({ socios, costoInicial: 0 })
+    const ingresos = [
+      ingreso({
+        cantidad: 400,
+        monto: 100000,
+        credito: true,
+        cobros: [
+          { fecha: '2026-10-01', monto: 60000, recibidoPor: 1 },
+          { fecha: '2026-10-05', monto: 40000 },
+        ],
+      }),
+    ]
+    const m = computeMetrics(l, [registro(1)], [], ingresos)
+    const liq = computeLiquidacion(l, [], ingresos, m)!
+    expect(liq.socios[0].cobrado).toBe(20000)
+    expect(liq.socios[1].cobrado).toBe(80000)
+    expect(liq.porCobrar).toBe(0)
+  })
+})

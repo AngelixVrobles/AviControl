@@ -111,16 +111,31 @@ export interface Gasto {
 
 export type TipoIngreso = 'aves' | 'otros'
 
+// Un pago de una venta a crédito: el comprador se lleva el pollo y paga
+// después, en una o varias veces.
+export interface Cobro {
+  fecha: string
+  monto: number
+  recibidoPor?: number
+  nota?: string
+}
+
 export interface Ingreso {
   id: number
   loteId?: number
   tipo: TipoIngreso
   cantidad: number
   pesoLb?: number
+  // Lo que vale la venta. Si es a crédito, lo que el comprador debe en total.
   monto: number
   fecha: string
   descripcion?: string
   recibidoPor?: number
+  comprador?: string
+  // A crédito el dinero entra con los cobros; si no, se cobró completo el día
+  // de la venta.
+  credito?: boolean
+  cobros?: Cobro[]
   creado: number
 }
 
