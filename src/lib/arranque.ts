@@ -45,7 +45,8 @@ export function computeArranque(
   let peso7: { dia: number; lb: number } | undefined
   for (const r of registros) {
     const dia = diasEntre(lote.fechaInicio, r.fecha)
-    if (dia >= 1 && dia <= 7) bajas7 += (r.mortalidad ?? 0) + (r.descarte ?? 0)
+    // Desde el día que llegaron: lo que muere el día 0 también es del arranque.
+    if (dia >= 0 && dia <= 7) bajas7 += (r.mortalidad ?? 0) + (r.descarte ?? 0)
     if (r.pesoPromedio != null && r.pesoPromedio > 0 && dia >= 6 && dia <= 8) {
       if (!peso7 || Math.abs(dia - 7) < Math.abs(peso7.dia - 7)) peso7 = { dia, lb: r.pesoPromedio }
     }

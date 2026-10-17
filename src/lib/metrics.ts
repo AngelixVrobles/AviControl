@@ -12,7 +12,10 @@ export interface LoteMetrics {
   bajas: number
   vendidas: number
   avesVivas: number
+  /** Muertas sobre las aves que entraron (sin las que llegaron muertas). */
   mortalidadPct: number
+  /** Descartadas sobre las aves que entraron. */
+  descartePct: number
   alimentoTotalLb: number
   // De dónde sale el alimento: lo anotado cada día más lo que dicen los conteos
   // de sacos. `diaAlimento` es el último día con dato, y a ese día se mide el FCA.
@@ -72,8 +75,14 @@ export function computeMetrics(
   const vendidas = sum(ingresos.filter((i) => i.tipo === 'aves').map((i) => i.cantidad))
   // Los que llegaron muertos en las cajas no entraron al galpón: no están vivos,
   // pero tampoco son mortalidad de la granja.
-  const avesVivas = Math.max(0, lote.cantidadInicial - (lote.muertosLlegada ?? 0) - bajas - descartes - vendidas)
-  const mortalidadPct = lote.cantidadInicial > 0 ? (bajas / lote.cantidadInicial) * 100 : 0
+  const colocados = Math.max(0, lote.cantidadInicial - (lote.muertosLlegada ?? 0))
+  const avesVivas = Math.max(0, colocados - bajas - descartes - vendidas)
+  // La mortalidad es la de las aves que entraron al galpón, en toda la app: la
+  // tarjeta, la ficha Aves, Reportes y el Excel. Antes la ficha contaba los
+  // descartes y la tarjeta no, y con 20 muertas y 30 descartadas una decía 2 %
+  // y la otra 5 %. Los descartes se llevan aparte.
+  const mortalidadPct = colocados > 0 ? (bajas / colocados) * 100 : 0
+  const descartePct = colocados > 0 ? (descartes / colocados) * 100 : 0
 
   const alimento = consumoAlimento(lote, registros, gastos)
   const alimentoTotalLb = alimento.totalLb
@@ -107,6 +116,7 @@ export function computeMetrics(
     vendidas,
     avesVivas,
     mortalidadPct,
+    descartePct,
     alimentoTotalLb,
     alimento,
     diaAlimento: alimento.hastaDia,
@@ -190,7 +200,7 @@ export function computeMetrics(
   // Índice de eficiencia productiva europeo (EPEF/IEP), rango típico 250–400.
   const iep =
     pesoFinalLb != null && fca != null && fca > 0 && dias > 0
-      ? (((100 - mortalidadPct) * (pesoFinalLb * KG_POR_LB)) / (dias * fca)) * 100
+      ? (((100 - mortalidadPct - descartePct) * (pesoFinalLb * KG_POR_LB)) / (dias * fca)) * 100
       : undefined
 
   let diaVentaEstimado: number | undefined

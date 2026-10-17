@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Lote, Registro } from '../../db/schema'
+import type { Ingreso, Lote, Registro } from '../../db/schema'
 import { fecha, num, pct, plural } from '../../lib/format'
 import { resumenMortalidad } from '../../lib/mortalidad'
 import { computeArranque, tituloArranque } from '../../lib/arranque'
@@ -10,9 +10,19 @@ import { Banda, Seccion } from '../../components/ui'
 import { GraficaBarras } from '../../components/chart'
 import { Vacio } from './Vacio'
 
-export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registros: Registro[]; dia: number }) {
+export function FichaMortalidad({
+  lote,
+  registros,
+  ingresos = [],
+  dia,
+}: {
+  lote: Lote
+  registros: Registro[]
+  ingresos?: Ingreso[]
+  dia: number
+}) {
   const [foco, setFoco] = useState<number>()
-  const r = resumenMortalidad(lote, registros)
+  const r = resumenMortalidad(lote, registros, ingresos)
   if (!r) return <Vacio texto="Todavía no has registrado ningún día de este ciclo." />
 
   const arranque = computeArranque(lote, registros, dia)
@@ -24,7 +34,7 @@ export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registro
     : -1
   const enfocada = foco != null ? r.semanas[foco] : undefined
   const bajasDelPeorDia = r.peorDia ? r.peorDia.muertes + r.peorDia.descartes : 0
-  const calor = calorDelCiclo(lote, registros)
+  const calor = calorDelCiclo(lote, registros, ingresos)
 
   return (
     <div className="space-y-6">
@@ -36,11 +46,11 @@ export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registro
               <AnimatedNumber value={r.bajas + r.descartes} format={(n) => num(n)} />
             </div>
             <div className="mt-1 text-sm text-ink-soft tnum">
-              de {num(lote.cantidadInicial)} · quedan {num(r.vivas)}
+              de {num(lote.cantidadInicial - (lote.muertosLlegada ?? 0))} · quedan {num(r.vivas)}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-ink-faint">Acumulada</div>
+            <div className="text-xs text-ink-faint">Mortalidad</div>
             <div
               className={
                 'font-display text-xl font-semibold leading-none tnum ' +
@@ -56,7 +66,8 @@ export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registro
         </div>
         {r.descartes > 0 && (
           <div className="mt-3 border-t border-line pt-3 text-sm text-ink-soft tnum">
-            {num(r.bajas)} muertas y {num(r.descartes)} descartadas
+            {num(r.bajas)} muertas y {num(r.descartes)} descartadas ({pct(r.pctDescarte, 1)} de
+            descarte, aparte de la mortalidad)
           </div>
         )}
       </Banda>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from './mortalidad'
-import { lote, registro } from '../test/fixtures'
+import { ingreso, lote, registro } from '../test/fixtures'
+import { computeMetrics } from './metrics'
 
 describe('resumenMortalidad', () => {
   it('sin registros no devuelve nada', () => {
@@ -14,7 +15,10 @@ describe('resumenMortalidad', () => {
     ])!
     expect(r.bajas).toBe(8)
     expect(r.descartes).toBe(2)
-    expect(r.pct).toBeCloseTo(2, 5)
+    // La mortalidad es la misma de la tarjeta: solo las muertas. El descarte
+    // va aparte.
+    expect(r.pct).toBeCloseTo(1.6, 5)
+    expect(r.pctDescarte).toBeCloseTo(0.4, 5)
     expect(r.vivas).toBe(490)
   })
 
@@ -57,5 +61,25 @@ describe('resumenMortalidad', () => {
     ])!
     expect(r.dias[0].vivas).toBe(4)
     expect(r.dias[1].vivas).toBe(0)
+  })
+})
+
+describe('una sola mortalidad en toda la app', () => {
+  it('la ficha y la tarjeta dicen lo mismo, con descartes', () => {
+    const l = lote({ cantidadInicial: 1000 })
+    const regs = [registro(10, { mortalidad: 20, descarte: 30 })]
+    expect(resumenMortalidad(l, regs)!.pct).toBeCloseTo(computeMetrics(l, regs, [], []).mortalidadPct, 5)
+  })
+
+  it('las que quedan restan lo vendido', () => {
+    const l = lote({ cantidadInicial: 1000 })
+    const r = resumenMortalidad(l, [registro(29, { mortalidad: 50 })], [ingreso({ cantidad: 600, fecha: registro(20).fecha })])!
+    expect(r.vivas).toBe(350)
+  })
+
+  it('lo que muere el día que llegaron cuenta en la primera semana', () => {
+    const l = lote({ cantidadInicial: 1000 })
+    const r = resumenMortalidad(l, [registro(0, { mortalidad: 12 })])!
+    expect(r.primeraSemana).toBe(12)
   })
 })

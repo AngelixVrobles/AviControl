@@ -53,7 +53,8 @@ describe('los muertos en las cajas', () => {
     const l = lote({ cantidadInicial: 1000, muertosLlegada: 10 })
     const m = computeMetrics(l, [registro(1, { mortalidad: 5 })], [], [])
     expect(m.avesVivas).toBe(985)
-    expect(m.mortalidadPct).toBeCloseTo(0.5)
+    // Sobre las 990 que entraron al galpón.
+    expect(m.mortalidadPct).toBeCloseTo((5 / 990) * 100, 5)
     expect(resumenMortalidad(l, [registro(1, { mortalidad: 5 })])!.vivas).toBe(985)
   })
 
