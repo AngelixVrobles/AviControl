@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Lote } from '../db/schema'
-import { leerGalpones, saveSettings, type Galpon, type Settings } from '../lib/settings'
+import { reemplazarSettings, saveSettings, type Galpon, type Settings } from '../lib/settings'
 import { useLotes, useSettings } from '../lib/hooks'
 import { enumerar, fecha, haceCuanto, num } from '../lib/format'
 import { galponDe, nuevoGalpon } from '../lib/galpones'
@@ -21,6 +21,7 @@ import { confirmar, toast } from '../components/confirm'
 
 export function Ajustes() {
   const s = useSettings()
+  const [restauraciones, setRestauraciones] = useState(0)
   const { respaldar } = useRespaldo()
   const abrirCiclo = useAbrirCiclo()
   const conteos = useLiveQuery(async () => {
@@ -120,7 +121,10 @@ export function Ajustes() {
     borrarBorradoresDe()
     // Un respaldo de antes de los galpones trae las medidas sueltas: pasan a
     // ser las del primer galpón en vez de perderse.
-    if (data.settings) saveSettings({ ...data.settings, galpones: leerGalpones(data.settings) })
+    if (data.settings) reemplazarSettings(data.settings)
+    // Las casillas de Ajustes se vuelven a llenar con lo restaurado: antes
+    // seguían mostrando lo de antes y, al tocarlas, lo volvían a guardar.
+    setRestauraciones((n) => n + 1)
     toast('Respaldo restaurado.')
   }
 
@@ -197,15 +201,23 @@ export function Ajustes() {
         />
       </Banda>
 
-      <PlanSanitario plan={s.planSanitario} />
+      <PlanSanitario key={restauraciones} plan={s.planSanitario} />
 
       <Seccion className="mb-3 mt-8" etiqueta="Granja" />
       <Banda className="space-y-4 px-5 py-4">
         <Field label="Nombre de la granja">
-          <Input defaultValue={s.granja} onBlur={(e) => saveSettings({ granja: e.target.value.trim() || 'Mi granja' })} />
+          <Input
+            key={s.granja}
+            defaultValue={s.granja}
+            onBlur={(e) => saveSettings({ granja: e.target.value.trim() || 'Mi granja' })}
+          />
         </Field>
         <Field label="Moneda" hint="Símbolo que verás en los montos (ej. RD$, $, Q, S/).">
-          <Input defaultValue={s.moneda} onBlur={(e) => saveSettings({ moneda: e.target.value.trim() || 'RD$' })} />
+          <Input
+            key={s.moneda}
+            defaultValue={s.moneda}
+            onBlur={(e) => saveSettings({ moneda: e.target.value.trim() || 'RD$' })}
+          />
         </Field>
       </Banda>
 
@@ -508,8 +520,13 @@ function FilaNumero({
         <input
           type="number"
           inputMode="decimal"
+          key={String(value ?? '')}
           defaultValue={value ?? ''}
-          onBlur={(e) => onSave(Number(e.target.value))}
+          min={0}
+          aria-label={unidad ? `${label}, en ${unidad}` : label}
+          // Sin negativos: un menos en el teclado de Android dejaba el peso de
+          // venta o el precio de mercado por debajo de cero.
+          onBlur={(e) => onSave(Math.max(0, Number(e.target.value) || 0))}
           placeholder="—"
           className="h-11 w-20 rounded-xl border border-line bg-paper-raised px-2 text-right font-display text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
         />
