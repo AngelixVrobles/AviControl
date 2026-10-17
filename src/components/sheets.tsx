@@ -37,8 +37,9 @@ import type { LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
 import { construirContrastes, snapshotCierre, type Contraste, type RealCiclo } from '../lib/cierre'
 import { aguaEsperadaL } from '../lib/agua'
+import { EDAD_CALOR, CALOR_C, fraseCalor, juicioCalor } from '../lib/calor'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
-import { LB_POR_QUINTAL, pesoEstandarLb } from '../lib/standards'
+import { LB_POR_QUINTAL, pesoEstandarLb, tempRecomendadaC } from '../lib/standards'
 import { errorFechaDelCiclo, errorFechaFutura, pesoObjetivoDe, topeDelCiclo } from '../lib/lote'
 import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
@@ -66,6 +67,8 @@ export function RegistroSheet({
   // En la unidad que el productor eligió (sacos o libras); al guardar pasa a lb.
   const [alimento, setAlimento] = useState('')
   const [aguaL, setAguaL] = useState('')
+  const [tempMax, setTempMax] = useState('')
+  const [humedad, setHumedad] = useState('')
   const [feedOtro, setFeedOtro] = useState(false)
   const [peso, setPeso] = useState('')
   const [sinPesar, setSinPesar] = useState(false)
@@ -106,6 +109,8 @@ export function RegistroSheet({
     setDescarte(r?.descarte ?? 0)
     setAlimento(valor != null ? String(valor) : '')
     setAguaL(r?.aguaL ? String(r.aguaL) : '')
+    setTempMax(r?.tempMaxC ? String(r.tempMaxC) : '')
+    setHumedad(r?.humedadPct ? String(r.humedadPct) : '')
     setFeedOtro(valor != null && !chipsRef.current.includes(valor))
     setPeso(r?.pesoPromedio != null ? String(r.pesoPromedio) : '')
     setSinPesar(!!r && r.pesoPromedio == null)
@@ -150,6 +155,12 @@ export function RegistroSheet({
   const esperadaL = aguaEsperadaL(alimentoLb)
   const litros = Number(aguaL.replace(',', '.')) || 0
   const desvioAgua = litros > 0 && esperadaL > 0 ? ((litros - esperadaL) / esperadaL) * 100 : undefined
+  const tempNum = Number(tempMax.replace(',', '.'))
+  const humedadNum = Number(humedad.replace(',', '.'))
+  // Lo que no puede ser dentro de un galpón es un error al escribir: 330 por 33.
+  const tempValida = tempNum >= 5 && tempNum <= 50
+  const humedadValida = humedadNum > 0 && humedadNum <= 100
+  const calor = tempValida ? juicioCalor(tempNum, dia, humedadValida ? humedadNum : undefined) : undefined
 
   async function guardar() {
     const datos = {
@@ -159,6 +170,8 @@ export function RegistroSheet({
       descarte,
       alimentoLb,
       aguaL: Number(aguaL.replace(',', '.')) > 0 ? Number(aguaL.replace(',', '.')) : undefined,
+      tempMaxC: tempValida ? tempNum : undefined,
+      humedadPct: humedadValida ? humedadNum : undefined,
       pesoPromedio: !sinPesar && Number(peso.replace(',', '.')) > 0 ? Number(peso.replace(',', '.')) : undefined,
       nota: nota.trim() || undefined,
     }
@@ -308,6 +321,59 @@ export function RegistroSheet({
         </div>
 
         <div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink-soft">Temperatura máxima</span>
+              <div className="relative">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={tempMax}
+                  onChange={(e) => setTempMax(e.target.value)}
+                  placeholder="Opcional"
+                  aria-invalid={tempMax !== '' && !tempValida}
+                  className="pr-10"
+                />
+                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
+                  °C
+                </span>
+              </div>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink-soft">Humedad</span>
+              <div className="relative">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={humedad}
+                  onChange={(e) => setHumedad(e.target.value)}
+                  placeholder="Opcional"
+                  aria-invalid={humedad !== '' && !humedadValida}
+                  className="pr-10"
+                />
+                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-faint">
+                  %
+                </span>
+              </div>
+            </label>
+          </div>
+          <p
+            className={clsx(
+              'mt-1 text-xs leading-relaxed',
+              calor && calor.nivel !== 'bien' ? 'font-medium text-clay-text' : 'text-ink-faint',
+            )}
+          >
+            {tempMax !== '' && !tempValida
+              ? 'Esa temperatura no puede ser dentro del galpón: revísala.'
+              : humedad !== '' && !humedadValida
+                ? 'La humedad va de 1 a 100 %.'
+                : calor
+                  ? fraseCalor(calor)
+                  : `La más alta del día dentro del galpón. A los ${dia} días piden unos ${tempRecomendadaC(dia)} °C${dia >= EDAD_CALOR ? `, y sobre ${CALOR_C} °C el pollo grande sufre` : ''}.`}
+          </p>
+        </div>
+
+        <div>
           <span className="mb-1.5 block text-sm font-medium text-ink-soft">Peso promedio (lb/ave)</span>
           {sinPesar ? (
             <button
@@ -358,7 +424,12 @@ export function RegistroSheet({
           </button>
         )}
 
-        <Button block className="h-14" disabled={ocupado || !!errorFecha} onClick={enviar(guardar)}>
+        <Button
+          block
+          className="h-14"
+          disabled={ocupado || !!errorFecha || (tempMax !== '' && !tempValida) || (humedad !== '' && !humedadValida)}
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar cambios' : `Guardar día ${dia}`}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}

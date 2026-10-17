@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Lote, Registro } from '../../db/schema'
 import { fecha, num, pct, plural } from '../../lib/format'
 import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from '../../lib/mortalidad'
+import { CALOR_C, calorDelCiclo, type CalorDelCiclo } from '../../lib/calor'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
 import { Banda, Seccion } from '../../components/ui'
 import { GraficaBarras } from '../../components/chart'
@@ -21,6 +22,7 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
     : -1
   const enfocada = foco != null ? r.semanas[foco] : undefined
   const bajasDelPeorDia = r.peorDia ? r.peorDia.muertes + r.peorDia.descartes : 0
+  const calor = calorDelCiclo(lote, registros)
 
   return (
     <div className="space-y-6">
@@ -106,6 +108,49 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
           </p>
         </Banda>
       </div>
+
+      {calor && <Calor c={calor} />}
+    </div>
+  )
+}
+
+// Los días de calor contra los demás: si en los de calor se muere más, el
+// calor está costando aves y vale la pena ventilar antes de la tarde.
+function Calor({ c }: { c: CalorDelCiclo }) {
+  const compara = c.porMilCalor != null && c.porMilNormal != null
+  const cuesta = compara && c.porMilCalor! > c.porMilNormal! * 1.5 && c.porMilCalor! - c.porMilNormal! >= 0.5
+  return (
+    <div>
+      <Seccion
+        etiqueta="Calor"
+        titulo={
+          c.diasCalor === 0
+            ? `Ningún día de calor en ${num(c.anotados)} ${plural(c.anotados, 'día anotado', 'días anotados')}`
+            : cuesta
+              ? 'El calor te está costando aves'
+              : `${num(c.diasCalor)} ${plural(c.diasCalor, 'día de calor', 'días de calor')} de ${num(c.anotados)} anotados`
+        }
+      />
+      <Banda className={'mt-3 space-y-2 px-5 py-4 ' + (cuesta ? 'border-l-4 border-l-clay' : '')}>
+        {compara && (
+          <p className="text-sm leading-relaxed text-ink-soft tnum">
+            Los días de calor murieron {num(c.porMilCalor!, 1)} de cada mil aves; los demás,{' '}
+            {num(c.porMilNormal!, 1)}.
+            {cuesta &&
+              ' Abre cortinas y pon los ventiladores antes de que apriete el sol, y corre la comida a las horas frescas.'}
+          </p>
+        )}
+        {c.peor && (
+          <p className="text-sm leading-relaxed text-ink-soft tnum">
+            El día más caliente fue el {c.peor.dia} ({fecha(c.peor.fecha)}): {num(c.peor.tempC)} °C y{' '}
+            {num(c.peor.bajas)} {plural(c.peor.bajas, 'baja', 'bajas')}.
+          </p>
+        )}
+        <p className="text-xs leading-relaxed text-ink-faint">
+          Cuenta los días con la temperatura anotada, sin la primera semana. Con el pollo grande, desde{' '}
+          {CALOR_C} °C ya es calor.
+        </p>
+      </Banda>
     </div>
   )
 }

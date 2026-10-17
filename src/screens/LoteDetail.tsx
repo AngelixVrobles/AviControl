@@ -26,6 +26,7 @@ import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
 import { nombreGalpon } from "../lib/galpones";
+import { conCalor, juicioDe } from "../lib/calor";
 import { pendienteDe } from "../lib/cobros";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
 import {
@@ -400,6 +401,17 @@ export function LoteDetail() {
                         {r.alimentoLb > 0 && (
                           <span className="text-ink-faint">
                             {alimentoEn(r.alimentoLb, settings.unidadAlimento)}
+                          </span>
+                        )}
+                        {r.tempMaxC != null && (
+                          <span
+                            className={
+                              conCalor(juicioDe(lote, r))
+                                ? "font-medium text-clay-text"
+                                : "text-ink-faint"
+                            }
+                          >
+                            {num(r.tempMaxC)} °C
                           </span>
                         )}
                         {r.mortalidad > 0 && (
@@ -1562,7 +1574,9 @@ function GuiaDelDia({
           : `${num(g.alimentoAcumLb)} lb`,
     },
     { label: "FCA esperado", value: num(g.fcaEsperado, 2) },
-    { label: "Temperatura", value: `${g.tempC} °C` },
+    g.tempRealC != null
+      ? { label: `Máx. hoy (piden ${g.tempC})`, value: `${num(g.tempRealC)} °C` }
+      : { label: "Temperatura", value: `${g.tempC} °C` },
     {
       label: "Agua hoy",
       value:
