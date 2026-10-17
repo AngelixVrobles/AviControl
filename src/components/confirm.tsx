@@ -48,6 +48,7 @@ export function ToastHost() {
   if (!montado) return null
   return createPortal(
     <div
+      aria-hidden={saliendo || undefined}
       className="animate-aviso pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5 transition-[opacity,transform] duration-200"
       style={{
         bottom: 'calc(6rem + env(safe-area-inset-bottom))',

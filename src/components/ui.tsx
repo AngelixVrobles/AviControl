@@ -239,8 +239,14 @@ export function Sheet({
 
   // Portal: dentro de una pantalla con animate-rise, el transform residual
   // convertiría al contenedor en containing block del overlay fixed.
+  // La que se está yendo ya no cuenta: sin esto, al pasar de una hoja a otra
+  // había dos diálogos a la vez para el lector de pantalla.
   return createPortal(
-    <div className={clsx('fixed inset-0 z-50 flex items-end justify-center', saliendo && 'pointer-events-none')}>
+    <div
+      className={clsx('fixed inset-0 z-50 flex items-end justify-center', saliendo && 'pointer-events-none')}
+      aria-hidden={saliendo || undefined}
+      inert={saliendo || undefined}
+    >
       <div
         className="animate-aparecer absolute inset-0 bg-ink/30 backdrop-blur-[2px] transition-opacity duration-200"
         style={saliendo ? { opacity: 0 } : undefined}
