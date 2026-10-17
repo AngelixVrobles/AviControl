@@ -25,6 +25,8 @@ export interface GuiaDia {
   aguaRealL?: number
   areaM2: number
   tempC: number
+  /** La máxima que se anotó hoy en el galpón. */
+  tempRealC?: number
   mortalidadEsperadaPct: number
 }
 
@@ -56,6 +58,7 @@ export function computeGuiaDia(lote: Lote, m: LoteMetrics): GuiaDia | null {
     aguaRealL: m.registroHoy?.aguaL,
     areaM2: aves / avesPorM2(pesoRealLb ?? pesoObjetivoLb),
     tempC: tempRecomendadaC(dia),
+    tempRealC: m.registroHoy?.tempMaxC,
     mortalidadEsperadaPct: mortalidadEsperadaPct(dia),
     fcaEsperado: fcaEstandar(dia),
   }

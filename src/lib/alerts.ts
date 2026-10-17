@@ -1,6 +1,7 @@
 import type { Aplicacion, Gasto, Lote, Registro } from '../db/schema'
 import { juicioFca, type LoteMetrics } from './metrics'
 import { resumenAgua } from './agua'
+import { calorReciente, fraseCalor, gradosCalor } from './calor'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
 import { sinAves } from './lote'
 import { agendaSanitaria } from './sanidad'
@@ -118,6 +119,17 @@ export function computeAlertas(
     alertas.push({
       nivel: 'warn',
       texto: `Están bebiendo poco para lo que comen (${num(agua.ultimo.litrosPorLb, 2)} L por libra)`,
+    })
+  }
+
+  // El calor de hoy o de ayer, con lo que hay que hacer: con el pollo grande no
+  // espera al día siguiente.
+  const calor = calorReciente(lote, registros, hoy)
+  if (calor && calor.nivel !== 'bien') {
+    const cuando = calor.dia === diasEntre(lote.fechaInicio, hoy) ? 'Hoy' : 'Ayer'
+    alertas.push({
+      nivel: calor.nivel === 'peligro' ? 'bad' : 'warn',
+      texto: `${cuando} el galpón llegó a ${gradosCalor(calor)}. ${fraseCalor(calor).replace(/\.$/, '')}`,
     })
   }
 
