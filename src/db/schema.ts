@@ -59,6 +59,10 @@ export interface Registro {
   descarte: number
   alimentoLb: number
   aguaL?: number
+  // La máxima del día dentro del galpón, y la humedad si hay higrómetro: con el
+  // pollo grande el calor de la tarde es lo que más mata de golpe.
+  tempMaxC?: number
+  humedadPct?: number
   pesoPromedio?: number
   nota?: string
   // Lo creó un pesaje en un día sin registro: trae el peso y nada más. No cuenta
