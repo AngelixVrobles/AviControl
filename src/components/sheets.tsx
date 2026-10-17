@@ -556,31 +556,56 @@ export function PesajeSheet({
   async function guardar() {
     if (!muestra) return
     const datos = { loteId: lote.id, fecha, pesos }
-    if (editar) await db.pesajes.update(editar.id, datos)
-    else await db.pesajes.add({ ...datos, creado: Date.now() })
+    const redondo = (lb: number) => Math.round(lb * 100) / 100
+    // El muestreo manda el peso del día: de ahí salen la curva, el FCA y la
+    // proyección de venta. El pesaje y el peso del día van juntos: o se guardan
+    // los dos o ninguno.
+    const pesoPromedio = redondo(muestra.promedioLb)
+    await db.transaction('rw', db.pesajes, db.registros, async () => {
+      if (editar) await db.pesajes.update(editar.id, datos)
+      else await db.pesajes.add({ ...datos, creado: Date.now() })
+
+      // Un pesaje que se mueve de día se lleva su peso: antes el día viejo se
+      // quedaba con él y quedaban dos pesos. Solo si el peso de ese día es el
+      // de este pesaje y no hay otro pesaje ese día.
+      if (editar && editar.fecha !== fecha) {
+        const antes = analizarMuestra(editar.pesos)
+        const viejo = await db.registros
+          .where('loteId')
+          .equals(lote.id)
+          .filter((r) => r.fecha === editar.fecha)
+          .first()
+        const otro = await db.pesajes
+          .where('loteId')
+          .equals(lote.id)
+          .filter((p) => p.fecha === editar.fecha && p.id !== editar.id)
+          .first()
+        if (viejo && !otro && antes && viejo.pesoPromedio != null && Math.abs(viejo.pesoPromedio - redondo(antes.promedioLb)) < 0.006) {
+          if (viejo.soloPeso) await db.registros.delete(viejo.id)
+          else await db.registros.update(viejo.id, { pesoPromedio: undefined })
+        }
+      }
+
+      const registro = await db.registros
+        .where('loteId')
+        .equals(lote.id)
+        .filter((r) => r.fecha === fecha)
+        .first()
+      if (registro) await db.registros.update(registro.id, { pesoPromedio })
+      else
+        await db.registros.add({
+          loteId: lote.id,
+          fecha,
+          mortalidad: 0,
+          descarte: 0,
+          alimentoLb: 0,
+          pesoPromedio,
+          soloPeso: true,
+          creado: Date.now(),
+        })
+    })
     borrarBorrador(lote.id, editar?.id)
     toast(`${num(muestra.n)} aves pesadas · promedio ${num(muestra.promedioLb, 2)} lb`)
-
-    // El muestreo manda el peso del día: de ahí salen la curva, el FCA y la
-    // proyección de venta.
-    const pesoPromedio = Math.round(muestra.promedioLb * 100) / 100
-    const registro = await db.registros
-      .where('loteId')
-      .equals(lote.id)
-      .filter((r) => r.fecha === fecha)
-      .first()
-    if (registro) await db.registros.update(registro.id, { pesoPromedio })
-    else
-      await db.registros.add({
-        loteId: lote.id,
-        fecha,
-        mortalidad: 0,
-        descarte: 0,
-        alimentoLb: 0,
-        pesoPromedio,
-        soloPeso: true,
-        creado: Date.now(),
-      })
     onClose()
   }
 
