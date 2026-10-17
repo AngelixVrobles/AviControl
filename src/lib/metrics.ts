@@ -214,7 +214,10 @@ export function computeMetrics(
   }
 }
 
-export type EstadoFca = 'bien' | 'alto' | 'dudosoBajo' | 'dudosoAlto'
+// `temprano`: antes del día 7 el pollito pesa gramos y el alimento del recibo
+// (los comederos llenos) pesa más que todo lo que se comió: la conversión de
+// esos días no dice nada y no se juzga.
+export type EstadoFca = 'bien' | 'alto' | 'dudosoBajo' | 'dudosoAlto' | 'temprano'
 
 // Cómo va la conversión. Se mide al último día con dato de alimento, así que se
 // compara con el estándar Cobb de ese mismo día y no con el de hoy: el estándar
@@ -229,6 +232,7 @@ export function juicioFca(
   if (m.fca == null) return undefined
   const dia = Math.min(m.diaAlimento ?? m.dias, m.dias)
   const estandar = fcaEstandar(dia)
+  if (dia < 7 || !(estandar > 0)) return { dia, estandar, estado: 'temprano' }
   if (dia >= 7 && m.fca < estandar * 0.75) return { dia, estandar, estado: 'dudosoBajo' }
   if (dia >= 7 && m.fca > estandar * 2) return { dia, estandar, estado: 'dudosoAlto' }
   return { dia, estandar, estado: m.fca > estandar + 0.1 ? 'alto' : 'bien' }
@@ -241,10 +245,12 @@ export const fcaDudoso = (m: Pick<LoteMetrics, 'fca' | 'diaAlimento' | 'dias'>) 
 
 // Qué tanto peor (o mejor) que el estándar convierte el lote, para escalar el
 // consumo que viene. Un FCA dudoso no escala nada: con uno bajísimo el alimento
-// que falta salía casi gratis y el precio mínimo, más bajo de lo real.
+// que falta salía casi gratis y el precio mínimo, más bajo de lo real. Antes del
+// día 7 tampoco: con el alimento anotado solo el día que llegaron, el estándar
+// del día 0 es cero y el precio mínimo salía «RD$∞».
 export function eficienciaAlimento(m: LoteMetrics): number {
   const j = juicioFca(m)
-  if (!j || !m.fca || m.fca <= 0.5 || fcaDudoso(m)) return 1
+  if (!j || j.estado === 'temprano' || !m.fca || m.fca <= 0.5 || fcaDudoso(m)) return 1
   return m.fca / j.estandar
 }
 

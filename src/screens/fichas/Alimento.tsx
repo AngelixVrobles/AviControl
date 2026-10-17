@@ -90,7 +90,11 @@ export function FichaAlimento({
                   <div
                     className={
                       'font-display text-xl font-semibold leading-none tnum ' +
-                      (estadoFca === 'bien' ? 'text-forest-600' : 'text-clay-deep')
+                      (estadoFca === 'bien'
+                        ? 'text-forest-600'
+                        : estadoFca === 'temprano'
+                          ? 'text-ink'
+                          : 'text-clay-deep')
                     }
                   >
                     {num(metrics.fca, 2)}
@@ -100,7 +104,9 @@ export function FichaAlimento({
                       ? 'no cuadra: falta alimento'
                       : estadoFca === 'dudosoAlto'
                         ? 'no cuadra: revisa lo anotado'
-                        : `Cobb ${num(stdFca, 2)}${diaFca < metrics.dias ? ` · al día ${diaFca}` : ''}`}
+                        : estadoFca === 'temprano'
+                          ? 'se juzga desde el día 7'
+                          : `Cobb ${num(stdFca, 2)}${diaFca < metrics.dias ? ` · al día ${diaFca}` : ''}`}
                   </div>
                 </>
               ) : (

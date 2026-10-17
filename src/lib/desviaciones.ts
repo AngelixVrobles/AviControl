@@ -34,6 +34,7 @@ export function desviaciones(m: LoteMetrics): {
     const j = juicioFca(m)
     if (m.fca == null || !j) return { valor: '—', detalle: 'FCA', estado: 'bien' }
     const valor = num(m.fca, 2)
+    if (j.estado === 'temprano') return { valor, detalle: 'FCA', estado: 'bien' }
     if (j.estado === 'dudosoBajo') return { valor, detalle: 'falta alimento', estado: 'mal' }
     if (j.estado === 'dudosoAlto') return { valor, detalle: 'revisa alimento', estado: 'mal' }
     if (j.estado === 'alto')
