@@ -11,6 +11,7 @@ import { nombreSocio } from '../lib/sociedad'
 import { LB_POR_QUINTAL } from '../lib/standards'
 import { Button } from '../components/ui'
 import { IconBack } from '../components/icons'
+import { useVolver } from '../components/useVolver'
 
 // El reporte del ciclo en una hoja para imprimir o guardar en PDF: lo que pide
 // el banco, el contador o el socio que no usa la app. En el teléfono, «Imprimir»
@@ -18,6 +19,7 @@ import { IconBack } from '../components/icons'
 export function Imprimir() {
   const { id } = useParams()
   const nav = useNavigate()
+  const volver = useVolver(id ? `/lotes/${id}` : '/lotes')
   const data = useLoteData(id ? Number(id) : undefined)
   const settings = useSettings()
 
@@ -72,7 +74,7 @@ export function Imprimir() {
     <div className="impresion mx-auto min-h-dvh max-w-3xl bg-white px-6 pb-12 text-ink safe-t print:max-w-none print:px-0 print:pb-0">
       <div className="sticky top-0 z-10 -mx-6 mb-6 flex items-center gap-3 border-b border-line bg-white/95 px-6 py-3 backdrop-blur print:hidden">
         <button
-          onClick={() => nav(-1)}
+          onClick={volver}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver"
         >
