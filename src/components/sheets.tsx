@@ -104,7 +104,12 @@ export function RegistroSheet({
     unidadRef.current = unidad
   })
 
+  // De qué día vienen los números que hay en la hoja: si se cargaron de otro
+  // día anotado, al pasar a un día vacío no se pueden quedar como si fueran suyos.
+  const cargadoDe = useRef<string | undefined>(undefined)
+
   const cargar = useCallback((r?: Registro) => {
+    cargadoDe.current = r?.fecha
     const valor = r?.alimentoLb ? enUnidad(r.alimentoLb, unidadRef.current) : undefined
     setMortalidad(r?.mortalidad ?? 0)
     setDescarte(r?.descarte ?? 0)
@@ -129,9 +134,16 @@ export function RegistroSheet({
     cargar(editar ?? registrosRef.current.find((r) => r.fecha === f))
   }, [open, editar, cargar])
 
+  // Corrigiendo un día, cambiarle la fecha lo mueve con sus números: antes se
+  // vaciaba todo y al guardar quedaba en cero. En un día nuevo, si la fecha ya
+  // está anotada se trae para corregirla; si no, lo escrito se queda, salvo
+  // que viniera de otro día.
   function cambiarFecha(f: string) {
     setFecha(f)
-    cargar(registros.find((r) => r.fecha === f))
+    if (editar) return
+    const r = registros.find((x) => x.fecha === f)
+    if (r) cargar(r)
+    else if (cargadoDe.current) cargar(undefined)
   }
 
   // Cambiar de unidad no borra lo escrito: 2.5 sacos pasan a ser 250 lb.
@@ -990,6 +1002,12 @@ export function IngresoSheet({
   const dio = Math.min(Number(adelanto) || 0, total)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && (!!editar || dio < total)
+  // Lo ya cobrado de una venta a crédito no se puede deshacer bajando el total.
+  const yaCobrado = editar?.credito ? cobradoDe(editar) : 0
+  const errorTotal =
+    aCredito && yaCobrado > total + 0.5
+      ? `Ya te pagó ${money(yaCobrado)}: el total no puede ser menos. Quita el cobro de más.`
+      : undefined
 
   async function guardar() {
     const quien = recibidoPor !== '' ? Number(recibidoPor) : undefined
@@ -1004,22 +1022,34 @@ export function IngresoSheet({
       credito: aCredito || undefined,
       // A crédito, el dinero entra con los cobros, cada uno a quien lo recibió.
       recibidoPor: aCredito ? undefined : quien,
+      // Al pasarla a «Pagó todo» los cobros se guardan igual: no cuentan mientras
+      // es de contado, y si vuelve a crédito están ahí. Antes se borraban, y con
+      // ellos quién recibió cada pago.
       cobros: aCredito
         ? editar
           ? (editar.cobros ?? [])
           : dio > 0
             ? [{ fecha, monto: dio, recibidoPor: quien }]
             : []
-        : undefined,
+        : editar?.cobros,
     }
     if (editar) {
-      await db.ingresos.update(editar.id, datos)
-      toast(`Venta anotada · ${money(datos.monto)}`)
+      // Si la corrección deja aves en un ciclo cerrado, el ciclo se reabre: no
+      // puede quedar cerrado con aves vivas en el galpón.
+      const quedan = metrics.avesVivas + (editar.tipo === 'aves' ? editar.cantidad : 0) - nAves
+      const reabre = lote.estado === 'cerrado' && quedan > 0
+      await db.transaction('rw', db.ingresos, db.lotes, async () => {
+        await db.ingresos.update(editar.id, datos)
+        if (reabre) await db.lotes.update(lote.id, { estado: 'activo', fechaCierre: undefined })
+      })
+      toast(reabre ? `Venta corregida · el ciclo se reabrió con ${num(quedan)} aves` : `Venta anotada · ${money(datos.monto)}`)
     } else if (vendeTodo && cerrar) {
       // Lo que la app proyectaba se guarda antes de que la venta deje el galpón
-      // vacío: después ya no hay forma de reconstruirlo.
+      // vacío: después ya no hay forma de reconstruirlo. Si el ciclo ya se había
+      // cerrado una vez, se queda lo de entonces: tomado con 50 aves, decía que
+      // el pollo costaba RD$690 la libra.
       const proyeccion = proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote))
-      const cierre = snapshotCierre(metrics, proyeccion, diasEntre(lote.fechaInicio, fecha))
+      const cierre = lote.cierre ?? snapshotCierre(metrics, proyeccion, diasEntre(lote.fechaInicio, fecha))
       await db.transaction('rw', db.ingresos, db.lotes, async () => {
         await db.ingresos.add({ ...datos, creado: Date.now() })
         await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: fecha, cierre })
@@ -1037,8 +1067,26 @@ export function IngresoSheet({
   }
 
   async function eliminar() {
-    if (!(await confirmar({ titulo: 'Eliminar venta', confirmar: 'Eliminar', peligro: true }))) return
-    await db.ingresos.delete(editar!.id)
+    const venta = editar!
+    // Borrar la venta que se llevó las últimas aves deja aves en el galpón: el
+    // ciclo se reabre con ellas. Antes quedaba cerrado con 950 aves vivas, y
+    // Inicio decía que no había ciclos en curso.
+    const quedan = metrics.avesVivas + (venta.tipo === 'aves' ? venta.cantidad : 0)
+    const reabre = lote.estado === 'cerrado' && venta.tipo === 'aves' && quedan > 0
+    const ok = await confirmar({
+      titulo: 'Eliminar venta',
+      mensaje: reabre
+        ? `Se borra la venta y el ciclo se reabre con ${num(quedan)} aves en el galpón.`
+        : 'Se borra esta venta.',
+      confirmar: 'Eliminar',
+      peligro: true,
+    })
+    if (!ok) return
+    await db.transaction('rw', db.ingresos, db.lotes, async () => {
+      await db.ingresos.delete(venta.id)
+      if (reabre) await db.lotes.update(lote.id, { estado: 'activo', fechaCierre: undefined })
+    })
+    if (reabre) toast(`El ciclo se reabrió con ${num(quedan)} aves`)
     onClose()
   }
 
@@ -1067,13 +1115,14 @@ export function IngresoSheet({
               placeholder="0"
             />
           </Field>
-          <Field label="Total de la venta">
+          <Field label="Total de la venta" error={errorTotal}>
             <Input
               type="number"
               inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               placeholder="0"
+              aria-invalid={!!errorTotal}
             />
           </Field>
           <Field label="Fecha" error={errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })}>
@@ -1103,13 +1152,13 @@ export function IngresoSheet({
               Cobrado {money(cobradoDe(editar))}
               {pendienteDe(editar) > 0 ? ` · faltan ${money(pendienteDe(editar))}` : ' · ya pagó todo'}
             </span>
-            {onCobrar && pendienteDe(editar) > 0 && (
+            {onCobrar && (
               <button
                 type="button"
                 onClick={() => onCobrar(editar)}
                 className="-mx-2 -my-3 shrink-0 px-2 py-3 font-semibold text-forest-600"
               >
-                Anotar un cobro
+                {pendienteDe(editar) > 0 ? 'Anotar un cobro' : 'Ver los cobros'}
               </button>
             )}
           </div>
@@ -1149,6 +1198,7 @@ export function IngresoSheet({
           disabled={
             !(Number(monto) > 0) ||
             ocupado ||
+            !!errorTotal ||
             !!errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })
           }
           onClick={enviar(guardar)}
@@ -1227,7 +1277,8 @@ export function CierreSheet({
     metrics,
     pesoObjetivoDe(lote),
   )
-  const snap = snapshotCierre(metrics, proyeccion, dia)
+  // Si el ciclo ya se cerró una vez, lo que la app proyectaba entonces se queda.
+  const snap = lote.cierre ?? snapshotCierre(metrics, proyeccion, dia)
 
   const ingresoTotal = metrics.ingresos + montoFinal
   const ganancia = ingresoTotal - metrics.costos
@@ -2400,7 +2451,9 @@ export function CobroSheet({
 
   useEffect(() => {
     if (!open) return
-    setMonto(pendiente > 0 ? String(Math.round(pendiente * 100) / 100) : '')
+    // Vacío: lleno con todo lo que falta, un toque a «Guardar» saldaba la
+    // venta aunque el comprador diera menos, y ese cobro ya no se podía quitar.
+    setMonto('')
     setFecha(hoyISO())
     setRecibidoPor('')
     setNota('')
@@ -2488,6 +2541,13 @@ export function CobroSheet({
           </div>
         )}
 
+        {pendiente < 1 ? (
+          <p className="text-sm leading-relaxed text-ink-soft">
+            Esta venta ya está pagada. Si un cobro quedó mal anotado, quítalo con la x y anótalo de
+            nuevo.
+          </p>
+        ) : (
+        <>
         <div className="grid grid-cols-2 gap-3">
           <Field
             label="Cuánto te dio"
@@ -2512,6 +2572,13 @@ export function CobroSheet({
             />
           </Field>
         </div>
+        <button
+          type="button"
+          onClick={() => setMonto(String(Math.round(pendiente * 100) / 100))}
+          className="-mt-2 rounded-full border border-line bg-paper-raised px-3 py-2 text-sm font-medium text-ink-soft tnum"
+        >
+          Todo lo que falta: {money(pendiente)}
+        </button>
         {socios && (
           <Field label="¿Quién lo recibió?">
             <Select value={recibidoPor} onChange={(e) => setRecibidoPor(e.target.value)}>
@@ -2535,6 +2602,8 @@ export function CobroSheet({
         >
           Guardar cobro
         </Button>
+        </>
+        )}
       </div>
     </Sheet>
   )
