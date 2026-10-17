@@ -38,7 +38,7 @@ import { construirContrastes, snapshotCierre, type Contraste, type RealCiclo } f
 import { aguaEsperadaL } from '../lib/agua'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
 import { LB_POR_QUINTAL, pesoEstandarLb } from '../lib/standards'
-import { pesoObjetivoDe } from '../lib/lote'
+import { errorFechaDelCiclo, errorFechaFutura, pesoObjetivoDe, topeDelCiclo } from '../lib/lote'
 import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
 import { useEnvio } from './useEnvio'
@@ -139,6 +139,11 @@ export function RegistroSheet({
 
   const dia = diasEntre(lote.fechaInicio, fecha)
   const existente = editar ?? registros.find((r) => r.fecha === fecha)
+  const errorFecha =
+    errorFechaDelCiclo(fecha, lote) ??
+    (editar && registros.some((r) => r.fecha === fecha && r.id !== editar.id)
+      ? 'Ese día ya tiene su registro: tócalo en el historial para corregirlo.'
+      : undefined)
   const alimentoLb = aLibras(alimento, unidad)
   const esperadaL = aguaEsperadaL(alimentoLb)
   const litros = Number(aguaL.replace(',', '.')) || 0
@@ -185,6 +190,7 @@ export function RegistroSheet({
       <div className="space-y-5">
         <Field
           label="Fecha"
+          error={errorFecha}
           hint={
             existente?.soloPeso
               ? 'Este día solo tiene el peso del pesaje: completa las bajas y el alimento.'
@@ -193,7 +199,13 @@ export function RegistroSheet({
                 : undefined
           }
         >
-          <Input type="date" value={fecha} onChange={(e) => cambiarFecha(e.target.value)} />
+          <Input
+            type="date"
+            value={fecha}
+            min={lote.fechaInicio}
+            max={topeDelCiclo(lote)}
+            onChange={(e) => cambiarFecha(e.target.value)}
+          />
         </Field>
 
         <div>
@@ -344,7 +356,7 @@ export function RegistroSheet({
           </button>
         )}
 
-        <Button block className="h-14" disabled={ocupado} onClick={enviar(guardar)}>
+        <Button block className="h-14" disabled={ocupado || !!errorFecha} onClick={enviar(guardar)}>
           {editar ? 'Guardar cambios' : `Guardar día ${dia}`}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -685,11 +697,17 @@ export function PesajeSheet({
           </div>
         )}
 
-        <Field label="Fecha">
-          <Input type="date" value={fecha} onChange={(e) => cambiar(pesos, e.target.value)} />
+        <Field label="Fecha" error={errorFechaDelCiclo(fecha, lote)}>
+          <Input
+            type="date"
+            value={fecha}
+            min={lote.fechaInicio}
+            max={topeDelCiclo(lote)}
+            onChange={(e) => cambiar(pesos, e.target.value)}
+          />
         </Field>
 
-        <Button block className="h-14" disabled={!muestra || ocupado} onClick={enviar(guardar)}>
+        <Button block className="h-14" disabled={!muestra || ocupado || !!errorFechaDelCiclo(fecha, lote)} onClick={enviar(guardar)}>
           {editar ? 'Guardar cambios' : 'Guardar pesaje'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -786,8 +804,8 @@ export function GastoSheet({
               placeholder="0"
             />
           </Field>
-          <Field label="Fecha">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Field label="Fecha" error={errorFechaFutura(fecha)}>
+            <Input type="date" value={fecha} max={hoyISO()} onChange={(e) => setFecha(e.target.value)} />
           </Field>
         </div>
 
@@ -828,7 +846,11 @@ export function GastoSheet({
             </Select>
           </Field>
         )}
-        <Button block disabled={!(Number(monto) > 0) || ocupado} onClick={enviar(guardar)}>
+        <Button
+          block
+          disabled={!(Number(monto) > 0) || ocupado || !!errorFechaFutura(fecha)}
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar cambios' : 'Guardar gasto'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -949,8 +971,14 @@ export function IngresoSheet({
               placeholder="0"
             />
           </Field>
-          <Field label="Fecha">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Field label="Fecha" error={errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })}>
+            <Input
+              type="date"
+              value={fecha}
+              min={lote.fechaInicio}
+              max={hoyISO()}
+              onChange={(e) => setFecha(e.target.value)}
+            />
           </Field>
         </div>
         {lote.socios && lote.socios.length >= 2 && (
@@ -982,7 +1010,15 @@ export function IngresoSheet({
             <Interruptor activo={cerrar} />
           </button>
         )}
-        <Button block disabled={!(Number(monto) > 0) || ocupado} onClick={enviar(guardar)}>
+        <Button
+          block
+          disabled={
+            !(Number(monto) > 0) ||
+            ocupado ||
+            !!errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })
+          }
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar cambios' : vendeTodo && cerrar ? 'Guardar y cerrar el ciclo' : 'Guardar venta'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -1060,7 +1096,7 @@ export function CierreSheet({
     gananciaPorAve: nAves > 0 ? ganancia / nAves : 0,
   }
   const contrastes = construirContrastes(snap, real)
-  const listo = nAves > 0 && montoFinal > 0
+  const listo = nAves > 0 && montoFinal > 0 && !errorFechaDelCiclo(fecha, lote)
   const reparto = gananciaPorSocio([{ socios: lote.socios, ganancia }])
 
   async function guardar() {
@@ -1143,8 +1179,14 @@ export function CierreSheet({
                 placeholder="0"
               />
             </Field>
-            <Field label="Fecha de venta">
-              <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <Field label="Fecha de venta" error={errorFechaDelCiclo(fecha, lote)}>
+              <Input
+                type="date"
+                value={fecha}
+                min={lote.fechaInicio}
+                max={topeDelCiclo(lote)}
+                onChange={(e) => setFecha(e.target.value)}
+              />
             </Field>
           </div>
 
@@ -1401,8 +1443,14 @@ export function AplicacionSheet({
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Fecha">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Field label="Fecha" error={errorFechaDelCiclo(fecha, lote)}>
+            <Input
+              type="date"
+              value={fecha}
+              min={lote.fechaInicio}
+              max={topeDelCiclo(lote)}
+              onChange={(e) => setFecha(e.target.value)}
+            />
           </Field>
           <Field label="Dosis" hint="Opcional.">
             <Input value={dosis} onChange={(e) => setDosis(e.target.value)} placeholder="1 gota, 1 cc…" />
@@ -1433,7 +1481,9 @@ export function AplicacionSheet({
           <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Lote del frasco, quién aplicó…" />
         </Field>
 
-        <Button block className="h-14" disabled={!nombre.trim() || ocupado} onClick={enviar(guardar)}>
+        <Button block className="h-14" disabled={!nombre.trim() || ocupado || !!errorFechaDelCiclo(fecha, lote)}
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar cambios' : 'Anotar aplicación'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -1580,8 +1630,8 @@ export function DeudaSheet({
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Desde cuándo">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Field label="Desde cuándo" error={errorFechaFutura(fecha)}>
+            <Input type="date" value={fecha} max={hoyISO()} onChange={(e) => setFecha(e.target.value)} />
           </Field>
           <Field label="A quién" hint="Opcional.">
             <Input
@@ -1602,7 +1652,7 @@ export function DeudaSheet({
           fijas={editar?.socios?.length ?? 0}
         />
 
-        <Button block disabled={!valido || ocupado} onClick={enviar(guardar)}>
+        <Button block disabled={!valido || ocupado || !!errorFechaFutura(fecha)} onClick={enviar(guardar)}>
           {editar ? 'Guardar' : 'Agregar deuda'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar deuda</DangerButton>}
@@ -1680,8 +1730,8 @@ export function AbonoSheet({
               placeholder="0"
             />
           </Field>
-          <Field label="Fecha">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Field label="Fecha" error={errorFechaFutura(fecha)}>
+            <Input type="date" value={fecha} max={hoyISO()} onChange={(e) => setFecha(e.target.value)} />
           </Field>
         </div>
 
@@ -1715,7 +1765,7 @@ export function AbonoSheet({
             </div>
           ))}
 
-        <Button block disabled={valor <= 0 || ocupado} onClick={enviar(guardar)}>
+        <Button block disabled={valor <= 0 || ocupado || !!errorFechaFutura(fecha)} onClick={enviar(guardar)}>
           {editar ? 'Guardar' : 'Anotar abono'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar abono</DangerButton>}
@@ -1871,8 +1921,14 @@ export function EntregaSheet({
               className="h-14 text-lg"
             />
           </Field>
-          <Field label="Fecha">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="h-14" />
+          <Field label="Fecha" error={errorFechaFutura(fecha)}>
+            <Input
+              type="date"
+              value={fecha}
+              max={hoyISO()}
+              onChange={(e) => setFecha(e.target.value)}
+              className="h-14"
+            />
           </Field>
         </div>
 
@@ -1908,7 +1964,9 @@ export function EntregaSheet({
             </div>
           ))}
 
-        <Button block className="h-14" disabled={valor <= 0 || de === a || ocupado} onClick={enviar(guardar)}>
+        <Button block className="h-14" disabled={valor <= 0 || de === a || ocupado || !!errorFechaFutura(fecha)}
+          onClick={enviar(guardar)}
+        >
           {editar ? 'Guardar' : 'Anotar entrega'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar entrega</DangerButton>}
@@ -1951,7 +2009,7 @@ export function ConteoSheet({
   const dadoQq = compradoQq - qq
   const conteos = [...(lote.conteosAlimento ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha))
   const yaContado = conteos.some((c) => c.fecha === fecha)
-  const antesDelCiclo = fecha < lote.fechaInicio
+  const errorFecha = errorFechaDelCiclo(fecha, lote)
 
   async function guardar() {
     const resto = (lote.conteosAlimento ?? []).filter((c) => c.fecha !== fecha)
@@ -2006,12 +2064,19 @@ export function ConteoSheet({
               autoFocus
             />
           </Field>
-          <Field label="Fecha">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="h-14" />
+          <Field label="Fecha" error={errorFecha}>
+            <Input
+              type="date"
+              value={fecha}
+              min={lote.fechaInicio}
+              max={topeDelCiclo(lote)}
+              onChange={(e) => setFecha(e.target.value)}
+              className="h-14"
+            />
           </Field>
         </div>
 
-        {valido && compras.length > 0 && !antesDelCiclo && (
+        {valido && compras.length > 0 && !errorFecha && (
           <div
             className={clsx(
               'rounded-xl px-4 py-3 text-sm leading-relaxed',
@@ -2034,11 +2099,8 @@ export function ConteoSheet({
             )}
           </div>
         )}
-        {antesDelCiclo && (
-          <p className="text-sm text-clay-text">La fecha es anterior al inicio del ciclo.</p>
-        )}
 
-        <Button block className="h-14" disabled={!valido || antesDelCiclo || ocupado} onClick={enviar(guardar)}>
+        <Button block className="h-14" disabled={!valido || !!errorFecha || ocupado} onClick={enviar(guardar)}>
           {yaContado ? `Corregir el conteo del ${fechaCorta(fecha)}` : 'Guardar conteo'}
         </Button>
 

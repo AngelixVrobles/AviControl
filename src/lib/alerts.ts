@@ -5,7 +5,7 @@ import { computeInventarioAlimento, computePlanAlimento } from './plan'
 import { sinAves } from './lote'
 import { agendaSanitaria } from './sanidad'
 import { getSettings } from './settings'
-import { diasEntre, hoyISO, num, pct, plural } from './format'
+import { diasEntre, fecha, hoyISO, num, pct, plural } from './format'
 import {
   DIAS_RETIRO,
   FASES_ALIMENTO,
@@ -46,8 +46,19 @@ export function computeAlertas(
     ]
   const alertas: Alerta[] = []
 
+  // Un día anotado con una fecha que todavía no llega es un error al escribir:
+  // se avisa para corregirlo, y no cuenta como el último registro, que si no
+  // callaba el aviso de días sin registro hasta esa fecha.
+  const hoy = hoyISO()
+  const futuro = registros.find((r) => r.fecha > hoy)
+  if (futuro)
+    alertas.push({
+      nivel: 'warn',
+      texto: `Hay un día anotado con fecha ${fecha(futuro.fecha)}, que todavía no llega: corrígelo en el historial`,
+    })
+
   // Un pesaje no cuenta como registro del día: el último es el último completo.
-  const completos = registros.filter((r) => !r.soloPeso)
+  const completos = registros.filter((r) => !r.soloPeso && r.fecha <= hoy)
   const ultimo = completos.length ? completos[completos.length - 1] : undefined
   const diasSinRegistro = ultimo ? diasEntre(ultimo.fecha, hoyISO()) : m.dias
   if (diasSinRegistro >= 2 && m.dias >= 2) {
