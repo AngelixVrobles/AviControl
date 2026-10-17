@@ -252,13 +252,13 @@ export function computeEquipo({
 }
 
 // El plan con el equipo de la granja y las medidas del galpón —el del ciclo,
-// o el primero si no se dice cuál—.
+// o el primero si no se dice cuál; con `null`, sin medidas—.
 export function equipoDeLaGranja(
   aves: number,
   pesoObjetivoLb: number,
   diaVenta: number,
   s: Settings,
-  galpon: Galpon | undefined = s.galpones[0],
+  galpon: Galpon | null | undefined = s.galpones[0],
 ) {
   return computeEquipo({
     aves,

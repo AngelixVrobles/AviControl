@@ -34,7 +34,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             {cerrado
               ? `${num(metrics.vendidas)} ${plural(metrics.vendidas, 'ave vendida', 'aves vendidas')}`
               : `${num(metrics.avesVivas)} ${plural(metrics.avesVivas, 'ave', 'aves')}`}{' '}
-            · {nombreGalpon(lote, settings) ?? RAZA}
+            · {lote.compartido ? `de ${lote.compartido.de}` : (nombreGalpon(lote, settings) ?? RAZA)}
           </div>
         </div>
         <div className="shrink-0 pl-3 text-right">

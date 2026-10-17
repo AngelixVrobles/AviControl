@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { motion } from 'motion/react'
 import { LoteCard } from '../components/LoteCard'
-import { Button, EmptyState } from '../components/ui'
+import { Button, EmptyState, Seccion } from '../components/ui'
 import { IconPlus, IconPulso } from '../components/icons'
 import { useResumen } from '../lib/hooks'
 
@@ -11,7 +11,9 @@ type Filtro = 'activo' | 'cerrado' | 'todos'
 
 export function Lotes() {
   const [filtro, setFiltro] = useState<Filtro>('activo')
-  const lista = useResumen(filtro) ?? []
+  const todos = useResumen(filtro, { compartidos: true }) ?? []
+  const lista = todos.filter((d) => !d.lote.compartido)
+  const compartidos = todos.filter((d) => d.lote.compartido)
 
   return (
     <div className="animate-rise pt-3">
@@ -48,7 +50,7 @@ export function Lotes() {
       </div>
 
       <div className="mt-4 space-y-3">
-        {lista.length === 0 ? (
+        {lista.length === 0 && compartidos.length === 0 ? (
           <EmptyState
             icon={<IconPulso width={28} height={28} strokeWidth={2} />}
             title="Sin ciclos en esta vista"
@@ -67,6 +69,21 @@ export function Lotes() {
           ))
         )}
       </div>
+
+      {compartidos.length > 0 && (
+        <>
+          <Seccion
+            className="mb-3 mt-8"
+            etiqueta="Compartidos contigo"
+            nota="Ciclos que te mandó un socio: los ves, no los cambias, y no entran en tus cuentas."
+          />
+          <div className="space-y-3">
+            {compartidos.map((d) => (
+              <LoteCard key={d.lote.id} data={d} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
