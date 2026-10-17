@@ -198,12 +198,38 @@ export function computeMetrics(
   }
 }
 
+export type EstadoFca = 'bien' | 'alto' | 'dudosoBajo' | 'dudosoAlto'
+
+// Cómo va la conversión. Se mide al último día con dato de alimento, así que se
+// compara con el estándar Cobb de ese mismo día y no con el de hoy: el estándar
+// sube con la edad, y medir el FCA del día 14 contra el del 24 lo hacía ver
+// mejor de lo que iba. Ningún lote de campo convierte un cuarto mejor que la
+// genética, ni el doble de mal sin que se note en todo lo demás: un FCA así
+// casi siempre es alimento sin anotar (muy bajo) o anotado de más, libras por
+// sacos (muy alto), y no se puede dar por bueno ni usar para proyectar.
+export function juicioFca(
+  m: Pick<LoteMetrics, 'fca' | 'diaAlimento' | 'dias'>,
+): { dia: number; estandar: number; estado: EstadoFca } | undefined {
+  if (m.fca == null) return undefined
+  const dia = Math.min(m.diaAlimento ?? m.dias, m.dias)
+  const estandar = fcaEstandar(dia)
+  if (dia >= 7 && m.fca < estandar * 0.75) return { dia, estandar, estado: 'dudosoBajo' }
+  if (dia >= 7 && m.fca > estandar * 2) return { dia, estandar, estado: 'dudosoAlto' }
+  return { dia, estandar, estado: m.fca > estandar + 0.1 ? 'alto' : 'bien' }
+}
+
+export const fcaDudoso = (m: Pick<LoteMetrics, 'fca' | 'diaAlimento' | 'dias'>) => {
+  const e = juicioFca(m)?.estado
+  return e === 'dudosoBajo' || e === 'dudosoAlto'
+}
+
 // Qué tanto peor (o mejor) que el estándar convierte el lote, para escalar el
-// consumo que viene. El FCA se mide al último día con dato de alimento, así que
-// se compara contra el estándar de ese mismo día y no contra el de hoy.
+// consumo que viene. Un FCA dudoso no escala nada: con uno bajísimo el alimento
+// que falta salía casi gratis y el precio mínimo, más bajo de lo real.
 export function eficienciaAlimento(m: LoteMetrics): number {
-  if (!m.fca || m.fca <= 0.5) return 1
-  return m.fca / fcaEstandar(Math.min(m.diaAlimento ?? m.dias, m.dias))
+  const j = juicioFca(m)
+  if (!j || !m.fca || m.fca <= 0.5 || fcaDudoso(m)) return 1
+  return m.fca / j.estandar
 }
 
 export interface SemanaResumen {

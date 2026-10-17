@@ -1,5 +1,5 @@
 import type { Aplicacion, Gasto, Lote, Registro } from '../db/schema'
-import type { LoteMetrics } from './metrics'
+import { juicioFca, type LoteMetrics } from './metrics'
 import { resumenAgua } from './agua'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
 import { sinAves } from './lote'
@@ -9,7 +9,6 @@ import { diasEntre, fecha, hoyISO, num, pct, plural } from './format'
 import {
   DIAS_RETIRO,
   FASES_ALIMENTO,
-  fcaEstandar,
   mortalidadEsperadaPct,
   type HitoSanitario,
 } from './standards'
@@ -77,10 +76,21 @@ export function computeAlertas(
     }
   }
 
-  if (m.fca && m.dias >= 21 && m.fca > fcaEstandar(m.dias) + 0.15) {
+  const jf = juicioFca(m)
+  if (m.fca != null && jf?.estado === 'dudosoBajo') {
     alertas.push({
       nivel: 'warn',
-      texto: `FCA ${num(m.fca, 2)}, sobre el estándar Cobb (${num(fcaEstandar(m.dias), 2)})`,
+      texto: `La conversión sale en ${num(m.fca, 2)}, imposible al día ${jf.dia} (Cobb ${num(jf.estandar, 2)}): falta alimento por anotar, o cuenta los sacos`,
+    })
+  } else if (m.fca != null && jf?.estado === 'dudosoAlto') {
+    alertas.push({
+      nivel: 'warn',
+      texto: `La conversión sale en ${num(m.fca, 2)}, más del doble de Cobb (${num(jf.estandar, 2)}): revisa si anotaste libras donde iban sacos`,
+    })
+  } else if (m.fca != null && jf && jf.dia >= 21 && m.fca > jf.estandar + 0.15) {
+    alertas.push({
+      nivel: 'warn',
+      texto: `FCA ${num(m.fca, 2)}, sobre el estándar Cobb (${num(jf.estandar, 2)} al día ${jf.dia})`,
     })
   }
 
