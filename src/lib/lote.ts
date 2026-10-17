@@ -62,6 +62,7 @@ export function erroresLote(
   const out: { fechaInicio?: string; cantidad?: string; muertosLlegada?: string } = {}
   const doa = datos.muertosLlegada ?? 0
   if (!datos.fechaInicio) out.fechaInicio = 'Pon el día en que llegaron los pollitos.'
+  else if (datos.fechaInicio > hoyISO()) out.fechaInicio = 'Esa fecha todavía no llega.'
   else if (limites.fechaCierre && datos.fechaInicio > limites.fechaCierre)
     out.fechaInicio = `El ciclo cerró el ${fecha(limites.fechaCierre)}.`
   else if (limites.primeraFecha && datos.fechaInicio > limites.primeraFecha)
@@ -75,3 +76,8 @@ export function erroresLote(
     }.`
   return out
 }
+
+// Un número que no puede ser negativo: el teclado de Android tiene el menos, y
+// un costo de −45 por ave dejaba el ciclo con −45,000 de costo.
+export const errorNegativo = (texto: string): string | undefined =>
+  Number(texto) < 0 ? 'No puede ser negativo.' : undefined

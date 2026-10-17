@@ -363,7 +363,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
   if (conIep.length < 2) return null
 
   const datos = conIep.map((r) => ({
-    nombre: r.lote.nombre.replace(/^Lote\s*/i, ''),
+    nombre: r.lote.nombre.replace(/^(Lote|Ciclo)\s*/i, ''),
     iep: Math.round(r.metrics.iep!),
   }))
   const attr = atribucionIEP(conIep)

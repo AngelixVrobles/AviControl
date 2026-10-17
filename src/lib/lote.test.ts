@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { errorFechaDelCiclo, errorFechaFutura, erroresLote, pesoObjetivoDe, topeDelCiclo } from './lote'
+import { errorFechaDelCiclo, errorFechaFutura, errorNegativo, erroresLote, pesoObjetivoDe, topeDelCiclo } from './lote'
 import { lote } from '../test/fixtures'
 import { memoriaStorage } from '../test/storage'
 
@@ -50,6 +50,22 @@ describe('erroresLote', () => {
     expect(erroresLote({ fechaInicio: '2026-03-01', cantidad: 39 }, limites).cantidad).toMatch(/40/)
     expect(erroresLote({ fechaInicio: '2026-03-01', cantidad: 0 }, limites).cantidad).toBeDefined()
     expect(erroresLote({ fechaInicio: '', cantidad: 100 }, limites).fechaInicio).toBeDefined()
+  })
+
+  // Un ciclo que empezaba el mes que viene salía en el día −30 y sin avisos.
+  it('no puede empezar en una fecha que todavía no llega', () => {
+    expect(erroresLote({ fechaInicio: '2099-01-01', cantidad: 1000 }, { salidas: 0 }).fechaInicio).toMatch(
+      /todavía no llega/,
+    )
+  })
+})
+
+describe('errorNegativo', () => {
+  it('avisa con un número negativo y deja pasar lo demás', () => {
+    expect(errorNegativo('-45')).toMatch(/negativo/)
+    expect(errorNegativo('0')).toBeUndefined()
+    expect(errorNegativo('')).toBeUndefined()
+    expect(errorNegativo('12.5')).toBeUndefined()
   })
 })
 
