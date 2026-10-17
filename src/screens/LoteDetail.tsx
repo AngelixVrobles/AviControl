@@ -958,6 +958,7 @@ function Muestreo({
   onEditar?: (p: Pesaje) => void;
 }) {
   const aves = metrics.avesVivas;
+  const [todos, setTodos] = useState(false);
   const sugeridas = tamanoMuestra(aves);
   const ultimo = pesajes.length ? pesajes[pesajes.length - 1] : undefined;
   const m = ultimo ? analizarMuestra(ultimo.pesos, aves) : null;
@@ -1082,11 +1083,14 @@ function Muestreo({
             </p>
           )}
 
-          {pesajes.length > 1 && (
+          {/* Todos los pesajes, también el único: antes la lista salía con dos
+              o más y solo con los seis últimos, y los demás no se podían
+              corregir. */}
+          {pesajes.length > 0 && (
             <Banda className="mt-3 divide-y divide-line">
               {[...pesajes]
                 .reverse()
-                .slice(0, 6)
+                .slice(0, todos ? undefined : 6)
                 .map((p) => {
                   const s = analizarMuestra(p.pesos, aves);
                   if (!s) return null;
@@ -1113,6 +1117,14 @@ function Muestreo({
                   );
                 })}
             </Banda>
+          )}
+          {!todos && pesajes.length > 6 && (
+            <button
+              onClick={() => setTodos(true)}
+              className="mt-2 w-full py-2 text-center text-sm font-medium text-forest-600"
+            >
+              Ver los {num(pesajes.length)} pesajes
+            </button>
           )}
         </>
       )}
