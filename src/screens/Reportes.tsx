@@ -1,7 +1,8 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
-import { useDeudas, useResumen } from '../lib/hooks'
+import { useDeudas, useResumen, useSettings } from '../lib/hooks'
+import { precioMinimoConjunto } from '../lib/precios'
 import { diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { Banda, Seccion } from '../components/ui'
 import { gananciaPorSocio } from '../lib/sociedad'
@@ -57,8 +58,8 @@ export function Reportes() {
         <VacioReportes seg={seg} activos={activos} />
       ) : (
         <>
-          <Totales lista={lista} />
-          {lista.length === 1 && <FichaDelCiclo r={lista[0]} />}
+          {seg === 'activo' ? <TotalesEnCurso lista={lista} /> : <Totales lista={lista} />}
+          {lista.length === 1 && <FichaDelCiclo r={lista[0]} enCurso={seg === 'activo'} />}
           <VasMejorando lista={lista} />
           <ComparacionLotes resumen={lista} />
         </>
@@ -86,13 +87,20 @@ function alcance(lista: LoteConMetrics[], seg: Segmento): string {
   return `${num(n)} ${noun}${rango}`
 }
 
-function FichaDelCiclo({ r }: { r: LoteConMetrics }) {
+function FichaDelCiclo({ r, enCurso }: { r: LoteConMetrics; enCurso: boolean }) {
   const { lote, metrics: m } = r
   const filas = [
     { label: 'Peso por ave', valor: m.pesoEstimadoLb != null ? `${num(m.pesoEstimadoLb, 2)} lb` : '—' },
     { label: 'Conversión (FCA)', valor: m.fca != null ? num(m.fca, 2) : '—' },
     { label: 'Mortalidad', valor: pct(m.mortalidadPct, 1) },
-    { label: 'Costo por libra', valor: m.costoPorLb != null ? porLb(m.costoPorLb) : '—' },
+    // A medio ciclo, el costo por libra de hoy reparte todo lo gastado entre
+    // aves todavía chiquitas: lo que sirve es el mínimo para no perder.
+    enCurso
+      ? {
+          label: 'Mínimo para no perder',
+          valor: r.precio ? `${porLb(r.precio.precioEquilibrioLb)}/lb` : '—',
+        }
+      : { label: 'Costo por libra', valor: m.costoPorLb != null ? porLb(m.costoPorLb) : '—' },
     { label: 'Índice de eficiencia', valor: m.iep != null ? num(m.iep, 0) : '—' },
     { label: 'Días de ciclo', valor: `${num(m.dias)} ${plural(m.dias, 'día', 'días')}` },
   ]
@@ -101,9 +109,13 @@ function FichaDelCiclo({ r }: { r: LoteConMetrics }) {
     <>
       <Seccion
         className="mb-3 mt-8"
-        etiqueta="Último ciclo"
+        etiqueta={enCurso ? 'Ciclo en curso' : 'Último ciclo'}
         titulo={lote.nombre}
-        nota="Cuando cierres el siguiente, aquí aparece la comparación entre los dos."
+        nota={
+          enCurso
+            ? 'Cuando lo cierres, aquí verás cómo salió.'
+            : 'Cuando cierres el siguiente, aquí aparece la comparación entre los dos.'
+        }
       />
       <Banda className="divide-y divide-line">
         {filas.map((f) => (
@@ -157,10 +169,18 @@ function Totales({ lista }: { lista: LoteConMetrics[] }) {
   )
 }
 
-function RepartoSocios({ reparto }: { reparto: ReturnType<typeof gananciaPorSocio> }) {
+// Con `neutro`, los montos no son ganancia ni pérdida —lo que puso cada socio
+// en ciclos que siguen— y van sin el verde ni el rojo.
+function RepartoSocios({
+  reparto,
+  neutro = false,
+}: {
+  reparto: ReturnType<typeof gananciaPorSocio>
+  neutro?: boolean
+}) {
   if (reparto.socios.length === 0) return null
   return (
-    <Banda className="divide-y divide-line border-t-0">
+    <Banda className={clsx('divide-y divide-line', neutro ? 'mt-2' : 'border-t-0')}>
       {reparto.socios.map((s) => (
         <div key={s.nombre} className="flex items-baseline justify-between px-5 py-2.5">
           <span className="text-sm">
@@ -169,7 +189,7 @@ function RepartoSocios({ reparto }: { reparto: ReturnType<typeof gananciaPorSoci
           <span
             className={clsx(
               'font-display text-lg font-semibold tnum',
-              s.monto >= 0 ? 'text-forest-600' : 'text-clay-deep',
+              neutro ? 'text-ink' : s.monto >= 0 ? 'text-forest-600' : 'text-clay-deep',
             )}
           >
             {money(s.monto)}
@@ -183,6 +203,50 @@ function RepartoSocios({ reparto }: { reparto: ReturnType<typeof gananciaPorSoci
         </div>
       )}
     </Banda>
+  )
+}
+
+// Los ciclos que siguen no tienen ganancia todavía: lo vendido no cubre aún lo
+// puesto, y restarlo daba una «Pérdida» del tamaño de toda la inversión, en
+// rojo también en la parte de cada socio. Se muestra lo que se sabe: lo
+// invertido, lo vendido, lo que vale hoy lo que está en el galpón y a cuánto
+// hay que vender para no perder.
+function TotalesEnCurso({ lista }: { lista: LoteConMetrics[] }) {
+  const { precioMercadoLb } = useSettings()
+  const invertido = lista.reduce((a, r) => a + r.metrics.costos, 0)
+  const vendido = lista.reduce((a, r) => a + r.metrics.ingresos, 0)
+  const valorEnPie = lista.reduce((a, r) => {
+    const precio = r.lote.precioVentaLb ?? precioMercadoLb
+    if (!precio || r.metrics.pesoEstimadoLb == null) return a
+    return a + r.metrics.avesVivas * r.metrics.pesoEstimadoLb * precio
+  }, 0)
+  const minimo = precioMinimoConjunto(lista.filter((r) => r.precio).map((r) => r.precio!))
+  const reparto = gananciaPorSocio(
+    lista.map((r) => ({ socios: r.lote.socios, ganancia: r.metrics.costos })),
+  )
+  const filas = [
+    { label: 'Invertido', valor: money(invertido) },
+    ...(vendido > 0 ? [{ label: 'Vendido hasta hoy', valor: money(vendido) }] : []),
+    ...(valorEnPie > 0 ? [{ label: 'Valor en pie', valor: money(valorEnPie) }] : []),
+    ...(minimo != null ? [{ label: 'Mínimo para no perder', valor: `${porLb(minimo)}/lb` }] : []),
+  ]
+  return (
+    <>
+      <Banda className="mt-4 divide-y divide-line">
+        {filas.map((f) => (
+          <div key={f.label} className="flex items-center justify-between px-5 py-3">
+            <span className="text-sm text-ink-soft">{f.label}</span>
+            <span className="font-display text-xl font-semibold text-ink tnum">{f.valor}</span>
+          </div>
+        ))}
+      </Banda>
+      {reparto.socios.length > 0 && (
+        <>
+          <p className="mt-3 text-xs text-ink-faint">Lo invertido, según la parte de cada socio:</p>
+          <RepartoSocios reparto={reparto} neutro />
+        </>
+      )}
+    </>
   )
 }
 
