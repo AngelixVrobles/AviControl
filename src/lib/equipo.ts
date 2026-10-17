@@ -1,6 +1,6 @@
 import { aguaEsperadaL } from './agua'
 import { num, plural } from './format'
-import type { Settings } from './settings'
+import type { Galpon, Settings } from './settings'
 import { KG_POR_LB, KG_POR_M2, alimentoDiaEstandarLb } from './standards'
 
 export type TipoBebedero = 'plasson' | 'niple'
@@ -251,16 +251,23 @@ export function computeEquipo({
   return plan
 }
 
-// El plan con el equipo y las medidas que el productor guardó en la granja.
-export function equipoDeLaGranja(aves: number, pesoObjetivoLb: number, diaVenta: number, s: Settings) {
+// El plan con el equipo de la granja y las medidas del galpón —el del ciclo,
+// o el primero si no se dice cuál—.
+export function equipoDeLaGranja(
+  aves: number,
+  pesoObjetivoLb: number,
+  diaVenta: number,
+  s: Settings,
+  galpon: Galpon | undefined = s.galpones[0],
+) {
   return computeEquipo({
     aves,
     pesoObjetivoLb,
     diaVenta,
     config: { bebedero: s.bebedero, comedero: s.comedero, avesPor: s.avesPorEquipo },
     avesPorM2: s.avesPorM2,
-    largoM: s.galponLargoM,
-    anchoM: s.galponAnchoM,
+    largoM: galpon?.largoM,
+    anchoM: galpon?.anchoM,
   })
 }
 

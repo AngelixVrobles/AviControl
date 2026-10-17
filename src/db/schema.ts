@@ -45,6 +45,8 @@ export interface Lote {
   fechaCierre?: string
   cierre?: CierreCiclo
   conteosAlimento?: ConteoAlimento[]
+  // En qué galpón de la granja está; sin él, el primero.
+  galponId?: string
   notas?: string
   creado: number
 }

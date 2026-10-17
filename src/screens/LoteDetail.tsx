@@ -25,6 +25,7 @@ import { analizarPuntoOptimo } from "../lib/optimo";
 import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
+import { nombreGalpon } from "../lib/galpones";
 import { pendienteDe } from "../lib/cobros";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
 import {
@@ -255,7 +256,7 @@ export function LoteDetail() {
             <span className="text-sm text-ink-soft tnum">
               Día {metrics.dias}
             </span>
-            <span className="text-sm text-ink-soft">· {RAZA}</span>
+            <span className="text-sm text-ink-soft">· {nombreGalpon(lote, settings) ?? RAZA}</span>
             {lote.estado === "cerrado" && <Pill tone="neutral">Cerrado</Pill>}
           </div>
         </div>

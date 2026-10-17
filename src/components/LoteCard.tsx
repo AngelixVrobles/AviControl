@@ -6,6 +6,7 @@ import { RAZA } from '../lib/labels'
 import { desviaciones } from '../lib/desviaciones'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
 import { useSettings } from '../lib/hooks'
+import { nombreGalpon } from '../lib/galpones'
 import { IconChevron } from './icons'
 
 export function LoteCard({ data }: { data: LoteConMetrics }) {
@@ -33,7 +34,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
             {cerrado
               ? `${num(metrics.vendidas)} ${plural(metrics.vendidas, 'ave vendida', 'aves vendidas')}`
               : `${num(metrics.avesVivas)} ${plural(metrics.avesVivas, 'ave', 'aves')}`}{' '}
-            · {RAZA}
+            · {nombreGalpon(lote, settings) ?? RAZA}
           </div>
         </div>
         <div className="shrink-0 pl-3 text-right">
