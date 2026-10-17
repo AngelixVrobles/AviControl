@@ -27,6 +27,8 @@ import { computeGuiaDia } from "../lib/guia";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
 import { nombreGalpon } from "../lib/galpones";
 import { armarCiclo } from "../lib/compartido";
+import { computeArranque, tituloArranque } from "../lib/arranque";
+import { TarjetaArranque } from "../components/Arranque";
 import { hojasDelCiclo } from "../lib/exportar";
 import { crearXlsx, TIPO_XLSX } from "../lib/xlsx";
 import { entregarArchivo, nombreArchivo } from "../lib/archivo";
@@ -173,6 +175,7 @@ export function LoteDetail() {
   const vacio = lote.estado === "activo" && sinAves(metrics);
   // Un ciclo que mandó un socio se mira y no se toca: lo lleva él.
   const soloVer = !!lote.compartido;
+  const arranque = computeArranque(lote, registros, metrics.dias);
 
   async function quitarCopia() {
     const ok = await confirmar({
@@ -402,6 +405,18 @@ export function LoteDetail() {
             metrics={metrics}
             unidad={settings.unidadAlimento}
           />
+          {/* La primera semana se mira de cerca: lo que pasa ahí viene del
+              pollito y del recibo, y todavía se le puede reclamar a la incubadora. */}
+          {lote.estado === "activo" && metrics.dias <= 10 && (
+            <>
+              <Seccion
+                className="mb-3 mt-8"
+                etiqueta="Primera semana"
+                titulo={tituloArranque(arranque, metrics.dias)}
+              />
+              <TarjetaArranque a={arranque} dia={metrics.dias} />
+            </>
+          )}
           <FaseActual lote={lote} gastos={gastos} metrics={metrics} />
 
           <Seccion className="mb-3 mt-8" etiqueta="Historial" />

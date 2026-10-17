@@ -70,7 +70,7 @@ export function Ficha() {
 
       <p className="mb-5 text-sm text-ink-faint">{ficha.sub}</p>
 
-      {tipo === 'aves' && <FichaMortalidad lote={lote} registros={registros} />}
+      {tipo === 'aves' && <FichaMortalidad lote={lote} registros={registros} dia={metrics.dias} />}
       {tipo === 'alimento' && (
         <FichaAlimento lote={lote} registros={registros} gastos={gastos} metrics={metrics} soloVer={soloVer} />
       )}
