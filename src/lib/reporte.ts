@@ -1,6 +1,6 @@
 import type { Lote } from '../db/schema'
 import type { LoteMetrics } from './metrics'
-import { money, num, pct } from './format'
+import { money, num, pct, porLb } from './format'
 import { tipoLoteLabel } from './labels'
 
 const C = {
@@ -21,11 +21,18 @@ export interface KpiReporte {
   value: string
 }
 
+// Lo que se sabe de un ciclo que sigue: todavía no hay ganancia que mostrar.
+export interface EnCursoReporte {
+  precioMinimoLb?: number
+  valorEnPie?: number
+}
+
 export async function compartirReporte(
   lote: Lote,
   m: LoteMetrics,
   granja: string,
   kpis: KpiReporte[],
+  enCurso?: EnCursoReporte,
 ) {
   await document.fonts.ready
 
@@ -72,20 +79,43 @@ export async function compartirReporte(
   )
 
   caja(ctx, 48, 266, W - 96, 168)
-  const pos = m.ganancia >= 0
-  ctx.fillStyle = C.faint
-  ctx.font = '500 19px Geist, sans-serif'
-  ctx.fillText(pos ? 'Ganancia' : 'Pérdida', 76, 308)
-  ctx.fillStyle = pos ? C.forest : C.clay
-  ctx.font = '600 56px Fraunces, serif'
-  ctx.fillText(money(m.ganancia), 76, 368)
-  ctx.fillStyle = C.faint
-  ctx.font = '400 18px Geist, sans-serif'
-  ctx.fillText(
-    `Margen ${pct(m.margenPct)}   ·   Ingresos ${money(m.ingresos)}   ·   Costos ${money(m.costos)}`,
-    76,
-    406,
-  )
+  if (enCurso) {
+    // Mientras el ciclo sigue, lo vendido no cubre todavía lo puesto: decir
+    // «Pérdida» por toda la inversión asustaba al socio que recibía la imagen.
+    ctx.fillStyle = C.faint
+    ctx.font = '500 19px Geist, sans-serif'
+    ctx.fillText('Invertido hasta hoy', 76, 308)
+    ctx.fillStyle = C.ink
+    ctx.font = '600 56px Fraunces, serif'
+    ctx.fillText(money(m.costos), 76, 368)
+    ctx.fillStyle = C.faint
+    ctx.font = '400 18px Geist, sans-serif'
+    const partes = [
+      enCurso.precioMinimoLb != null && `Mínimo para no perder ${porLb(enCurso.precioMinimoLb)}/lb`,
+      enCurso.valorEnPie != null && enCurso.valorEnPie > 0 && `Valor en pie ${money(enCurso.valorEnPie)}`,
+      m.ingresos > 0 && `Vendido ${money(m.ingresos)}`,
+    ].filter((p): p is string => !!p)
+    ctx.fillText(
+      recortar(ctx, partes.length ? partes.join('   ·   ') : 'Todavía sin vender', W - 152),
+      76,
+      406,
+    )
+  } else {
+    const pos = m.ganancia >= 0
+    ctx.fillStyle = C.faint
+    ctx.font = '500 19px Geist, sans-serif'
+    ctx.fillText(pos ? 'Ganancia' : 'Pérdida', 76, 308)
+    ctx.fillStyle = pos ? C.forest : C.clay
+    ctx.font = '600 56px Fraunces, serif'
+    ctx.fillText(money(m.ganancia), 76, 368)
+    ctx.fillStyle = C.faint
+    ctx.font = '400 18px Geist, sans-serif'
+    ctx.fillText(
+      `Margen ${pct(m.margenPct)}   ·   Ingresos ${money(m.ingresos)}   ·   Costos ${money(m.costos)}`,
+      76,
+      406,
+    )
+  }
 
   const bw = (W - 96 - 24) / 2
   kpis.forEach((k, i) => {
