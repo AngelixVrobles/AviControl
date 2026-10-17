@@ -29,7 +29,8 @@ import {
 } from '../lib/sociedad'
 import { diasEntre, fecha as fechaCorta, hoyISO, money, num, numCorto, pct, plural, porLb } from '../lib/format'
 import { comprasAlimento } from '../lib/precios'
-import { useSettings } from '../lib/hooks'
+import { useCompradores, useSettings } from '../lib/hooks'
+import { cobradoDe, nombreComprador, pendienteDe } from '../lib/cobros'
 import { saveSettings } from '../lib/settings'
 import { borrarBorrador, guardarBorrador, leerBorrador, pesoSospechoso } from '../lib/borrador'
 import type { LoteMetrics } from '../lib/metrics'
@@ -42,6 +43,7 @@ import { errorFechaDelCiclo, errorFechaFutura, pesoObjetivoDe, topeDelCiclo } fr
 import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
 import { useEnvio } from './useEnvio'
+import { DatosDePago } from './Venta'
 
 export function RegistroSheet({
   lote,
@@ -867,6 +869,7 @@ export function IngresoSheet({
   open,
   onClose,
   editar,
+  onCobrar,
 }: {
   lote: Lote
   metrics: LoteMetrics
@@ -875,8 +878,13 @@ export function IngresoSheet({
   open: boolean
   onClose: () => void
   editar?: Ingreso
+  onCobrar?: (i: Ingreso) => void
 }) {
   const { ocupado, enviar } = useEnvio(open)
+  const conocidos = useCompradores()
+  const [comprador, setComprador] = useState('')
+  const [credito, setCredito] = useState(false)
+  const [adelanto, setAdelanto] = useState('')
   const [cantidad, setCantidad] = useState('')
   const [pesoLb, setPesoLb] = useState('')
   const [monto, setMonto] = useState('')
@@ -892,6 +900,9 @@ export function IngresoSheet({
     setFecha(editar?.fecha ?? hoyISO())
     setRecibidoPor(editar?.recibidoPor != null ? String(editar.recibidoPor) : '')
     setCerrar(true)
+    setComprador(editar?.comprador ?? '')
+    setCredito(!!editar?.credito)
+    setAdelanto('')
   }, [open, editar])
 
   // Vender con «Venta» las aves que quedan dejaba el ciclo abierto con el
@@ -901,15 +912,31 @@ export function IngresoSheet({
   const vendeTodo =
     !editar && lote.estado === 'activo' && metrics.avesVivas > 0 && nAves >= metrics.avesVivas
 
+  const total = Number(monto) || 0
+  const dio = Math.min(Number(adelanto) || 0, total)
+  // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
+  const aCredito = credito && (!!editar || dio < total)
+
   async function guardar() {
+    const quien = recibidoPor !== '' ? Number(recibidoPor) : undefined
     const datos = {
       loteId: lote.id,
       tipo: 'aves' as const,
       cantidad: nAves,
       pesoLb: pesoLb ? Number(pesoLb) : undefined,
-      monto: Number(monto) || 0,
+      monto: total,
       fecha,
-      recibidoPor: recibidoPor !== '' ? Number(recibidoPor) : undefined,
+      comprador: comprador.trim() || undefined,
+      credito: aCredito || undefined,
+      // A crédito, el dinero entra con los cobros, cada uno a quien lo recibió.
+      recibidoPor: aCredito ? undefined : quien,
+      cobros: aCredito
+        ? editar
+          ? (editar.cobros ?? [])
+          : dio > 0
+            ? [{ fecha, monto: dio, recibidoPor: quien }]
+            : []
+        : undefined,
     }
     if (editar) {
       await db.ingresos.update(editar.id, datos)
@@ -926,7 +953,11 @@ export function IngresoSheet({
       toast(`Ciclo cerrado · ${money(metrics.ingresos + datos.monto - metrics.costos)}`)
     } else {
       await db.ingresos.add({ ...datos, creado: Date.now() })
-      toast(`Venta anotada · ${money(datos.monto)}`)
+      toast(
+        aCredito
+          ? `Venta a crédito · faltan ${money(total - dio)} por cobrar`
+          : `Venta anotada · ${money(datos.monto)}`,
+      )
     }
     onClose()
   }
@@ -962,7 +993,7 @@ export function IngresoSheet({
               placeholder="0"
             />
           </Field>
-          <Field label="Monto recibido">
+          <Field label="Total de la venta">
             <Input
               type="number"
               inputMode="decimal"
@@ -981,8 +1012,36 @@ export function IngresoSheet({
             />
           </Field>
         </div>
-        {lote.socios && lote.socios.length >= 2 && (
-          <Field label="¿Quién recibió el dinero?">
+        <DatosDePago
+          comprador={comprador}
+          onComprador={setComprador}
+          credito={credito}
+          onCredito={setCredito}
+          adelanto={adelanto}
+          onAdelanto={setAdelanto}
+          total={total}
+          conocidos={conocidos}
+          conAdelanto={!editar}
+        />
+        {editar?.credito && credito && (
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-paper-sunken px-4 py-3 text-sm tnum">
+            <span className="text-ink-soft">
+              Cobrado {money(cobradoDe(editar))}
+              {pendienteDe(editar) > 0 ? ` · faltan ${money(pendienteDe(editar))}` : ' · ya pagó todo'}
+            </span>
+            {onCobrar && pendienteDe(editar) > 0 && (
+              <button
+                type="button"
+                onClick={() => onCobrar(editar)}
+                className="-mx-2 -my-3 shrink-0 px-2 py-3 font-semibold text-forest-600"
+              >
+                Anotar un cobro
+              </button>
+            )}
+          </div>
+        )}
+        {lote.socios && lote.socios.length >= 2 && (!aCredito || (!editar && dio > 0)) && (
+          <Field label={aCredito ? '¿Quién recibió lo que dio?' : '¿Quién recibió el dinero?'}>
             <Select value={recibidoPor} onChange={(e) => setRecibidoPor(e.target.value)}>
               <option value="">Común (según %)</option>
               {lote.socios.map((s, i) => (
@@ -1051,6 +1110,10 @@ export function CierreSheet({
   const [montoTocado, setMontoTocado] = useState(false)
   const [fecha, setFecha] = useState(hoyISO())
   const [recibidoPor, setRecibidoPor] = useState('')
+  const conocidos = useCompradores()
+  const [comprador, setComprador] = useState('')
+  const [credito, setCredito] = useState(false)
+  const [adelanto, setAdelanto] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -1062,12 +1125,18 @@ export function CierreSheet({
     setMontoTocado(false)
     setFecha(hoyISO())
     setRecibidoPor('')
+    setComprador('')
+    setCredito(false)
+    setAdelanto('')
   }, [open, metrics.avesVivas, lote.precioVentaLb])
 
   const nAves = Number(aves) || 0
   const lbTotal = Number(pesoTotal) || 0
   const precioLb = Number(precio) || 0
   const montoFinal = montoTocado ? Number(monto) || 0 : Math.round(lbTotal * precioLb)
+  const dio = Math.min(Number(adelanto) || 0, montoFinal)
+  // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
+  const aCredito = credito && dio < montoFinal
   const pesoPorAve = nAves > 0 && lbTotal > 0 ? lbTotal / nAves : undefined
   const parcial = nAves > 0 && nAves < metrics.avesVivas
   const dia = diasEntre(lote.fechaInicio, fecha)
@@ -1100,6 +1169,7 @@ export function CierreSheet({
   const reparto = gananciaPorSocio([{ socios: lote.socios, ganancia }])
 
   async function guardar() {
+    const quien = recibidoPor !== '' ? Number(recibidoPor) : undefined
     await db.transaction('rw', db.ingresos, db.lotes, async () => {
       await db.ingresos.add({
         loteId: lote.id,
@@ -1108,7 +1178,10 @@ export function CierreSheet({
         pesoLb: lbTotal || undefined,
         monto: montoFinal,
         fecha,
-        recibidoPor: recibidoPor !== '' ? Number(recibidoPor) : undefined,
+        comprador: comprador.trim() || undefined,
+        credito: aCredito || undefined,
+        recibidoPor: aCredito ? undefined : quien,
+        cobros: aCredito ? (dio > 0 ? [{ fecha, monto: dio, recibidoPor: quien }] : []) : undefined,
         creado: Date.now(),
       })
       if (!parcial) {
@@ -1191,7 +1264,7 @@ export function CierreSheet({
           </div>
 
           <Field
-            label="Monto recibido"
+            label="Total de la venta"
             hint={montoTocado ? 'Lo escribiste a mano' : 'Sale del peso por el precio; puedes corregirlo'}
           >
             <Input
@@ -1207,8 +1280,19 @@ export function CierreSheet({
             />
           </Field>
 
-          {lote.socios && lote.socios.length >= 2 && (
-            <Field label="¿Quién recibió el dinero?">
+          <DatosDePago
+            comprador={comprador}
+            onComprador={setComprador}
+            credito={credito}
+            onCredito={setCredito}
+            adelanto={adelanto}
+            onAdelanto={setAdelanto}
+            total={montoFinal}
+            conocidos={conocidos}
+          />
+
+          {lote.socios && lote.socios.length >= 2 && (!aCredito || dio > 0) && (
+            <Field label={aCredito ? '¿Quién recibió lo que dio?' : '¿Quién recibió el dinero?'}>
               <Select value={recibidoPor} onChange={(e) => setRecibidoPor(e.target.value)}>
                 <option value="">Común (según %)</option>
                 {lote.socios.map((s, i) => (
@@ -2131,6 +2215,168 @@ export function ConteoSheet({
             </div>
           </div>
         )}
+      </div>
+    </Sheet>
+  )
+}
+
+// Un pago de una venta a crédito. Se llega desde la venta («Anotar un cobro»)
+// o desde «Te deben»; trae lo que falta como monto, que es lo más común.
+export function CobroSheet({
+  ingreso,
+  lote,
+  open,
+  onClose,
+}: {
+  ingreso?: Ingreso
+  lote?: Lote
+  open: boolean
+  onClose: () => void
+}) {
+  const { ocupado, enviar } = useEnvio(open)
+  const [monto, setMonto] = useState('')
+  const [fecha, setFecha] = useState(hoyISO())
+  const [recibidoPor, setRecibidoPor] = useState('')
+  const [nota, setNota] = useState('')
+  const pendiente = ingreso ? pendienteDe(ingreso) : 0
+
+  useEffect(() => {
+    if (!open) return
+    setMonto(pendiente > 0 ? String(Math.round(pendiente * 100) / 100) : '')
+    setFecha(hoyISO())
+    setRecibidoPor('')
+    setNota('')
+    // Lo que falta solo cambia al guardar un cobro, y entonces la hoja se cierra.
+  }, [open, ingreso?.id, pendiente])
+
+  if (!ingreso) return <Sheet open={open} onClose={onClose} title="Cobrar">{null}</Sheet>
+
+  const valor = Number(monto) || 0
+  const socios = lote?.socios && lote.socios.length >= 2 ? lote.socios : undefined
+  const errorFecha =
+    errorFechaFutura(fecha) ??
+    (fecha < ingreso.fecha ? `Es antes de la venta (${fechaCorta(ingreso.fecha)}).` : undefined)
+  const deMas = valor > pendiente + 0.5
+  const quedaria = Math.max(0, pendiente - valor)
+  const quien = nombreComprador(ingreso)
+
+  async function guardar() {
+    if (!ingreso) return false
+    const cobro = {
+      fecha,
+      monto: valor,
+      recibidoPor: recibidoPor !== '' ? Number(recibidoPor) : undefined,
+      nota: nota.trim() || undefined,
+    }
+    await db.ingresos.update(ingreso.id, { cobros: [...(ingreso.cobros ?? []), cobro] })
+    toast(quedaria >= 1 ? `Cobraste ${money(valor)} · faltan ${money(quedaria)}` : `${quien} ya pagó todo`)
+    onClose()
+  }
+
+  async function quitar(i: number) {
+    if (!ingreso) return
+    const c = (ingreso.cobros ?? [])[i]
+    if (
+      !(await confirmar({
+        titulo: 'Quitar cobro',
+        mensaje: `Se quita el cobro de ${money(c.monto)} del ${fechaCorta(c.fecha)}.`,
+        confirmar: 'Quitar',
+        peligro: true,
+      }))
+    )
+      return
+    await db.ingresos.update(ingreso.id, {
+      cobros: (ingreso.cobros ?? []).filter((_, j) => j !== i),
+    })
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={`Cobrar a ${quien}`}>
+      <div className="space-y-4">
+        <div className="rounded-xl bg-paper-sunken px-4 py-3 text-sm text-ink-soft tnum">
+          <div>
+            Venta del {fechaCorta(ingreso.fecha)}
+            {lote ? ` · ${lote.nombre}` : ''} · {money(ingreso.monto)}
+          </div>
+          <div className="mt-0.5 font-semibold text-ink">
+            Cobrado {money(cobradoDe(ingreso))} · faltan {money(pendiente)}
+          </div>
+        </div>
+
+        {(ingreso.cobros ?? []).length > 0 && (
+          <div className="divide-y divide-line rounded-xl border border-line">
+            {(ingreso.cobros ?? []).map((c, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 py-1 pl-4 pr-1 text-sm tnum">
+                <span className="text-ink-soft">
+                  {fechaCorta(c.fecha)}
+                  {socios && c.recibidoPor != null && socios[c.recibidoPor]
+                    ? ` · ${nombreSocio(socios[c.recibidoPor], c.recibidoPor)}`
+                    : ''}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="font-semibold">{money(c.monto)}</span>
+                  <button
+                    type="button"
+                    onClick={() => quitar(i)}
+                    className="grid h-11 w-11 place-items-center rounded-full text-ink-faint active:bg-paper-sunken"
+                    aria-label={`Quitar el cobro de ${money(c.monto)} del ${fechaCorta(c.fecha)}`}
+                  >
+                    <IconClose width={16} height={16} />
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label="Cuánto te dio"
+            error={deMas ? `Solo faltan ${money(pendiente)}.` : undefined}
+            hint={valor > 0 && !deMas ? (quedaria >= 1 ? `Quedarían ${money(quedaria)}.` : 'Con esto paga todo.') : undefined}
+          >
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
+          <Field label="Fecha" error={errorFecha}>
+            <Input
+              type="date"
+              value={fecha}
+              min={ingreso.fecha}
+              max={hoyISO()}
+              onChange={(e) => setFecha(e.target.value)}
+            />
+          </Field>
+        </div>
+        {socios && (
+          <Field label="¿Quién lo recibió?">
+            <Select value={recibidoPor} onChange={(e) => setRecibidoPor(e.target.value)}>
+              <option value="">Común (según %)</option>
+              {socios.map((s, i) => (
+                <option key={i} value={i}>
+                  {nombreSocio(s, i)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        <Field label="Nota">
+          <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Opcional" />
+        </Field>
+        <Button
+          block
+          className="h-14"
+          disabled={!(valor > 0) || deMas || !!errorFecha || ocupado}
+          onClick={enviar(guardar)}
+        >
+          Guardar cobro
+        </Button>
       </div>
     </Sheet>
   )

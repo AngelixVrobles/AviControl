@@ -1,4 +1,5 @@
 import type { EntregaSocio, Gasto, Ingreso, Lote, Socio } from '../db/schema'
+import { pendienteDe } from './cobros'
 import type { LoteMetrics } from './metrics'
 
 export interface SocioBalance {
@@ -38,6 +39,8 @@ export interface Liquidacion {
   ingresos: number
   /** Ya entró dinero de ventas: la cuenta pasa de «lo que puso» a «lo que le toca». */
   conVentas: boolean
+  /** Vendido a crédito que todavía no entra: no está en la mano de nadie. */
+  porCobrar: number
   /** Lo que se ha movido entre socios con entregas anotadas. */
   movido: number
   /** Cómo se lee el reparto: «mitad y mitad», «en partes iguales», «60/40». */
@@ -104,7 +107,13 @@ export function computeLiquidacion(
 
   repartir(aporte, lote.costoInicial, lote.costoInicialPagadoPor)
   for (const g of gastos) repartir(aporte, g.monto, g.pagadoPor)
-  for (const i of ingresos) repartir(cobrado, i.monto, i.recibidoPor)
+  // Lo cobrado es lo que de verdad entró: de una venta a crédito, solo sus
+  // cobros, cada uno a quien lo recibió. Lo que falta no lo tiene nadie, y la
+  // cuenta lo espera en vez de pedir que alguien lo reparta.
+  for (const i of ingresos) {
+    if (!i.credito) repartir(cobrado, i.monto, i.recibidoPor)
+    else for (const c of i.cobros ?? []) if (c.monto > 0) repartir(cobrado, c.monto, c.recibidoPor)
+  }
 
   let movido = 0
   for (const e of entregas) {
@@ -140,6 +149,7 @@ export function computeLiquidacion(
     costos: m.costos,
     ingresos: m.ingresos,
     conVentas: m.ingresos > 0,
+    porCobrar: ingresos.reduce((a, i) => a + pendienteDe(i), 0),
     movido,
     acuerdo: leerAcuerdo(fr),
     traspasos: liquidar(balances),

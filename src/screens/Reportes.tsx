@@ -1,9 +1,9 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
-import { useDeudas, useResumen, useSettings } from '../lib/hooks'
+import { useDeudas, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { precioMinimoConjunto } from '../lib/precios'
-import { diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
+import { desdeHace, diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { Banda, Seccion } from '../components/ui'
 import { gananciaPorSocio } from '../lib/sociedad'
 import { GraficaBarras } from '../components/chart'
@@ -65,8 +65,44 @@ export function Reportes() {
         </>
       )}
 
+      <PorCobrar />
       <DeudasDeLaEmpresa />
     </div>
+  )
+}
+
+// Lo que te deben de las ventas a crédito, junto a lo que debe la granja.
+function PorCobrar() {
+  const r = usePorCobrar()
+  if (!r || r.total < 1) return null
+  return (
+    <>
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Te deben"
+        titulo={`${money(r.total)} de ventas a crédito`}
+        accion={
+          <Link to="/cobros" className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600">
+            Cobrar →
+          </Link>
+        }
+      />
+      <Banda className="divide-y divide-line">
+        {r.compradores.slice(0, 4).map((c) => (
+          <Link
+            key={c.comprador}
+            to="/cobros"
+            className="flex items-baseline justify-between gap-3 px-5 py-3 transition active:bg-paper-sunken"
+          >
+            <span className="min-w-0 truncate text-sm font-medium">{c.comprador}</span>
+            <span className="shrink-0 text-right tnum">
+              <span className="block font-display text-base font-semibold">{money(c.total)}</span>
+              <span className="block text-xs text-ink-faint">{desdeHace(c.masVieja)}</span>
+            </span>
+          </Link>
+        ))}
+      </Banda>
+    </>
   )
 }
 

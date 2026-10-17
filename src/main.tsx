@@ -67,6 +67,7 @@ const router = createBrowserRouter([
       },
       { path: '/reportes', lazy: pantalla(() => import('./screens/Reportes'), (m) => m.Reportes) },
       { path: '/deudas', lazy: pantalla(() => import('./screens/Deudas'), (m) => m.Deudas) },
+      { path: '/cobros', lazy: pantalla(() => import('./screens/Cobros'), (m) => m.Cobros) },
       { path: '/ajustes', lazy: pantalla(() => import('./screens/Ajustes'), (m) => m.Ajustes) },
     ],
   },
