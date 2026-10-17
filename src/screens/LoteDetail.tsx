@@ -30,6 +30,7 @@ import { retiroEn } from "../lib/retiro";
 import { armarCiclo } from "../lib/compartido";
 import { computeArranque, tituloArranque } from "../lib/arranque";
 import { TarjetaArranque } from "../components/Arranque";
+import { useVolver } from "../components/useVolver";
 import { hojasDelCiclo } from "../lib/exportar";
 import { crearXlsx, TIPO_XLSX } from "../lib/xlsx";
 import { entregarArchivo, nombreArchivo } from "../lib/archivo";
@@ -111,6 +112,7 @@ const TABS: { id: Tab; label: string }[] = [
 export function LoteDetail() {
   const { id } = useParams();
   const nav = useNavigate();
+  const volver = useVolver("/lotes");
   const data = useLoteData(id ? Number(id) : undefined);
   const settings = useSettings();
   const [sheet, setSheet] = useState<SheetKind>(null);
@@ -276,7 +278,7 @@ export function LoteDetail() {
     <div className="animate-rise">
       <header className="flex items-center gap-3 py-4">
         <button
-          onClick={() => nav(-1)}
+          onClick={volver}
           className="grid h-11 w-11 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver"
         >

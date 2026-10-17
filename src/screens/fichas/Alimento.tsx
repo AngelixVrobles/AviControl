@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import type { Gasto, Ingreso, Lote, Registro } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, numCompacto, numCorto, pct, plural, porLb } from '../../lib/format'
@@ -13,7 +12,7 @@ import { pesoObjetivoDe } from '../../lib/lote'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { db } from '../../db/schema'
 import { Banda, Seccion } from '../../components/ui'
-import { ConteoSheet } from '../../components/sheets'
+import { ConteoSheet, RegistroSheet } from '../../components/sheets'
 import { GraficaLineas } from '../../components/chart'
 import { Vacio } from './Vacio'
 
@@ -32,9 +31,11 @@ export function FichaAlimento({
   metrics: LoteMetrics
   soloVer?: boolean
 }) {
-  const nav = useNavigate()
   const { unidadAlimento } = useSettings()
   const [contando, setContando] = useState(false)
+  // El día se anota aquí mismo: antes llevaba al ciclo, y «Volver» regresaba a
+  // esta ficha en vez de al ciclo.
+  const [anotando, setAnotando] = useState(false)
   const fases = consumoPorFase(lote, metrics).filter((f) => f.realLb > 0 || f.planALaFechaLb > 0)
   const precioQq = precioQuintalReal(gastos)
   const plan = computePlanAlimento(lote, metrics, precioQq ?? lote.precioQuintal)
@@ -70,7 +71,7 @@ export function FichaAlimento({
           compradoQq={inv?.compradoQq ?? 0}
           activo={anota}
           onContar={() => setContando(true)}
-          onAnotar={() => nav(`/lotes/${lote.id}?reg=1`)}
+          onAnotar={() => setAnotando(true)}
         />
       ) : (
         <Banda className="px-5 py-4">
@@ -419,7 +420,10 @@ export function FichaAlimento({
       )}
 
       {!soloVer && (
-        <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
+        <>
+          <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
+          <RegistroSheet lote={lote} registros={registros} open={anotando} onClose={() => setAnotando(false)} />
+        </>
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import { EditorSocios } from '../components/Socios'
 import { DatosRecibo } from '../components/Recibo'
 import { reciboParaGuardar } from '../lib/arranque'
 import { useEnvio } from '../components/useEnvio'
+import { useVolver } from '../components/useVolver'
 import { fecha as fechaCorta, hoyISO, num } from '../lib/format'
 import { errorFechaFutura, errorNegativo } from '../lib/lote'
 import { useLotes, useSettings } from '../lib/hooks'
@@ -20,6 +21,7 @@ import { diaParaPeso } from '../lib/standards'
 
 export function NuevoLote() {
   const nav = useNavigate()
+  const volver = useVolver('/lotes')
   const settings = useSettings()
   // Un toque crea un ciclo: con dos seguidos se creaban dos iguales.
   const { ocupado, enviar } = useEnvio()
@@ -108,7 +110,7 @@ export function NuevoLote() {
     <div className="mx-auto min-h-dvh max-w-md bg-paper px-5 pb-10 safe-t">
       <header className="flex items-center gap-3 py-4">
         <button
-          onClick={() => nav(-1)}
+          onClick={volver}
           className="grid h-11 w-11 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver"
         >

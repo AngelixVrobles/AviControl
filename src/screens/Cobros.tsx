@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { usePorCobrar } from '../lib/hooks'
 import { desdeHace, fecha, money, num, plural } from '../lib/format'
@@ -7,12 +6,13 @@ import type { VentaPorCobrar } from '../lib/cobros'
 import { Banda, EmptyState, Seccion } from '../components/ui'
 import { IconBack, IconMoney } from '../components/icons'
 import { CobroSheet } from '../components/sheets'
+import { useVolver } from '../components/useVolver'
 
 // Lo que te deben de las ventas a crédito: por comprador, el que más debe
 // primero, y en cada uno la venta más vieja primero, que es la que hay que ir
 // a cobrar. Tocar una venta abre el cobro.
 export function Cobros() {
-  const nav = useNavigate()
+  const volver = useVolver('/')
   const resumen = usePorCobrar()
   // La venta queda elegida mientras la hoja se cierra, para que no se vacíe.
   const [venta, setVenta] = useState<VentaPorCobrar>()
@@ -24,7 +24,7 @@ export function Cobros() {
     <div className="animate-rise">
       <header className="flex items-center gap-3 py-4">
         <button
-          onClick={() => nav(-1)}
+          onClick={volver}
           className="grid h-11 w-11 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver"
         >

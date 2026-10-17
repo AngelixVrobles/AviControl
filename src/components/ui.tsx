@@ -96,16 +96,18 @@ export function Field({
   label,
   hint,
   error,
+  className,
   children,
 }: {
   label: string
   hint?: string
   // Lo que impide guardar: va en lugar de la ayuda y en otro color.
   error?: string
+  className?: string
   children: ReactNode
 }) {
   return (
-    <label className="block">
+    <label className={clsx('block', className)}>
       <span className="mb-1.5 block text-sm font-medium text-ink-soft">{label}</span>
       {children}
       {error ? (
