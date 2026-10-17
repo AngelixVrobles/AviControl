@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertaChip } from '../components/AlertaChip'
 import { AnimatedNumber } from '../components/AnimatedNumber'
@@ -13,12 +13,21 @@ import { nombreGalpon } from '../lib/galpones'
 import { useCuentaCerrados, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
+import { ListaNovedades } from '../components/Novedades'
+import { leerNovedadesVistas, marcarNovedadesVistas, NOVEDADES, tocaNovedades } from '../lib/novedades'
 
 export function Dashboard() {
   const activos = useResumen('activo')
   const cerrados = useCuentaCerrados()
   const compartidos = useResumen('activo', { compartidos: 'solo' })
   const settings = useSettings()
+  const [novedadesVistas, setNovedadesVistas] = useState(leerNovedadesVistas)
+  const sinDatos = activos != null && cerrados === 0 && activos.length === 0
+
+  // Quien estrena la app empieza con esta versión: lo nuevo no le dice nada.
+  useEffect(() => {
+    if (sinDatos && novedadesVistas == null) marcarNovedadesVistas()
+  }, [sinDatos, novedadesVistas])
 
   if (!activos || cerrados == null) return <SkeletonHeader />
 
@@ -34,6 +43,25 @@ export function Dashboard() {
         </div>
         <LogoAviControl size={40} tile className="shrink-0 rounded-[9px] shadow-card" />
       </header>
+
+      {tocaNovedades(novedadesVistas, activos.length + cerrados > 0) && (
+        <section className="mt-6 rounded-xl2 border border-forest-200 bg-forest-50 p-4">
+          <h2 className="mb-2 font-display text-base font-semibold text-forest-800">
+            Lo nuevo de la versión {NOVEDADES.version}
+          </h2>
+          <ListaNovedades corta />
+          <button
+            type="button"
+            onClick={() => {
+              marcarNovedadesVistas()
+              setNovedadesVistas(NOVEDADES.version)
+            }}
+            className="mt-2 block h-11 rounded-full bg-forest-500 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
+          >
+            Entendido
+          </button>
+        </section>
+      )}
 
       {activos.length === 0 ? (
         <div className="mt-6">

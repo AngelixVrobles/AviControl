@@ -65,7 +65,8 @@ export function computeInventarioAlimento(
   const compras = comprasAlimento(gastos)
   if (!compras.length) return null
 
-  const comprasSinCantidad = compras.filter((g) => !(g.cantidadQq && g.cantidadQq > 0)).length
+  // Lo que se pasó a otro ciclo va en negativo y también tiene su cantidad.
+  const comprasSinCantidad = compras.filter((g) => !g.cantidadQq).length
   const compradoQq = compras.reduce((a, g) => a + (g.cantidadQq ?? 0), 0)
   const consumidoQq = m.alimentoTotalLb / LB_POR_QUINTAL
 

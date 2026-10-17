@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { Ingreso, Lote, Registro } from '../../db/schema'
 import { fecha, num, pct, plural } from '../../lib/format'
-import { resumenMortalidad } from '../../lib/mortalidad'
+import { causasDelCiclo, resumenMortalidad, type CausaDelCiclo } from '../../lib/mortalidad'
+import { causaLabel } from '../../lib/labels'
 import { computeArranque, tituloArranque } from '../../lib/arranque'
 import { TarjetaArranque } from '../../components/Arranque'
 import { CALOR_C, calorDelCiclo, type CalorDelCiclo } from '../../lib/calor'
@@ -35,6 +36,7 @@ export function FichaMortalidad({
   const enfocada = foco != null ? r.semanas[foco] : undefined
   const bajasDelPeorDia = r.peorDia ? r.peorDia.muertes + r.peorDia.descartes : 0
   const calor = calorDelCiclo(lote, registros, ingresos)
+  const causas = causasDelCiclo(registros)
 
   return (
     <div className="space-y-6">
@@ -115,7 +117,53 @@ export function FichaMortalidad({
         </p>
       </div>
 
+      {causas && <Causas causas={causas.causas} sinCausa={causas.sinCausa} />}
+
       {calor && <Calor c={calor} />}
+    </div>
+  )
+}
+
+// De qué se murió el lote, con lo que se anotó cada día.
+function Causas({ causas, sinCausa }: { causas: CausaDelCiclo[]; sinCausa: number }) {
+  const primera = causas[0]
+  const conCausa = causas.reduce((a, c) => a + c.muertes, 0)
+  const cual = causaLabel(primera.causa)!.toLowerCase()
+  // «Casi todas» habla de todas las muertes, no solo de las que tienen causa:
+  // con 45 de calor anotadas y 300 sin anotar, no se puede decir eso.
+  const titulo =
+    primera.muertes / (conCausa + sinCausa) >= 0.5
+      ? `Casi todas de ${cual}`
+      : sinCausa >= conCausa
+        ? `Las que anotaste, más que nada de ${cual}`
+        : `Más que nada de ${cual}`
+  return (
+    <div>
+      <Seccion
+        etiqueta="De qué se murieron"
+        titulo={titulo}
+        nota={
+          sinCausa > 0
+            ? `Con la causa anotada en el registro del día. ${num(sinCausa)} ${plural(sinCausa, 'muerte', 'muertes')} sin causa no ${plural(sinCausa, 'cuenta', 'cuentan')} aquí.`
+            : 'Con la causa anotada en el registro del día.'
+        }
+      />
+      <Banda className="mt-3 divide-y divide-line">
+        {causas.map((c) => (
+          <div key={c.causa} className="px-5 py-3">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-medium">{causaLabel(c.causa)}</span>
+              <span className="tnum">
+                <span className="font-display text-base font-semibold">{num(c.muertes)}</span>
+                <span className="ml-2 text-ink-faint">{pct(c.pct, 0)}</span>
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-sunken" aria-hidden>
+              <div className="h-full rounded-full bg-clay" style={{ width: `${Math.max(2, c.pct)}%` }} />
+            </div>
+          </div>
+        ))}
+      </Banda>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import type { Aplicacion, EntregaSocio, Gasto, Ingreso, Lote, Pesaje, Registro } from '../db/schema'
 import { cobradoDe, pendienteDe } from './cobros'
 import { diasEntre } from './format'
-import { categoriaLabel, RAZA, tipoIngresoLabel } from './labels'
+import { categoriaLabel, causaLabel, RAZA, tipoIngresoLabel } from './labels'
 import type { LoteMetrics } from './metrics'
 import { analizarMuestra } from './muestreo'
 import { retiroDe } from './retiro'
@@ -75,11 +75,12 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
   ]
 
   const dias: Celda[][] = [
-    ['Fecha', 'Día', 'Bajas', 'Descarte', 'Alimento (lb)', 'Agua (L)', 'Peso (lb)', 'Temp. máx. (°C)', 'Humedad (%)', 'Nota'],
+    ['Fecha', 'Día', 'Bajas', 'Causa', 'Descarte', 'Alimento (lb)', 'Agua (L)', 'Peso (lb)', 'Temp. máx. (°C)', 'Humedad (%)', 'Nota'],
     ...porFecha(d.registros).map((r) => [
       fecha(r.fecha),
       diasEntre(lote.fechaInicio, r.fecha),
       r.mortalidad,
+      causaLabel(r.causa),
       r.descarte,
       r.alimentoLb || undefined,
       r.aguaL,

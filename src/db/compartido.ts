@@ -37,7 +37,8 @@ export async function guardarCicloCompartido(c: CicloCompartido): Promise<{ id: 
       }
       await Promise.all([
         db.registros.bulkAdd(sinId(c.registros, id)),
-        db.gastos.bulkAdd(sinId(c.gastos, id)),
+        // Un traspaso de alimento apunta a ciclos del otro teléfono.
+        db.gastos.bulkAdd(sinId(c.gastos.map(({ traspaso: _t, ...g }) => g) as typeof c.gastos, id)),
         db.ingresos.bulkAdd(sinId(c.ingresos.map(({ galponId: _gv, ...i }) => i) as typeof c.ingresos, id)),
         db.pesajes.bulkAdd(sinId(c.pesajes, id)),
         db.aplicaciones.bulkAdd(sinId(c.aplicaciones, id)),

@@ -11,6 +11,7 @@ import { ComparacionLotes } from '../components/Comparacion'
 import { agruparHitos, hitosEngorde } from '../lib/standards'
 import { LIMITE_DOA_PCT, porIncubadora } from '../lib/arranque'
 import { LIMITE_PRIMERA_SEMANA_PCT } from '../lib/mortalidad'
+import { ciclosPorGalpon } from '../lib/reparto'
 
 type Segmento = 'cerrado' | 'activo'
 
@@ -61,6 +62,7 @@ export function Reportes() {
           <VasMejorando lista={lista} />
           <ComparacionLotes resumen={lista} />
           {seg === 'cerrado' && <PorIncubadora lista={lista} />}
+          {seg === 'cerrado' && <PorGalpon lista={lista} />}
         </>
       )}
 
@@ -430,6 +432,52 @@ function PorIncubadora({ lista }: { lista: LoteConMetrics[] }) {
               <Cifra valor={pct(g.pct7, 2)} label="1ª semana" mal={g.pct7 > LIMITE_PRIMERA_SEMANA_PCT} />
               <Cifra valor={pct(g.mortalidadPct, 1)} label="mortalidad" />
               <Cifra valor={g.fca != null ? num(g.fca, 2) : '—'} label="conversión" />
+            </div>
+          </div>
+        ))}
+      </Banda>
+    </>
+  )
+}
+
+// Los ciclos cerrados de cada galpón, uno junto a otro: el galpón que da más
+// mortalidad o peor conversión se nota, y se sabe dónde invertir.
+function PorGalpon({ lista }: { lista: LoteConMetrics[] }) {
+  const settings = useSettings()
+  if (settings.galpones.length < 2) return null
+  const grupos = ciclosPorGalpon(lista, settings)
+  if (grupos.length < 2) return null
+  // Uno «sale mejor» solo si se nota: un punto de IEP es ruido.
+  const conIep = grupos.filter((g) => g.iep != null)
+  const mejor = conIep.length > 1 ? conIep.reduce((a, b) => (b.iep! > a.iep! ? b : a)) : undefined
+  const segundo = mejor ? Math.max(...conIep.filter((g) => g !== mejor).map((g) => g.iep!)) : undefined
+  const seNota = mejor != null && segundo != null && mejor.iep! - segundo >= 10
+  return (
+    <>
+      <Seccion
+        className="mt-8"
+        etiqueta="Por galpón"
+        titulo={seNota ? `${mejor!.nombre} es el que mejor sale` : 'Cómo sale cada galpón'}
+        nota="Promedio de los ciclos cerrados de cada galpón. Las polladas que se repartieron van aparte."
+      />
+      <Banda className="mt-3 divide-y divide-line">
+        {grupos.map((g) => (
+          <div key={g.id} className="px-5 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate font-medium">{g.nombre}</span>
+              <span className="shrink-0 text-xs text-ink-faint">
+                {num(g.ciclos)} {plural(g.ciclos, 'ciclo', 'ciclos')}
+              </span>
+            </div>
+            <div className="mt-1.5 grid grid-cols-4 gap-2 text-xs text-ink-faint">
+              <Cifra valor={pct(g.mortalidadPct, 1)} label="mortalidad" />
+              <Cifra valor={g.fca != null ? num(g.fca, 2) : '—'} label="conversión" />
+              <Cifra valor={g.iep != null ? num(g.iep) : '—'} label="IEP" />
+              <Cifra
+                valor={g.gananciaPorAve != null ? money(g.gananciaPorAve) : '—'}
+                label="por ave"
+                mal={g.gananciaPorAve != null && g.gananciaPorAve < 0}
+              />
             </div>
           </div>
         ))}

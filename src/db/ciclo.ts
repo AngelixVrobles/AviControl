@@ -10,6 +10,12 @@ export async function borrarCiclo(loteId: number) {
     'rw',
     [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.aplicaciones, db.entregas],
     async () => {
+      // El alimento que se pasó a otro ciclo, o que vino de otro, también se
+      // va del otro lado: si no, ese ciclo seguiría con el traspaso a medias.
+      const pares = (await db.gastos.where('loteId').equals(loteId).toArray())
+        .map((g) => g.traspaso?.gastoId)
+        .filter((id): id is number => id != null)
+      if (pares.length) await db.gastos.bulkDelete(pares)
       await Promise.all([
         db.registros.where('loteId').equals(loteId).delete(),
         db.gastos.where('loteId').equals(loteId).delete(),

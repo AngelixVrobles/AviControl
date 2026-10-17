@@ -49,8 +49,17 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
     listaDe(l.movimientos, esMovimiento) &&
     (l.cierre == null || esObjeto(l.cierre)),
   registros: (r) =>
-    esId(r.loteId) && esFecha(r.fecha) && esNumOpc(r.mortalidad) && esNumOpc(r.descarte) && esNumOpc(r.alimentoLb),
-  gastos: (g) => esIdOpc(g.loteId) && esFecha(g.fecha) && esNum(g.monto),
+    esId(r.loteId) &&
+    esFecha(r.fecha) &&
+    esNumOpc(r.mortalidad) &&
+    esNumOpc(r.descarte) &&
+    esNumOpc(r.alimentoLb) &&
+    esTextoOpc(r.causa),
+  gastos: (g) =>
+    esIdOpc(g.loteId) &&
+    esFecha(g.fecha) &&
+    esNum(g.monto) &&
+    (g.traspaso == null || (esObjeto(g.traspaso) && esId(g.traspaso.loteId) && esIdOpc(g.traspaso.gastoId))),
   ingresos: (i) =>
     esIdOpc(i.loteId) && esFecha(i.fecha) && esNum(i.monto) && listaDe(i.cobros, esCobro) && esTextoOpc(i.galponId),
   pesajes: (p) => esId(p.loteId) && esFecha(p.fecha) && Array.isArray(p.pesos) && p.pesos.every(esNum),

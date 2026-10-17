@@ -1,4 +1,4 @@
-import type { Ingreso, Lote, Registro } from '../db/schema'
+import type { CausaBaja, Ingreso, Lote, Registro } from '../db/schema'
 import { diasEntre } from './format'
 import { mortalidadEsperadaPct } from './standards'
 
@@ -108,4 +108,33 @@ export function resumenMortalidad(
       : undefined,
     vivas: ultimo.vivas,
   }
+}
+
+export interface CausaDelCiclo {
+  causa: CausaBaja
+  muertes: number
+  /** De las muertes con causa anotada. */
+  pct: number
+}
+
+// De qué se murió el lote, con lo anotado día por día. Las muertes de los días
+// sin causa se cuentan aparte: si son la mayoría, el resto dice poco.
+export function causasDelCiclo(registros: Pick<Registro, 'mortalidad' | 'causa'>[]): {
+  causas: CausaDelCiclo[]
+  sinCausa: number
+} | null {
+  const por = new Map<CausaBaja, number>()
+  let sinCausa = 0
+  for (const r of registros) {
+    const n = r.mortalidad ?? 0
+    if (n <= 0) continue
+    if (r.causa) por.set(r.causa, (por.get(r.causa) ?? 0) + n)
+    else sinCausa += n
+  }
+  const conCausa = [...por.values()].reduce((a, n) => a + n, 0)
+  if (!conCausa) return null
+  const causas = [...por.entries()]
+    .map(([causa, muertes]) => ({ causa, muertes, pct: (muertes / conCausa) * 100 }))
+    .sort((a, b) => b.muertes - a.muertes)
+  return { causas, sinCausa }
 }
