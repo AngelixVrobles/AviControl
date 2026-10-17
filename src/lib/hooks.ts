@@ -97,6 +97,7 @@ export function useLoteData(id: number | undefined) {
       alertas: computeAlertas(lote, registros, gastos, metrics, {
         plan: settings.planSanitario,
         aplicaciones,
+        ingresos,
       }),
     }
   }, [id, hoy, settings])
@@ -142,6 +143,7 @@ export function useResumen(
         alertas: computeAlertas(lote, registros, gastos, metrics, {
           plan: settings.planSanitario,
           aplicaciones,
+          ingresos,
         }),
         precio,
         arranque: computeArranque(lote, registros, metrics.dias),

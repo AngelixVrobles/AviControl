@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Gasto, Lote, Registro } from '../../db/schema'
+import type { Gasto, Ingreso, Lote, Registro } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, numCompacto, numCorto, pct, plural, porLb } from '../../lib/format'
 import { useSettings } from '../../lib/hooks'
@@ -21,12 +21,14 @@ export function FichaAlimento({
   lote,
   registros,
   gastos,
+  ingresos = [],
   metrics,
   soloVer = false,
 }: {
   lote: Lote
   registros: Registro[]
   gastos: Gasto[]
+  ingresos?: Ingreso[]
   metrics: LoteMetrics
   soloVer?: boolean
 }) {
@@ -44,7 +46,7 @@ export function FichaAlimento({
   const diaFca = Math.min(metrics.diaAlimento ?? metrics.dias, metrics.dias)
   const stdFca = fcaEstandar(diaFca)
   const estadoFca = juicioFca(metrics)?.estado
-  const agua = resumenAgua(lote, registros)
+  const agua = resumenAgua(lote, registros, ingresos)
   const activo = lote.estado === 'activo'
   // En un ciclo compartido no se cuenta ni se anota: lo lleva el socio.
   const anota = activo && !soloVer

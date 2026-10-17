@@ -115,3 +115,16 @@ describe('conversión que no cuadra', () => {
     expect(textos.some((t) => t.startsWith('La conversión sale en') && t.includes('falta alimento'))).toBe(true)
   })
 })
+
+describe('alimento que se acabó', () => {
+  // Con el saldo estimado en cero o menos, el aviso de «te queda alimento
+  // para N días» desaparecía justo cuando más hacía falta.
+  it('avisa cuando por lo anotado ya no queda', () => {
+    const l = lote({ fechaInicio: hace(20), cantidadInicial: 1000 })
+    const regs = Array.from({ length: 19 }, (_, i) => ({ ...registro(i + 1, { alimentoLb: 100 }), fecha: hace(19 - i) }))
+    const gastos = [{ id: 1, loteId: 1, categoria: 'alimento' as const, monto: 30000, cantidadQq: 19, fecha: hace(20), creado: 0 }]
+    const m = computeMetrics(l, regs, gastos, [])
+    const textos = computeAlertas(l, regs, gastos, m, { plan: [] }).map((a) => a.texto)
+    expect(textos.some((t) => /ya no queda alimento/i.test(t))).toBe(true)
+  })
+})

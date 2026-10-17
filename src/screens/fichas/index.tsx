@@ -46,7 +46,7 @@ export function Ficha() {
       </div>
     )
 
-  const { lote, registros, gastos, aplicaciones, metrics } = data
+  const { lote, registros, gastos, ingresos, aplicaciones, metrics } = data
   // Un ciclo que mandó un socio se mira y no se toca.
   const soloVer = !!lote.compartido
 
@@ -70,9 +70,18 @@ export function Ficha() {
 
       <p className="mb-5 text-sm text-ink-faint">{ficha.sub}</p>
 
-      {tipo === 'aves' && <FichaMortalidad lote={lote} registros={registros} dia={metrics.dias} />}
+      {tipo === 'aves' && (
+        <FichaMortalidad lote={lote} registros={registros} ingresos={ingresos} dia={metrics.dias} />
+      )}
       {tipo === 'alimento' && (
-        <FichaAlimento lote={lote} registros={registros} gastos={gastos} metrics={metrics} soloVer={soloVer} />
+        <FichaAlimento
+          lote={lote}
+          registros={registros}
+          gastos={gastos}
+          ingresos={ingresos}
+          metrics={metrics}
+          soloVer={soloVer}
+        />
       )}
       {tipo === 'sanidad' && (
         <FichaSanidad
