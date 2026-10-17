@@ -54,6 +54,8 @@ export function Imprimir() {
 
   const kpis: [string, string][] = [
     ['Pollitos recibidos', num(lote.cantidadInicial)],
+    ...(lote.muertosLlegada ? [['Llegaron muertos', num(lote.muertosLlegada)] as [string, string]] : []),
+    ...(lote.pesoLlegadaG ? [['Peso al llegar', `${num(lote.pesoLlegadaG)} g`] as [string, string]] : []),
     [cerrado ? 'Aves vendidas' : 'Aves en el galpón', num(cerrado ? m.vendidas : m.avesVivas)],
     ['Mortalidad', pct(m.mortalidadPct)],
     ['Peso promedio', m.pesoFinalLb != null ? `${num(m.pesoFinalLb, 2)} lb` : '—'],
@@ -89,6 +91,7 @@ export function Imprimir() {
           {lote.compartido?.de ?? settings.granja} · {RAZA} · del {fecha(lote.fechaInicio)} al {fecha(hasta)} · día{' '}
           {m.dias}
           {cerrado ? ' · cerrado' : ' · en curso'}
+          {lote.incubadora ? ` · pollitos de ${lote.incubadora}` : ''}
         </p>
       </header>
 
