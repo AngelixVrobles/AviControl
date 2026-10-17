@@ -186,6 +186,17 @@ export function LoteDetail() {
       });
   }
 
+  // En el reporte de un ciclo que sigue no van el costo por libra de hoy ni
+  // las aves vendidas (cero): van el precio mínimo y cuándo se vende.
+  const enCurso = lote.estado === "activo";
+  const analisisReporte = enCurso
+    ? analizarPrecio(
+        lote,
+        gastos,
+        metrics,
+        proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote)),
+      )
+    : null;
   const kpis = [
     {
       label:
@@ -204,11 +215,26 @@ export function LoteDetail() {
       label: "Alimento total",
       value: `${num(metrics.alimentoTotalLb / LB_POR_QUINTAL, 1)} qq`,
     },
-    {
-      label: "Costo / lb",
-      value: metrics.costoPorLb != null ? porLb(metrics.costoPorLb) : "—",
-    },
-    { label: "Aves vendidas", value: num(metrics.vendidas) },
+    enCurso
+      ? {
+          label: "Mínimo para no perder",
+          value: analisisReporte ? `${porLb(analisisReporte.precioEquilibrioLb)}/lb` : "—",
+        }
+      : {
+          label: "Costo / lb",
+          value: metrics.costoPorLb != null ? porLb(metrics.costoPorLb) : "—",
+        },
+    enCurso
+      ? {
+          label: "Venta estimada",
+          value:
+            metrics.fechaVentaEstimada && metrics.diaVentaEstimado != null
+              ? metrics.diaVentaEstimado <= metrics.dias
+                ? "lista"
+                : `${fecha(metrics.fechaVentaEstimada)} · día ${metrics.diaVentaEstimado}`
+              : "—",
+        }
+      : { label: "Aves vendidas", value: num(metrics.vendidas) },
   ];
 
   return (
@@ -570,7 +596,18 @@ export function LoteDetail() {
               block
               variant="soft"
               onClick={() =>
-                compartirReporte(lote, metrics, settings.granja, kpis)
+                compartirReporte(
+                  lote,
+                  metrics,
+                  settings.granja,
+                  kpis,
+                  enCurso
+                    ? {
+                        precioMinimoLb: analisisReporte?.precioEquilibrioLb,
+                        valorEnPie,
+                      }
+                    : undefined,
+                )
               }
             >
               Compartir reporte
