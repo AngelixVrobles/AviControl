@@ -15,7 +15,7 @@ export function FichasNav({
   aplicaciones: Aplicacion[]
 }) {
   const fichas = [
-    { tipo: 'aves', titulo: 'Aves', valor: pct(metrics.mortalidadPct, 1), pie: 'de baja', ancho: false },
+    { tipo: 'aves', titulo: 'Aves', valor: pct(metrics.mortalidadPct, 1), pie: 'mortalidad', ancho: false },
     {
       tipo: 'alimento',
       titulo: 'Alimento',

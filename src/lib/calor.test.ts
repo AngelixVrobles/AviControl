@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { calorDelCiclo, calorReciente, fraseCalor, juicioCalor } from './calor'
 import { computeAlertas } from './alerts'
 import { computeMetrics } from './metrics'
-import { hace, lote, registro } from '../test/fixtures'
+import { hace, ingreso, lote, registro } from '../test/fixtures'
 
 describe('juicioCalor', () => {
   it('con el pollo grande, 30 °C ya es calor y 34 °C es peligro', () => {
@@ -102,5 +102,18 @@ describe('calorDelCiclo', () => {
 
   it('sin temperaturas no hay nada que decir', () => {
     expect(calorDelCiclo(lote(), [registro(20, { mortalidad: 3 })])).toBeNull()
+  })
+})
+
+describe('calor con ventas', () => {
+  // Vendidas 700 de 1,000 el día 35: las bajas de los días siguientes se
+  // dividían entre las 1,000 y el calor nunca «costaba aves».
+  it('las aves de cada mañana restan lo vendido antes', () => {
+    const l = lote({ cantidadInicial: 1000 })
+    const venta = ingreso({ cantidad: 700, fecha: registro(35).fecha })
+    const regs = [36, 37, 38, 39].map((d) => registro(d, { tempMaxC: d % 2 ? 35 : 27, mortalidad: d % 2 ? 3 : 1 }))
+    const c = calorDelCiclo(l, regs, [venta])!
+    expect(c.porMilCalor!).toBeCloseTo(10, 0)
+    expect(c.porMilNormal!).toBeCloseTo(3.3, 0)
   })
 })

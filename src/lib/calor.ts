@@ -1,4 +1,4 @@
-import type { Lote, Registro } from '../db/schema'
+import type { Ingreso, Lote, Registro } from '../db/schema'
 import { diasEntre, hoyISO, num, sumarDias } from './format'
 import { tempRecomendadaC } from './standards'
 
@@ -110,8 +110,13 @@ export interface CalorDelCiclo {
 export function calorDelCiclo(
   lote: Pick<Lote, 'fechaInicio' | 'cantidadInicial' | 'muertosLlegada'>,
   registros: Registro[],
+  ingresos: Ingreso[] = [],
 ): CalorDelCiclo | null {
   const ordenados = [...registros].sort((a, b) => a.fecha.localeCompare(b.fecha))
+  const ventas = ingresos.filter((i) => i.tipo === 'aves')
+  // Las aves de cada mañana restan lo vendido los días antes: vendidas 700 de
+  // 1,000, las bajas de un día de calor se dividían entre las 1,000.
+  const vendidasAntes = (f: string) => ventas.filter((i) => i.fecha < f).reduce((a, i) => a + i.cantidad, 0)
   let vivas = lote.cantidadInicial - (lote.muertosLlegada ?? 0)
   const calor = { dias: 0, bajas: 0, aves: 0 }
   const normal = { dias: 0, bajas: 0, aves: 0 }
@@ -125,11 +130,12 @@ export function calorDelCiclo(
       anotados++
       if (conCalor(j)) diasCalor++
       if (!peor || j.tempC > peor.tempC) peor = { fecha: r.fecha, dia: j.dia, tempC: j.tempC, bajas }
-      if (j.dia > 7 && vivas > 0) {
+      const enGalpon = vivas - vendidasAntes(r.fecha)
+      if (j.dia > 7 && enGalpon > 0) {
         const grupo = conCalor(j) ? calor : normal
         grupo.dias++
         grupo.bajas += bajas
-        grupo.aves += vivas
+        grupo.aves += enGalpon
       }
     }
     vivas -= bajas
