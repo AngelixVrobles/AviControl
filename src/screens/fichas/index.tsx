@@ -47,6 +47,8 @@ export function Ficha() {
     )
 
   const { lote, registros, gastos, aplicaciones, metrics } = data
+  // Un ciclo que mandó un socio se mira y no se toca.
+  const soloVer = !!lote.compartido
 
   return (
     <div className="animate-rise">
@@ -70,12 +72,18 @@ export function Ficha() {
 
       {tipo === 'aves' && <FichaMortalidad lote={lote} registros={registros} />}
       {tipo === 'alimento' && (
-        <FichaAlimento lote={lote} registros={registros} gastos={gastos} metrics={metrics} />
+        <FichaAlimento lote={lote} registros={registros} gastos={gastos} metrics={metrics} soloVer={soloVer} />
       )}
       {tipo === 'sanidad' && (
-        <FichaSanidad lote={lote} metrics={metrics} gastos={gastos} aplicaciones={aplicaciones} />
+        <FichaSanidad
+          lote={lote}
+          metrics={metrics}
+          gastos={gastos}
+          aplicaciones={aplicaciones}
+          soloVer={soloVer}
+        />
       )}
-      {tipo === 'gastos' && <FichaGastos lote={lote} gastos={gastos} metrics={metrics} />}
+      {tipo === 'gastos' && <FichaGastos lote={lote} gastos={gastos} metrics={metrics} soloVer={soloVer} />}
       {tipo === 'galpon' && <FichaGalpon lote={lote} metrics={metrics} settings={settings} />}
     </div>
   )

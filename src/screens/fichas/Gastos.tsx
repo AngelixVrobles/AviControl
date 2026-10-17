@@ -23,10 +23,12 @@ export function FichaGastos({
   lote,
   gastos,
   metrics,
+  soloVer = false,
 }: {
   lote: Lote
   gastos: Gasto[]
   metrics: LoteMetrics
+  soloVer?: boolean
 }) {
   const [cat, setCat] = useState<string>('todo')
   const [editar, setEditar] = useState<Gasto>()
@@ -144,7 +146,7 @@ export function FichaGastos({
           {visibles.map((l) => (
             <button
               key={l.id}
-              disabled={!l.gasto}
+              disabled={soloVer || !l.gasto}
               onClick={() => {
                 setEditar(l.gasto)
                 setAbierta(true)
@@ -165,7 +167,7 @@ export function FichaGastos({
         </Banda>
       </div>
 
-      <GastoSheet lote={lote} open={abierta} onClose={() => setAbierta(false)} editar={editar} />
+      {!soloVer && <GastoSheet lote={lote} open={abierta} onClose={() => setAbierta(false)} editar={editar} />}
     </div>
   )
 }

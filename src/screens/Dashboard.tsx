@@ -17,6 +17,7 @@ import { useRespaldo } from '../components/useRespaldo'
 export function Dashboard() {
   const activos = useResumen('activo')
   const cerrados = useResumen('cerrado')
+  const compartidos = useResumen('activo', { compartidos: 'solo' })
   const settings = useSettings()
 
   if (!activos || !cerrados) return <SkeletonHeader />
@@ -36,6 +37,7 @@ export function Dashboard() {
 
       {activos.length === 0 ? (
         <div className="mt-6">
+          <Compartidos lista={compartidos} />
           <EmptyState
             icon={<IconScale width={28} height={28} />}
             title={cerrados.length ? 'No tienes ciclos en curso' : 'Aún no tienes ciclos'}
@@ -88,9 +90,27 @@ export function Dashboard() {
           </div>
 
           <BloqueFinanciero activos={activos} precioMercado={settings.precioMercadoLb} />
+
+          <Compartidos lista={compartidos} />
         </>
       )}
     </div>
+  )
+}
+
+// Los ciclos que mandó un socio: para quien no lleva los datos, es lo que viene
+// a ver. Van aparte y no entran en las cuentas de la granja.
+function Compartidos({ lista }: { lista?: LoteConMetrics[] }) {
+  if (!lista?.length) return null
+  return (
+    <section className="mb-6 mt-8 first:mt-0">
+      <Seccion className="mb-3" etiqueta="Compartidos contigo" />
+      <div className="space-y-3">
+        {lista.map((d) => (
+          <LoteCard key={d.lote.id} data={d} />
+        ))}
+      </div>
+    </section>
   )
 }
 

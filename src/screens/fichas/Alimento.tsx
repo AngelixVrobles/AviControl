@@ -22,11 +22,13 @@ export function FichaAlimento({
   registros,
   gastos,
   metrics,
+  soloVer = false,
 }: {
   lote: Lote
   registros: Registro[]
   gastos: Gasto[]
   metrics: LoteMetrics
+  soloVer?: boolean
 }) {
   const nav = useNavigate()
   const { unidadAlimento } = useSettings()
@@ -44,6 +46,8 @@ export function FichaAlimento({
   const estadoFca = juicioFca(metrics)?.estado
   const agua = resumenAgua(lote, registros)
   const activo = lote.estado === 'activo'
+  // En un ciclo compartido no se cuenta ni se anota: lo lleva el socio.
+  const anota = activo && !soloVer
   const ultimoConteo = consumo.conteos.length ? consumo.conteos[consumo.conteos.length - 1] : undefined
   // Lo mismo que usa «A cómo vender»: el consumo hasta el día de venta menos lo
   // que ya está en el almacén.
@@ -62,7 +66,7 @@ export function FichaAlimento({
           compras={compras.length}
           sinCantidad={inv?.comprasSinCantidad ?? 0}
           compradoQq={inv?.compradoQq ?? 0}
-          activo={activo}
+          activo={anota}
           onContar={() => setContando(true)}
           onAnotar={() => nav(`/lotes/${lote.id}?reg=1`)}
         />
@@ -206,7 +210,7 @@ export function FichaAlimento({
             className="mb-3"
             etiqueta={activo ? 'Existencia' : 'Lo que sobró'}
             accion={
-              activo ? (
+              anota ? (
                 <button
                   onClick={() => setContando(true)}
                   className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
@@ -290,7 +294,7 @@ export function FichaAlimento({
             accion={
               precioQq ? (
               <span className="text-xs text-ink-faint tnum">{money(precioQq)} el quintal</span>
-              ) : (
+              ) : soloVer ? undefined : (
                 <label className="flex items-center gap-1.5 text-xs text-ink-faint">
                   Quintal
                 <input
@@ -399,14 +403,16 @@ export function FichaAlimento({
         </div>
       )}
 
-      {!sinAlimento && activo && (
+      {!sinAlimento && anota && (
         <p className="text-xs leading-relaxed text-ink-faint">
           Anotas el alimento en {unidadAlimento === 'qq' ? 'sacos de 100 lb' : 'libras'}; lo cambias en
           el registro del día.
         </p>
       )}
 
-      <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
+      {!soloVer && (
+        <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
+      )}
     </div>
   )
 }

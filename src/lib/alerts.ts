@@ -32,7 +32,8 @@ export function computeAlertas(
   m: LoteMetrics,
   sanidad: { plan?: HitoSanitario[]; aplicaciones?: Aplicacion[] } = {},
 ): Alerta[] {
-  if (lote.estado !== 'activo') return []
+  // Lo de un ciclo compartido lo resuelve quien lo lleva, en su teléfono.
+  if (lote.estado !== 'activo' || lote.compartido) return []
   // Sin aves no hay día que registrar ni peso que tomar: el único aviso es el
   // que importa.
   if (sinAves(m))

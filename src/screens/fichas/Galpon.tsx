@@ -49,9 +49,11 @@ export function FichaGalpon({
   metrics: LoteMetrics
   settings: Settings
 }) {
+  // El galpón de un ciclo compartido es del socio: sus medidas no están aquí.
+  const ajeno = !!lote.compartido
   const aves = metrics.avesVivas > 0 ? metrics.avesVivas : lote.cantidadInicial
   const pesoObjetivo = pesoObjetivoDe(lote)
-  const galpon = galponDe(lote, settings)
+  const galpon = ajeno ? null : galponDe(lote, settings)
   const plan = equipoDeLaGranja(aves, pesoObjetivo, metrics.diaObjetivo, settings, galpon)
   if (!plan) return null
   const g = plan.galpon
@@ -102,6 +104,7 @@ export function FichaGalpon({
         />
       </div>
 
+      {!ajeno && (
       <div>
         <Seccion
           className="mb-3"
@@ -118,7 +121,7 @@ export function FichaGalpon({
             />
           }
         />
-        <MedidasGalpon settings={settings} galpon={galpon} />
+        <MedidasGalpon settings={settings} galpon={galpon ?? undefined} />
 
         {!g ? (
           <p className="mt-3 text-sm leading-relaxed text-ink-faint">
@@ -191,6 +194,7 @@ export function FichaGalpon({
           </>
         )}
       </div>
+      )}
     </div>
   )
 }

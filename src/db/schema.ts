@@ -47,6 +47,9 @@ export interface Lote {
   conteosAlimento?: ConteoAlimento[]
   // En qué galpón de la granja está; sin él, el primero.
   galponId?: string
+  // Un ciclo que mandó un socio desde su teléfono: se mira, no se toca, y no
+  // entra en las cuentas de esta granja. Se pone al día cuando lo manda otra vez.
+  compartido?: { de: string; exportado: string; origen: string }
   notas?: string
   creado: number
 }
