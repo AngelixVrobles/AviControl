@@ -89,3 +89,19 @@ describe('el pesaje no es el registro del día', () => {
     expect(m.registroHoy?.pesoPromedio).toBe(2.1)
   })
 })
+
+describe('días con fecha futura', () => {
+  // El último registro real fue hace 6 días; otro quedó anotado por error en
+  // el mes que viene. Antes ese callaba el aviso de días sin registro.
+  it('avisan para corregirlos y no callan los días sin registro', () => {
+    const l = lote({ fechaInicio: hace(20) })
+    const regs = [
+      registro(14, { fecha: hace(6), mortalidad: 1, alimentoLb: 300 }),
+      registro(50, { fecha: hace(-25), alimentoLb: 300 }),
+    ]
+    const m = computeMetrics(l, regs, [], [])
+    const textos = computeAlertas(l, regs, [], m, { plan: [] }).map((a) => a.texto)
+    expect(textos.some((t) => t.startsWith('Hay un día anotado con fecha'))).toBe(true)
+    expect(textos).toContain('Sin registro desde hace 6 días')
+  })
+})
