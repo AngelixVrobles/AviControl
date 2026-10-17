@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { analizarPuntoOptimo } from './optimo'
 import { computeMetrics } from './metrics'
 import { proyectarVenta } from './proyeccion'
-import { gasto, lote, registro } from '../test/fixtures'
+import { gasto, hace, lote, registro } from '../test/fixtures'
 
 const l = lote({ precioVentaLb: 60 })
 const registros = [registro(30, { pesoPromedio: 4, alimentoLb: 4000 })]
@@ -38,5 +38,20 @@ describe('analizarPuntoOptimo', () => {
     const p = proyectarVenta(l, registros, gastos, m, 5.5)!
     const diaVenta = a.puntos.find((x) => x.dia === p.diaVenta)!
     expect(diaVenta.costo).toBeCloseTo(p.costoProyectado, -2)
+  })
+})
+
+describe('ciclos que se pasan del día 56', () => {
+  // La venta atrasada: antes el recorrido quedaba vacío y la pestaña Dinero se
+  // caía con «La app se quedó trabada».
+  it('no se cae y dice que hoy es el día', () => {
+    const viejo = lote({ precioVentaLb: 60, fechaInicio: hace(60) })
+    const regs = [{ ...registro(30, { pesoPromedio: 4, alimentoLb: 4000 }), fecha: hace(30) }]
+    const m = computeMetrics(viejo, regs, justo, [])
+    const a = analizarPuntoOptimo(viejo, regs, justo, m)
+    expect(a).not.toBeNull()
+    expect(a!.puntos).toHaveLength(1)
+    expect(a!.optimo.dia).toBe(60)
+    expect(Number.isFinite(a!.hoy.ganancia)).toBe(true)
   })
 })

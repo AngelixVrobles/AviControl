@@ -128,7 +128,9 @@ export interface ConsumoFase {
 // hasta el día 14 contra lo que tocaba hasta el 20 inventa un faltante.
 export function consumoPorFase(lote: Lote, m: LoteMetrics): ConsumoFase[] {
   const aves = lote.cantidadInicial
-  const diaFinal = m.diaObjetivo
+  // Pasado el día de venta previsto el lote sigue comiendo: la última fase se
+  // estira hasta hoy, si no lo que se da esos días se salía de la tabla.
+  const diaFinal = Math.max(m.diaObjetivo, m.dias)
   const corte = Math.min(m.dias, m.diaAlimento ?? m.dias)
 
   return FASES_ALIMENTO.map((f) => {
@@ -161,7 +163,7 @@ export function computePlanAlimento(
   if (lote.tipo !== 'engorde') return null
 
   const aves = lote.cantidadInicial
-  const diaFinal = m.diaObjetivo
+  const diaFinal = Math.max(m.diaObjetivo, m.dias)
 
   const fases: FasePlan[] = FASES_ALIMENTO.map((f) => {
     const hasta = Math.min(f.hasta, diaFinal)

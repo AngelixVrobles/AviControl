@@ -20,9 +20,22 @@ const DIA_MAX = PESO_LB.length - 1
 
 const acotar = (dia: number) => Math.max(0, Math.min(DIA_MAX, Math.round(dia)))
 
-export const pesoEstandarLb = (dia: number) => PESO_LB[acotar(dia)]
+// La tabla termina en el día 56. Un ciclo que se pasa —la venta que se atrasa—
+// sigue con el último ritmo de la tabla: antes el peso se quedaba quieto y el
+// consumo diario caía a cero, y el almacén decía que el alimento alcanzaba para
+// semanas. Hasta las 12 semanas; más allá no hay pollo de engorde.
+const DIA_TOPE = 84
 
-export const alimentoAcumEstandarLb = (dia: number) => ALIM_ACUM_LB[acotar(dia)]
+function deLaTabla(tabla: number[], dia: number): number {
+  const d = Math.min(DIA_TOPE, Math.round(dia))
+  if (d <= DIA_MAX) return tabla[acotar(d)]
+  const ritmo = tabla[DIA_MAX] - tabla[DIA_MAX - 1]
+  return tabla[DIA_MAX] + (d - DIA_MAX) * ritmo
+}
+
+export const pesoEstandarLb = (dia: number) => deLaTabla(PESO_LB, dia)
+
+export const alimentoAcumEstandarLb = (dia: number) => deLaTabla(ALIM_ACUM_LB, dia)
 
 export const alimentoDiaEstandarLb = (dia: number) =>
   Math.max(0, alimentoAcumEstandarLb(dia) - alimentoAcumEstandarLb(dia - 1))
