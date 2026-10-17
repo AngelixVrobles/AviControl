@@ -591,20 +591,26 @@ export function LoteDetail() {
             <Button
               block
               variant="soft"
-              onClick={() =>
-                compartirReporte(
-                  lote,
-                  metrics,
-                  settings.granja,
-                  kpis,
-                  enCurso
-                    ? {
-                        precioMinimoLb: analisisReporte?.precioEquilibrioLb,
-                        valorEnPie,
-                      }
-                    : undefined,
-                )
-              }
+              onClick={async () => {
+                try {
+                  const como = await compartirReporte(
+                    lote,
+                    metrics,
+                    settings.granja,
+                    kpis,
+                    enCurso
+                      ? {
+                          precioMinimoLb: analisisReporte?.precioEquilibrioLb,
+                          valorEnPie,
+                        }
+                      : undefined,
+                  );
+                  if (como === "descargado")
+                    toast("Reporte descargado: lo encuentras en Descargas.");
+                } catch {
+                  toast("No se pudo armar el reporte. Inténtalo de nuevo.");
+                }
+              }}
             >
               Compartir reporte
             </Button>

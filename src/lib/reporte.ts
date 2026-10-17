@@ -1,5 +1,6 @@
 import type { Lote } from '../db/schema'
 import type { LoteMetrics } from './metrics'
+import { entregarArchivo, nombreArchivo, type ComoSeGuardo } from './archivo'
 import { money, num, pct, porLb } from './format'
 import { tipoLoteLabel } from './labels'
 
@@ -33,8 +34,10 @@ export async function compartirReporte(
   granja: string,
   kpis: KpiReporte[],
   enCurso?: EnCursoReporte,
-) {
-  await document.fonts.ready
+): Promise<ComoSeGuardo> {
+  // El menú de compartir solo se abre justo después del toque: nada de esperas
+  // entre el toque y él. Las letras casi siempre ya están; si no, se esperan.
+  if (document.fonts.status !== 'loaded') await document.fonts.ready
 
   const W = 800
   const filas = Math.ceil(kpis.length / 2)
@@ -154,20 +157,14 @@ export async function compartirReporte(
   ctx.restore()
   ctx.textAlign = 'left'
 
-  const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/png'))
-  const nombre = `reporte-${lote.nombre.toLowerCase().replace(/\s+/g, '-')}.png`
-  const file = new File([blob], nombre, { type: 'image/png' })
-
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: `Reporte · ${lote.nombre}` }).catch(() => {})
-  } else {
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = nombre
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  // `toDataURL` y no `toBlob`: es inmediato, y la imagen llega al menú de
+  // compartir sin perder el permiso del toque. Antes, si el menú no se abría,
+  // no pasaba nada y nadie se enteraba; ahora se descarga y se avisa.
+  const datos = atob(canvas.toDataURL('image/png').split(',')[1])
+  const bytes = new Uint8Array(datos.length)
+  for (let i = 0; i < datos.length; i++) bytes[i] = datos.charCodeAt(i)
+  const file = new File([bytes], `reporte-${nombreArchivo(lote.nombre)}.png`, { type: 'image/png' })
+  return entregarArchivo(file)
 }
 
 function caja(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
