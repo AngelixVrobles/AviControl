@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { leerRespaldo } from '../db/respaldo'
 import { hoyISO } from '../lib/format'
 import { useSettings } from '../lib/hooks'
-import { entregarArchivo, type ComoSeGuardo } from '../lib/archivo'
+import { descargaSegura, entregarArchivo, type ComoSeGuardo } from '../lib/archivo'
 import { nombreRespaldo } from '../lib/respaldo'
 import { saveSettings } from '../lib/settings'
 import { toast } from './confirm'
@@ -27,6 +27,12 @@ export function useRespaldo() {
     // Solo cuenta como respaldo lo que se guardó: antes se marcaba «hoy» aunque
     // el archivo no hubiera llegado a ninguna parte.
     if (como === 'cancelado') return
+    // En el iPhone, si no se pudo compartir y se descargó, puede que no haya
+    // quedado en ninguna parte: no se da por hecho, y el aviso sigue.
+    if (como === 'descargado' && !descargaSegura()) {
+      toast('No se abrió el menú de compartir. Toca Respaldar otra vez y elige Guardar en Archivos o WhatsApp.')
+      return
+    }
     saveSettings({ ultimoRespaldo: hoyISO() })
     toast(
       como === 'compartido'

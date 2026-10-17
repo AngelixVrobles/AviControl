@@ -264,16 +264,19 @@ export function RegistroSheet({
               ]}
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Alimento que se dio">
             {chips.map((v) => {
               const activo = !feedOtro && Number(alimento) === v
               return (
                 <button
                   key={v}
+                  type="button"
                   onClick={() => {
                     setAlimento(String(v))
                     setFeedOtro(false)
                   }}
+                  aria-pressed={activo}
+                  aria-label={`${numCorto(v)} ${unidad === 'qq' ? 'sacos' : 'libras'}${v === ayer ? ', lo de ayer' : ''}`}
                   className={clsx(
                     'h-[52px] flex-1 rounded-xl border px-2 text-center font-display text-lg font-semibold transition',
                     activo ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
@@ -286,10 +289,12 @@ export function RegistroSheet({
             })}
             {chips.length > 0 && (
               <button
+                type="button"
                 onClick={() => {
                   setFeedOtro(true)
                   if (chips.includes(Number(alimento))) setAlimento('')
                 }}
+                aria-pressed={feedOtro}
                 className={clsx(
                   'h-[52px] flex-1 rounded-xl border px-2 text-center text-sm font-semibold transition',
                   feedOtro ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
@@ -306,6 +311,7 @@ export function RegistroSheet({
               value={alimento}
               onChange={(e) => setAlimento(e.target.value)}
               placeholder={unidad === 'qq' ? 'Sacos de 100 lb (ej. 2.5)' : 'Libras de alimento'}
+              aria-label={unidad === 'qq' ? 'Alimento que se dio, en sacos' : 'Alimento que se dio, en libras'}
               className={clsx(chips.length > 0 && 'mt-2')}
               autoFocus={feedOtro}
             />
@@ -319,29 +325,37 @@ export function RegistroSheet({
           </p>
         </div>
 
-        <div>
+        <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-ink-soft">Agua (litros)</span>
           <Input
             type="number"
             inputMode="decimal"
+            min={0}
             value={aguaL}
             onChange={(e) => setAguaL(e.target.value)}
-            placeholder={esperadaL > 0 ? `Lo normal hoy: ${num(esperadaL)} L` : 'Litros del día'}
+            placeholder="Litros del día"
             className="h-14"
           />
+          {/* Lo normal va a la vista, no como ejemplo dentro de la casilla: el
+              ejemplo se borra al escribir y al sol casi no se leía. */}
+          {!aguaL && esperadaL > 0 && (
+            <span className="mt-1 block text-xs text-ink-faint tnum">
+              Para {num(alimentoLb)} lb de alimento lo normal son unos {num(esperadaL)} L.
+            </span>
+          )}
           {aguaL && esperadaL > 0 && (
-            <p
+            <span
               className={clsx(
-                'mt-1 text-xs',
+                'mt-1 block text-xs',
                 desvioAgua != null && Math.abs(desvioAgua) >= 20 ? 'text-clay-text' : 'text-ink-faint',
               )}
             >
               {desvioAgua != null && Math.abs(desvioAgua) >= 20
                 ? `${desvioAgua > 0 ? 'Bastante más' : 'Bastante menos'} de lo normal para ${num(alimentoLb)} lb de alimento (${num(esperadaL)} L).`
                 : `Para ${num(alimentoLb)} lb de alimento lo normal son ${num(esperadaL)} L.`}
-            </p>
+            </span>
           )}
-        </div>
+        </label>
 
         <div>
           <div className="grid grid-cols-2 gap-3">
@@ -410,9 +424,11 @@ export function RegistroSheet({
               <Input
                 type="number"
                 inputMode="decimal"
+                min={0}
                 value={peso}
                 onChange={(e) => setPeso(e.target.value)}
                 placeholder="Ej. 4.2"
+                aria-label="Peso promedio, en libras por ave"
                 className="h-14 flex-1"
               />
               <button
@@ -522,7 +538,7 @@ function Stepper({ value, onChange, etiqueta }: { value: number; onChange: (v: n
           onChange(limpio === '' ? 0 : Number(limpio))
         }}
         onBlur={() => setTexto(null)}
-        className="h-14 w-full min-w-0 flex-1 rounded-2xl bg-sunken text-center font-display text-2xl font-semibold tnum outline-none transition focus:ring-2 focus:ring-forest-100"
+        className="h-14 w-full min-w-0 flex-1 rounded-2xl border border-borde bg-paper-raised text-center font-display text-2xl font-semibold tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
       />
       <button
         type="button"
@@ -759,7 +775,7 @@ export function PesajeSheet({
                       onClick={() => cambiar(pesos.filter((_, j) => j !== i))}
                       aria-label={`Quitar el ave ${i + 1}: ${num(p, 2)} libras${raro ? ', se sale de lo normal' : ''}`}
                       className={clsx(
-                        'inline-flex h-10 items-center gap-1.5 rounded-full border pl-3.5 pr-2.5 text-sm font-semibold tnum transition active:bg-paper-sunken',
+                        'inline-flex h-11 items-center gap-1.5 rounded-full border pl-3.5 pr-2.5 text-sm font-semibold tnum transition active:bg-paper-sunken',
                         raro
                           ? 'border-clay-line bg-clay-tint text-clay-text'
                           : i === pesos.length - 1

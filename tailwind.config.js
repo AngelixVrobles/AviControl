@@ -13,10 +13,15 @@ export default {
         ink: {
           DEFAULT: '#14201A',
           soft: '#3A4840',
-          faint: '#5F6D64',
-          muted: '#5F6D64',
+          // 4.9 sobre el fondo hundido: el de antes se quedaba en 4.48, debajo de AA.
+          faint: '#5A675F',
+          muted: '#5A675F',
         },
         line: '#DCD6C7',
+        // El borde de lo que se llena. `line` separa y no tiene que verse mucho,
+        // pero una casilla con ese borde (1.4 de contraste) desaparecía al sol:
+        // este pasa de 3, lo que pide un control para distinguirse.
+        borde: '#8A8374',
         // Una sola familia. Antes convivían `forest` y `green` con los mismos
         // hexes bajo dos nombres: ocho colores repartidos en dieciocho tokens.
         //

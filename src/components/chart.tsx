@@ -479,6 +479,28 @@ export function GraficaBarras({
             Math.max(0, Math.floor((desplazamiento(e) - PAD.izquierda) / carril)),
           )
 
+        // Con muchas barras angostas las cifras se pisaban («441435444…»): si
+        // no caben todas, quedan la última, la más alta y la que se toca.
+        const letrasCifra = formatoValor ? Math.max(...valores.map((v) => formatoValor(v).length)) : 0
+        const cabenCifras = carril >= letrasCifra * 7.5 + 4
+        const iMax = valores.indexOf(Math.max(...valores))
+        const cifraVisible = (i: number) =>
+          cabenCifras || i === valores.length - 1 || i === iMax || i === foco || i === destacar
+
+        // Los nombres de los ciclos se encimaban aun a 390 px: con nombres
+        // largos van menos rótulos, y el que no cabe se corta con «…».
+        const tamRotulo = valores.length <= 6 ? 12 : 10
+        const porLetra = tamRotulo * 0.6
+        const largo = Math.min(14, Math.max(...etiquetas.map((e) => e.length)))
+        const cuantos = Math.max(2, Math.min(6, Math.floor(anchoPlot / (largo * porLetra + 10))))
+        const indiceRotulos = indicesEtiqueta(etiquetas.length, cuantos)
+        // Lo que puede ocupar cada rótulo sin pisar al vecino. Los de las
+        // puntas se arriman al borde y le comen espacio al siguiente.
+        const paso = Math.min(...indiceRotulos.slice(1).map((v, j) => (v - indiceRotulos[j]) * carril))
+        const anchoRotulo =
+          indiceRotulos.length > 1 ? Math.min(paso - 8, ((ex(indiceRotulos[0]) + paso - 8) * 2) / 3) : anchoPlot
+        const maxLetras = Math.max(3, Math.floor(anchoRotulo / porLetra))
+
         return (
           <svg width={ancho} height={alto} style={LIENZO} {...arrastre?.(indiceEn)}>
             {escala.marcas.map((v) => (
@@ -544,19 +566,21 @@ export function GraficaBarras({
             )}
 
             {formatoValor &&
-              valores.map((v, i) => (
-                <text
-                  key={i}
-                  x={ex(i)}
-                  y={ey(v) - 7}
-                  fontSize={13}
-                  fontWeight={600}
-                  fill={TINTA.guia}
-                  textAnchor="middle"
-                >
-                  {formatoValor(v)}
-                </text>
-              ))}
+              valores.map((v, i) =>
+                cifraVisible(i) ? (
+                  <text
+                    key={i}
+                    x={ex(i)}
+                    y={ey(v) - 7}
+                    fontSize={13}
+                    fontWeight={600}
+                    fill={TINTA.guia}
+                    textAnchor="middle"
+                  >
+                    {formatoValor(v)}
+                  </text>
+                ) : null,
+              )}
 
             {nota && (
               <NotaAlMargen
@@ -567,23 +591,31 @@ export function GraficaBarras({
               />
             )}
 
-            {indicesEtiqueta(etiquetas.length, 6).map((i) => (
-              <Rotulo
-                key={i}
-                x={ex(i)}
-                y={alto - 4}
-                fontSize={valores.length <= 6 ? 12 : 10}
-                textAnchor="middle"
-              >
-                {etiquetas[i]}
-              </Rotulo>
-            ))}
+            {indiceRotulos.map((i) => {
+              const texto = recortar(etiquetas[i], maxLetras)
+              const medio = (texto.length * porLetra) / 2
+              const anclaje = ex(i) - medio < 0 ? 'start' : ex(i) + medio > ancho ? 'end' : 'middle'
+              return (
+                <Rotulo
+                  key={i}
+                  x={anclaje === 'start' ? 0 : anclaje === 'end' ? ancho : ex(i)}
+                  y={alto - 4}
+                  fontSize={tamRotulo}
+                  textAnchor={anclaje}
+                >
+                  {texto}
+                </Rotulo>
+              )
+            })}
           </svg>
         )
       }}
     </Lienzo>
   )
 }
+
+const recortar = (texto: string, max: number) =>
+  texto.length <= max ? texto : `${texto.slice(0, Math.max(1, max - 1)).trimEnd()}…`
 
 function barra(x: number, y: number, ancho: number, alto: number, radio: number) {
   const r = Math.min(radio, ancho / 2, alto)
