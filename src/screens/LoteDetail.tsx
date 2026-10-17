@@ -730,6 +730,7 @@ export function LoteDetail() {
                     hojasDelCiclo(
                       { lote, registros, pesajes, gastos, ingresos, aplicaciones, entregas, metrics },
                       settings.granja,
+                      settings.galpones,
                     ),
                   );
                   try {
@@ -824,6 +825,7 @@ export function LoteDetail() {
             metrics={metrics}
             registros={registros}
             gastos={gastos}
+            ingresos={ingresos}
             aplicaciones={aplicaciones}
             open={sheet === "ingreso"}
             onClose={() => setSheet(null)}

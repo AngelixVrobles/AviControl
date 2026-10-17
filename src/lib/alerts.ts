@@ -6,7 +6,9 @@ import { retiroEn } from './retiro'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
 import { sinAves } from './lote'
 import { agendaSanitaria } from './sanidad'
-import { getSettings } from './settings'
+import { getSettings, type Settings } from './settings'
+import { galponInicial, nombreDeGalpon } from './galpones'
+import { avesPorGalpon, caben } from './reparto'
 import { diasEntre, fecha, hoyISO, num, pct, plural, sumarDias } from './format'
 import {
   DIAS_RETIRO,
@@ -30,7 +32,7 @@ export function computeAlertas(
   registros: Registro[],
   gastos: Gasto[],
   m: LoteMetrics,
-  sanidad: { plan?: HitoSanitario[]; aplicaciones?: Aplicacion[]; ingresos?: Ingreso[] } = {},
+  sanidad: { plan?: HitoSanitario[]; aplicaciones?: Aplicacion[]; ingresos?: Ingreso[]; settings?: Settings } = {},
 ): Alerta[] {
   // Lo de un ciclo compartido lo resuelve quien lo lleva, en su teléfono.
   if (lote.estado !== 'activo' || lote.compartido) return []
@@ -231,6 +233,23 @@ export function computeAlertas(
       nivel: 'info',
       texto: `Faltan ${DIAS_RETIRO} días para la venta: retira el alimento medicado`,
     })
+  }
+
+  // El espacio de cada galpón al peso de venta: 1,000 pollitos caben en un
+  // galpón de 8.6 × 8.6 m de chiquitos, pero de grandes no. Se avisa desde la
+  // segunda semana, con tiempo para preparar el otro galpón, y sube de tono
+  // cuando ya están grandes.
+  if (m.dias >= 10) {
+    const s = sanidad.settings ?? getSettings()
+    const varios = s.galpones.length > 1
+    for (const c of avesPorGalpon(lote, galponInicial(lote, s), registros, sanidad.ingresos ?? [], hoy)) {
+      const tope = caben(c.aves, lote, s, s.galpones.find((g) => g.id === c.galponId))
+      if (tope == null || c.aves <= tope) continue
+      alertas.push({
+        nivel: m.dias >= 21 ? 'bad' : 'warn',
+        texto: `${varios ? nombreDeGalpon(c.galponId, s) : 'El galpón'} aguanta ${num(tope)} aves al peso de venta y tiene ${num(c.aves)}: pasa ${num(c.aves - tope)} a otro galpón en la ficha Galpón, o vende antes`,
+      })
+    }
   }
 
   return alertas

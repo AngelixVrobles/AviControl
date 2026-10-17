@@ -94,6 +94,34 @@ describe('hojasDelCiclo', () => {
   })
 })
 
+describe('la pollada en varios galpones', () => {
+  it('lleva su hoja con lo que se pasó y lo que hay hoy, y cada venta dice de qué galpón salió', () => {
+    const l = lote({
+      galponId: 'g1',
+      cantidadInicial: 1000,
+      movimientos: [{ fecha: '2026-10-01', de: 'g1', a: 'g2', aves: 350 }],
+    })
+    const ingresos = [ingreso({ cantidad: 50, monto: 9000, galponId: 'g2' })]
+    const m = computeMetrics(l, [], [], ingresos)
+    const galpones = [
+      { id: 'g1', nombre: 'Galpón 1' },
+      { id: 'g2', nombre: 'Galpón 2' },
+    ]
+    const hojas = hojasDelCiclo(
+      { lote: l, registros: [], pesajes: [], gastos: [], ingresos, aplicaciones: [], entregas: [], metrics: m },
+      'Granja',
+      galpones,
+    )
+    const hoja = hojas.find((h) => h.nombre === 'Galpones')!
+    expect(hoja.filas[1].slice(2)).toEqual(['Galpón 1', 'Galpón 2', 350])
+    expect(hoja.filas.slice(-2)).toEqual([
+      ['Galpón 1', 650],
+      ['Galpón 2', 300],
+    ])
+    expect(hojas.find((h) => h.nombre === 'Ventas')!.filas[1].at(-1)).toBe('Galpón 2')
+  })
+})
+
 describe('semanasDelCiclo', () => {
   it('junta los días por semana del ciclo', async () => {
     const { semanasDelCiclo } = await import('./exportar')

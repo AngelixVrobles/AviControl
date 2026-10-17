@@ -3,6 +3,7 @@ import { computeAlertas } from './alerts'
 import { computeMetrics } from './metrics'
 import { hace, ingreso, lote, registro } from '../test/fixtures'
 import type { Aplicacion } from '../db/schema'
+import type { Settings } from './settings'
 
 const plan = [
   { nombre: 'Newcastle', dia: 7 },
@@ -126,5 +127,50 @@ describe('alimento que se acabó', () => {
     const m = computeMetrics(l, regs, gastos, [])
     const textos = computeAlertas(l, regs, gastos, m, { plan: [] }).map((a) => a.texto)
     expect(textos.some((t) => /ya no queda alimento/i.test(t))).toBe(true)
+  })
+})
+
+describe('espacio de cada galpón', () => {
+  // El caso del productor: 1,000 pollitos en un galpón de 8.6 × 8.6 m.
+  const settings: Settings = {
+    moneda: 'RD$',
+    granja: 'Granja',
+    galpones: [
+      { id: 'g1', nombre: 'Galpón 1', largoM: 8.6, anchoM: 8.6 },
+      { id: 'g2', nombre: 'Galpón 2', largoM: 8, anchoM: 6 },
+    ],
+    unidadMedida: 'm',
+    bebedero: 'plasson',
+    comedero: 'tolva',
+    avesPorEquipo: {},
+    pesoObjetivoLb: 5.5,
+    avesPorM2: 11,
+    unidadAlimento: 'qq',
+    planSanitario: [],
+    ultimoRespaldo: null,
+  }
+  const textos = (l: ReturnType<typeof lote>) =>
+    computeAlertas(l, [], [], computeMetrics(l, [], [], []), { plan: [], settings }).map((a) => a.texto)
+
+  it('avisa cuando de grandes no caben', () => {
+    const l = lote({ fechaInicio: hace(15), galponId: 'g1', cantidadInicial: 1000 })
+    expect(textos(l).find((t) => /aguanta/.test(t))).toBe(
+      'Galpón 1 aguanta 813 aves al peso de venta y tiene 1,000: pasa 187 a otro galpón en la ficha Galpón, o vende antes',
+    )
+  })
+
+  it('con las 350 pasadas al otro galpón ya no avisa', () => {
+    const l = lote({
+      fechaInicio: hace(15),
+      galponId: 'g1',
+      cantidadInicial: 1000,
+      movimientos: [{ fecha: hace(1), de: 'g1', a: 'g2', aves: 350 }],
+    })
+    expect(textos(l).some((t) => /aguanta/.test(t))).toBe(false)
+  })
+
+  it('los primeros días no avisa todavía', () => {
+    const l = lote({ fechaInicio: hace(5), galponId: 'g1', cantidadInicial: 1000 })
+    expect(textos(l).some((t) => /aguanta/.test(t))).toBe(false)
   })
 })
