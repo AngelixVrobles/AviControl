@@ -681,6 +681,7 @@ export function LoteDetail() {
         metrics={metrics}
         registros={registros}
         gastos={gastos}
+        aplicaciones={aplicaciones}
         open={sheet === "cierre"}
         onClose={() => setSheet(null)}
       />
@@ -702,6 +703,7 @@ export function LoteDetail() {
         metrics={metrics}
         registros={registros}
         gastos={gastos}
+        aplicaciones={aplicaciones}
         open={sheet === "ingreso"}
         onClose={() => setSheet(null)}
         editar={editIngreso}
