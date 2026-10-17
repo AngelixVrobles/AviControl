@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { construirContrastes, resultadoCiclo, snapshotCierre, type RealCiclo } from './cierre'
+import { construirContrastes, librasVendidas, resultadoCiclo, snapshotCierre, type RealCiclo } from './cierre'
 import { computeMetrics } from './metrics'
 import { gasto, ingreso, lote, registro } from '../test/fixtures'
 
@@ -89,5 +89,38 @@ describe('resultadoCiclo', () => {
     const g = r.contrastes.find((c) => c.etiqueta === 'Ganancia')!
     expect(g.proyectado).toBe(28420)
     expect(g.real).toBe(r.ganancia)
+  })
+})
+
+describe('ventas sin pesar y ventas antes del cierre', () => {
+  it('las libras de las vendidas por cabeza salen del peso de las pesadas', () => {
+    const r = librasVendidas([
+      ingreso({ cantidad: 250, pesoLb: 1375, monto: 82500 }),
+      ingreso({ id: 2, cantidad: 240, monto: 70000 }),
+    ])
+    expect(r.pesoPromedioLb).toBeCloseTo(5.5)
+    expect(r.lbTotal).toBeCloseTo(1375 + 240 * 5.5)
+    expect(r.precioLogradoLb).toBeCloseTo(60)
+  })
+
+  it('«Cómo salió» no mezcla aves sin peso en el peso por ave', () => {
+    const l = lote({ estado: 'cerrado', cantidadInicial: 500 })
+    const ingresos = [
+      ingreso({ cantidad: 250, pesoLb: 1375, monto: 82500 }),
+      ingreso({ id: 2, cantidad: 240, monto: 70000 }),
+    ]
+    const m = computeMetrics(l, [registro(30, { pesoPromedio: 5.4 })], [], ingresos)
+    const r = resultadoCiclo(l, m, ingresos)!
+    expect(r.pesoPromedioLb).toBeCloseTo(5.5)
+    expect(r.precioLogradoLb).toBeCloseTo(60)
+  })
+
+  it('lo proyectado al cerrar cuenta las ventas de antes', () => {
+    const l = lote({ cantidadInicial: 1000, precioVentaLb: 30 })
+    const ventaAntes = ingreso({ cantidad: 600, pesoLb: 3300, monto: 99000 })
+    const regs = [registro(28, { pesoPromedio: 4.5, alimentoLb: 9000 })]
+    const m = computeMetrics(l, regs, [gasto({ monto: 100000 })], [ventaAntes])
+    const snap = snapshotCierre(m, null, 30)
+    expect(snap.avesProyectadas).toBe(m.avesVivas + 600)
   })
 })
