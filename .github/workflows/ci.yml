@@ -1,0 +1,39 @@
+# Lo mismo que se corre antes de subir un cambio: lint, tipos, pruebas y el
+# build de producción. Si algo falla, el PR lo muestra antes de unirlo a main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Pruebas
+        run: npm test
+
+      # tsc -b y vite build: los tipos y el paquete que se publica.
+      - name: Build
+        run: npm run build
