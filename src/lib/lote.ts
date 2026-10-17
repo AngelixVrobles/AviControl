@@ -56,10 +56,11 @@ export interface LimitesLote {
 // primer registro deja días negativos, y menos pollitos de los que ya salieron
 // deja el galpón con aves de menos.
 export function erroresLote(
-  datos: { fechaInicio: string; cantidad: number },
+  datos: { fechaInicio: string; cantidad: number; muertosLlegada?: number },
   limites: LimitesLote,
-): { fechaInicio?: string; cantidad?: string } {
-  const out: { fechaInicio?: string; cantidad?: string } = {}
+): { fechaInicio?: string; cantidad?: string; muertosLlegada?: string } {
+  const out: { fechaInicio?: string; cantidad?: string; muertosLlegada?: string } = {}
+  const doa = datos.muertosLlegada ?? 0
   if (!datos.fechaInicio) out.fechaInicio = 'Pon el día en que llegaron los pollitos.'
   else if (limites.fechaCierre && datos.fechaInicio > limites.fechaCierre)
     out.fechaInicio = `El ciclo cerró el ${fecha(limites.fechaCierre)}.`
@@ -67,7 +68,10 @@ export function erroresLote(
     out.fechaInicio = `Hay datos anotados desde el ${fecha(limites.primeraFecha)}.`
 
   if (!(datos.cantidad > 0)) out.cantidad = 'Pon cuántos pollitos recibiste.'
-  else if (datos.cantidad < limites.salidas)
-    out.cantidad = `Ya salieron ${num(limites.salidas)} entre bajas, descartes y ventas.`
+  else if (doa >= datos.cantidad) out.muertosLlegada = 'Son más de los pollitos que recibiste.'
+  else if (datos.cantidad < limites.salidas + doa)
+    out.cantidad = `Ya salieron ${num(limites.salidas)} entre bajas, descartes y ventas${
+      doa > 0 ? `, y ${num(doa)} llegaron muertos` : ''
+    }.`
   return out
 }

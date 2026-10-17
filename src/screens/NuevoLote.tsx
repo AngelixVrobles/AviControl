@@ -5,6 +5,8 @@ import { db, type Socio } from '../db/schema'
 import { Button, Field, Input, Select } from '../components/ui'
 import { IconBack } from '../components/icons'
 import { EditorSocios } from '../components/Socios'
+import { DatosRecibo } from '../components/Recibo'
+import { reciboParaGuardar } from '../lib/arranque'
 import { useEnvio } from '../components/useEnvio'
 import { hoyISO, num } from '../lib/format'
 import { useLotes, useSettings } from '../lib/hooks'
@@ -36,6 +38,9 @@ export function NuevoLote() {
   ])
   const [pagoAves, setPagoAves] = useState('')
   const [notas, setNotas] = useState('')
+  const [incubadora, setIncubadora] = useState('')
+  const [pesoLlegada, setPesoLlegada] = useState('')
+  const [muertosLlegada, setMuertosLlegada] = useState('')
   // Con varios galpones, el primero que no tiene un ciclo en curso; se elige
   // otro si los pollitos van a otro lado.
   const activos = useLotes('activo')
@@ -48,7 +53,11 @@ export function NuevoLote() {
   const cantidadNum = Number(cantidad) || 0
   const pesoNum = Number(pesoVenta) || 0
   const pesoQueRige = pesoNum > 0 ? pesoNum : settings.pesoObjetivoLb
-  const valido = cantidadNum > 0 && fechaInicio
+  const errorMuertos =
+    cantidadNum > 0 && (Number(muertosLlegada) || 0) >= cantidadNum
+      ? 'Son más de los pollitos que recibiste.'
+      : undefined
+  const valido = cantidadNum > 0 && fechaInicio && !errorMuertos
 
   async function crear() {
     const costoInicial = (Number(costoAve) || 0) * cantidadNum
@@ -70,6 +79,7 @@ export function NuevoLote() {
       socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoInicial > 0 ? reparto.pagador : undefined,
       galponId: varios ? galpon?.id : undefined,
+      ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
       notas: notas.trim() || undefined,
       creado: Date.now(),
     })
@@ -177,6 +187,16 @@ export function NuevoLote() {
         )}
 
         {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} pesoVentaLb={pesoQueRige} galpon={galpon} />}
+
+        <DatosRecibo
+          incubadora={incubadora}
+          onIncubadora={setIncubadora}
+          pesoG={pesoLlegada}
+          onPesoG={setPesoLlegada}
+          muertos={muertosLlegada}
+          onMuertos={setMuertosLlegada}
+          errorMuertos={errorMuertos}
+        />
 
         <EditorSocios
           titulo="Llevar en sociedad"

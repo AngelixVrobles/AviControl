@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import type { Lote, Registro } from '../../db/schema'
 import { fecha, num, pct, plural } from '../../lib/format'
-import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from '../../lib/mortalidad'
+import { resumenMortalidad } from '../../lib/mortalidad'
+import { computeArranque, tituloArranque } from '../../lib/arranque'
+import { TarjetaArranque } from '../../components/Arranque'
 import { CALOR_C, calorDelCiclo, type CalorDelCiclo } from '../../lib/calor'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
 import { Banda, Seccion } from '../../components/ui'
 import { GraficaBarras } from '../../components/chart'
 import { Vacio } from './Vacio'
 
-export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Registro[] }) {
+export function FichaMortalidad({ lote, registros, dia }: { lote: Lote; registros: Registro[]; dia: number }) {
   const [foco, setFoco] = useState<number>()
   const r = resumenMortalidad(lote, registros)
   if (!r) return <Vacio texto="Todavía no has registrado ningún día de este ciclo." />
 
-  const arranqueBien = r.primeraSemanaPct <= LIMITE_PRIMERA_SEMANA_PCT
+  const arranque = computeArranque(lote, registros, dia)
   const sobreEsperado = r.pct > r.esperadoPct
   const esperados = r.semanas.map((s) => (s.esperadoPct / 100) * lote.cantidadInicial)
   const peor = r.semanas.reduce((p, s, i) => (s.muertes > r.semanas[p].muertes ? i : p), 0)
@@ -92,21 +94,14 @@ export function FichaMortalidad({ lote, registros }: { lote: Lote; registros: Re
       </div>
 
       <div>
-        <Seccion
-          etiqueta="Arranque"
-          titulo={
-            arranqueBien
-              ? `Buen arranque: ${pct(r.primeraSemanaPct, 2)} en los primeros siete días`
-              : `El arranque se pasó: ${pct(r.primeraSemanaPct, 2)} en los primeros siete días`
-          }
-        />
-        <Banda className={'mt-3 px-5 py-4 ' + (arranqueBien ? '' : 'border-l-4 border-l-clay')}>
-          <p className="text-sm leading-relaxed text-ink-soft">
-            {arranqueBien
-              ? `${num(r.primeraSemana)} aves, por debajo del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. Lo que muere en los primeros siete días viene del pollito y del recibo, no del manejo del resto del ciclo.`
-              : `${num(r.primeraSemana)} aves, por encima del ${LIMITE_PRIMERA_SEMANA_PCT} % que se considera normal. La mortalidad de los primeros siete días apunta al pollito o al recibo: temperatura de la cama, acceso a agua y calidad del lote que te vendieron.`}
-          </p>
-        </Banda>
+        <Seccion etiqueta="Arranque" titulo={tituloArranque(arranque, dia)} />
+        <div className="mt-3">
+          <TarjetaArranque a={arranque} dia={dia} />
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-ink-faint">
+          Lo que muere en los primeros siete días viene del pollito y del recibo, no del manejo del resto
+          del ciclo. El peso al llegar y los muertos en las cajas se anotan con el lápiz del ciclo.
+        </p>
       </div>
 
       {calor && <Calor c={calor} />}

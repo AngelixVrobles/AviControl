@@ -57,7 +57,7 @@ export function resumenMortalidad(lote: Lote, registros: Registro[]): ResumenMor
       acumuladas,
       pctAcum: inicial > 0 ? (acumuladas / inicial) * 100 : 0,
       pctEsperado: mortalidadEsperadaPct(dia),
-      vivas: Math.max(0, inicial - acumuladas),
+      vivas: Math.max(0, inicial - (lote.muertosLlegada ?? 0) - acumuladas),
     }
   })
 
