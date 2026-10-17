@@ -109,19 +109,68 @@ function FormLote({
       : null
     // Con menos de dos socios no hay sociedad que llevar.
     const reparto = guardados && guardados.socios.length >= 2 ? guardados : null
-    await db.lotes.update(lote.id, {
-      nombre: nombre.trim() || lote.nombre,
-      fechaInicio,
-      cantidadInicial: cantidadNum,
-      costoInicial: costoNum,
-      precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
-      precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
-      pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
-      socios: reparto?.socios,
-      costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
-      galponId: varios ? galponId || undefined : lote.galponId,
-      ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
-      notas: notas.trim() || undefined,
+
+    // Quitar la sociedad borraba los socios sin avisar: las entregas se
+    // quedaban guardadas pero sin pantalla donde verlas ni corregirlas, y los
+    // gastos seguían a nombre de un socio que ya no existía. Ahora se avisa, y
+    // las entregas se van y lo pagado o cobrado por cada uno pasa a ser común.
+    const quitaSociedad = sociosAntes >= 2 && !reparto
+    let limpiar: (() => Promise<void>) | undefined
+    if (quitaSociedad) {
+      const [entregas, gastos, ingresos] = await Promise.all([
+        db.entregas.where('loteId').equals(lote.id).toArray(),
+        db.gastos.where('loteId').equals(lote.id).toArray(),
+        db.ingresos.where('loteId').equals(lote.id).toArray(),
+      ])
+      const aNombre =
+        gastos.filter((g) => g.pagadoPor != null).length +
+        ingresos.filter((i) => i.recibidoPor != null || (i.cobros ?? []).some((c) => c.recibidoPor != null))
+          .length +
+        (lote.costoInicialPagadoPor != null ? 1 : 0)
+      if (entregas.length || aNombre) {
+        const ok = await confirmar({
+          titulo: 'Quitar la sociedad',
+          mensaje: [
+            entregas.length
+              ? `Se borran ${enumerar([[entregas.length, 'entrega entre socios', 'entregas entre socios']])}.`
+              : '',
+            aNombre ? 'Lo que pagó o cobró cada socio pasa a ser común.' : '',
+          ]
+            .filter(Boolean)
+            .join(' '),
+          confirmar: 'Quitar la sociedad',
+          peligro: true,
+        })
+        if (!ok) return false
+        limpiar = async () => {
+          await db.entregas.bulkDelete(entregas.map((e) => e.id))
+          for (const g of gastos) if (g.pagadoPor != null) await db.gastos.update(g.id, { pagadoPor: undefined })
+          for (const i of ingresos)
+            if (i.recibidoPor != null || (i.cobros ?? []).some((c) => c.recibidoPor != null))
+              await db.ingresos.update(i.id, {
+                recibidoPor: undefined,
+                cobros: i.cobros?.map((c) => ({ ...c, recibidoPor: undefined })),
+              })
+        }
+      }
+    }
+
+    await db.transaction('rw', [db.lotes, db.entregas, db.gastos, db.ingresos], async () => {
+      await limpiar?.()
+      await db.lotes.update(lote.id, {
+        nombre: nombre.trim() || lote.nombre,
+        fechaInicio,
+        cantidadInicial: cantidadNum,
+        costoInicial: costoNum,
+        precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
+        precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
+        pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
+        socios: reparto?.socios,
+        costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
+        galponId: varios ? galponId || undefined : lote.galponId,
+        ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
+        notas: notas.trim() || undefined,
+      })
     })
     toast('Ciclo corregido.')
     onClose()
