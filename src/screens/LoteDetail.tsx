@@ -804,6 +804,7 @@ export function LoteDetail() {
             metrics={metrics}
             registros={registros}
             gastos={gastos}
+            ingresos={ingresos}
             aplicaciones={aplicaciones}
             open={sheet === "cierre"}
             onClose={() => setSheet(null)}
@@ -1278,6 +1279,9 @@ function PrecioMinimo({
     );
 
   const lbPorAve = a.lbEnPie / Math.max(1, a.aves);
+  // Con ventas hechas, el precio mínimo ya descuenta lo cobrado: el desglose
+  // por libra también, si no sumaba RD$93 bajo un mínimo de RD$16.
+  const neto = a.costoTotal > 0 ? a.costoNeto / a.costoTotal : 1;
 
   return (
     <>
@@ -1327,10 +1331,11 @@ function PrecioMinimo({
           = {money(a.precioEquilibrioAve)} por pollo de {num(lbPorAve, 2)} lb
         </div>
         <div className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
-          De cada libra que vendas, {porLb(a.costoAlimento / a.lbEnPie)} son
+          De cada libra que vendas, {porLb((a.costoAlimento * neto) / a.lbEnPie)} son
           alimento ({pct(a.alimentoPctDelCosto, 0)} del costo),{" "}
-          {porLb(a.costoAves / a.lbEnPie)} el pollito y{" "}
-          {porLb(a.costoOtros / a.lbEnPie)} lo demás. Cada {money(1)} de más por
+          {porLb((a.costoAves * neto) / a.lbEnPie)} el pollito y{" "}
+          {porLb((a.costoOtros * neto) / a.lbEnPie)} lo demás
+          {metrics.ingresos > 0 ? ", ya descontado lo que vendiste" : ""}. Cada {money(1)} de más por
           libra son{" "}
           <span className="font-semibold text-ink-soft">
             {money(a.gananciaPorPesoDeMas)}

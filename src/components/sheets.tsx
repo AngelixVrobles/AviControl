@@ -35,7 +35,7 @@ import { saveSettings } from '../lib/settings'
 import { borrarBorrador, guardarBorrador, leerBorrador, pesoSospechoso } from '../lib/borrador'
 import type { LoteMetrics } from '../lib/metrics'
 import { proyectarVenta } from '../lib/proyeccion'
-import { construirContrastes, snapshotCierre, type Contraste, type RealCiclo } from '../lib/cierre'
+import { construirContrastes, librasVendidas, snapshotCierre, type Contraste, type RealCiclo } from '../lib/cierre'
 import { aguaEsperadaL } from '../lib/agua'
 import { EDAD_CALOR, CALOR_C, fraseCalor, juicioCalor } from '../lib/calor'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
@@ -1166,6 +1166,7 @@ export function CierreSheet({
   metrics,
   registros,
   gastos,
+  ingresos = [],
   open,
   onClose,
   aplicaciones = [],
@@ -1174,6 +1175,7 @@ export function CierreSheet({
   metrics: LoteMetrics
   registros: Registro[]
   gastos: Gasto[]
+  ingresos?: Ingreso[]
   open: boolean
   onClose: () => void
   aplicaciones?: Aplicacion[]
@@ -1229,17 +1231,27 @@ export function CierreSheet({
 
   const ingresoTotal = metrics.ingresos + montoFinal
   const ganancia = ingresoTotal - metrics.costos
+  // Cómo salió todo el ciclo, con las ventas de antes: el costo de todo el
+  // ciclo entre las libras de esta venta sola daba RD$85 la libra donde eran 35.
+  const todas = librasVendidas(
+    [
+      ...ingresos.filter((i) => i.tipo === 'aves'),
+      { id: 0, tipo: 'aves', cantidad: nAves, pesoLb: lbTotal || undefined, monto: montoFinal, fecha, creado: 0 },
+    ],
+    metrics.pesoEstimadoLb,
+  )
+  const avesDelCiclo = metrics.vendidas + nAves
   const real: RealCiclo = {
     diaVenta: dia,
-    avesVendidas: nAves,
-    lbVendidas: lbTotal,
-    pesoPromedioLb: pesoPorAve,
-    precioLogradoLb: lbTotal > 0 ? montoFinal / lbTotal : undefined,
+    avesVendidas: avesDelCiclo,
+    lbVendidas: Math.round(todas.lbTotal),
+    pesoPromedioLb: todas.pesoPromedioLb ?? pesoPorAve,
+    precioLogradoLb: todas.precioLogradoLb,
     ingreso: montoFinal,
     ganancia,
     margenPct: ingresoTotal > 0 ? (ganancia / ingresoTotal) * 100 : 0,
-    costoPorLb: lbTotal > 0 ? metrics.costos / lbTotal : undefined,
-    gananciaPorAve: nAves > 0 ? ganancia / nAves : 0,
+    costoPorLb: todas.lbTotal > 0 ? metrics.costos / todas.lbTotal : undefined,
+    gananciaPorAve: avesDelCiclo > 0 ? ganancia / avesDelCiclo : 0,
   }
   const contrastes = construirContrastes(snap, real)
   const listo = nAves > 0 && montoFinal > 0 && !errorFechaDelCiclo(fecha, lote)

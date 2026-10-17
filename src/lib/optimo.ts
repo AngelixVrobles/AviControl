@@ -71,8 +71,7 @@ export function analizarPuntoOptimo(
   for (let dia = desde; dia <= hasta; dia++) {
     const pesoLb = pesoEstandarLb(dia) * m.factorCurva
     const bajas = Math.round(
-      (lote.cantidadInicial * Math.max(0, mortalidadEsperadaPct(dia) - mortalidadEsperadaPct(desde))) /
-        100,
+      (m.avesVivas * Math.max(0, mortalidadEsperadaPct(dia) - mortalidadEsperadaPct(desde))) / 100,
     )
     const aves = Math.max(0, m.avesVivas - bajas)
     const avesPromedio = (m.avesVivas + aves) / 2

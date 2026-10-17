@@ -233,3 +233,15 @@ describe('la conversión de los primeros días', () => {
     expect(eficienciaAlimento(m)).toBe(1)
   })
 })
+
+describe('ventas por cabeza, sin pesar', () => {
+  // Vender la mitad sin anotar las libras llevaba la conversión de 1.45 a 2.81.
+  it('su peso cuenta como el del lote ese día', () => {
+    const l = lote({ cantidadInicial: 1000 })
+    const regs = [registro(30, { pesoPromedio: 4.4, alimentoLb: 6000 })]
+    const pesada = computeMetrics(l, regs, [], [ingreso({ cantidad: 500, pesoLb: 2200, monto: 60000 })])
+    const sinPesar = computeMetrics(l, regs, [], [ingreso({ cantidad: 500, monto: 60000 })])
+    expect(sinPesar.fca).toBeCloseTo(pesada.fca!, 1)
+    expect(sinPesar.lbVendidas).toBeGreaterThan(2000)
+  })
+})
