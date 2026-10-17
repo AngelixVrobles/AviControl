@@ -1,5 +1,5 @@
 import type { Lote } from '../db/schema'
-import { fecha, num } from './format'
+import { fecha, hoyISO, num } from './format'
 import type { LoteMetrics } from './metrics'
 import { getSettings } from './settings'
 
@@ -16,6 +16,33 @@ export const pesoObjetivoDe = (lote: Lote): number => {
 // cerrarlo.
 export const sinAves = (m: Pick<LoteMetrics, 'avesVivas' | 'cantidadInicial'>) =>
   m.cantidadInicial > 0 && m.avesVivas <= 0
+
+// El último día que se puede anotar en el ciclo: hoy, o el cierre si ya cerró.
+export function topeDelCiclo(lote: Pick<Lote, 'fechaCierre'>, hoy = hoyISO()): string {
+  return lote.fechaCierre && lote.fechaCierre < hoy ? lote.fechaCierre : hoy
+}
+
+// Los días del ciclo van de la llegada de los pollitos a hoy, o al cierre. Una
+// fecha fuera de ahí descuadra las cuentas sin que se note: un día anotado por
+// error el mes que viene callaba el aviso de días sin registro hasta esa fecha.
+export function errorFechaDelCiclo(
+  f: string,
+  lote: Pick<Lote, 'fechaInicio' | 'fechaCierre'>,
+  hoy = hoyISO(),
+): string | undefined {
+  if (!f) return 'Pon la fecha.'
+  if (f < lote.fechaInicio) return `Es antes de que llegaran los pollitos (${fecha(lote.fechaInicio)}).`
+  const tope = topeDelCiclo(lote, hoy)
+  if (f > tope) return tope === hoy ? 'Esa fecha todavía no llega.' : `El ciclo cerró el ${fecha(tope)}.`
+  return undefined
+}
+
+// Para lo que puede ser de antes del ciclo o de después del cierre —una compra
+// adelantada, un abono, una entrega entre socios— pero no del futuro.
+export function errorFechaFutura(f: string, hoy = hoyISO()): string | undefined {
+  if (!f) return 'Pon la fecha.'
+  return f > hoy ? 'Esa fecha todavía no llega.' : undefined
+}
 
 export interface LimitesLote {
   /** Lo primero que se anotó del galpón: el inicio no puede quedar después. */

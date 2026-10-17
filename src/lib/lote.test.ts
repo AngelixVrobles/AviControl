@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { erroresLote, pesoObjetivoDe } from './lote'
+import { errorFechaDelCiclo, errorFechaFutura, erroresLote, pesoObjetivoDe, topeDelCiclo } from './lote'
 import { lote } from '../test/fixtures'
 import { memoriaStorage } from '../test/storage'
 
@@ -50,5 +50,38 @@ describe('erroresLote', () => {
     expect(erroresLote({ fechaInicio: '2026-03-01', cantidad: 39 }, limites).cantidad).toMatch(/40/)
     expect(erroresLote({ fechaInicio: '2026-03-01', cantidad: 0 }, limites).cantidad).toBeDefined()
     expect(erroresLote({ fechaInicio: '', cantidad: 100 }, limites).fechaInicio).toBeDefined()
+  })
+})
+
+describe('fechas del ciclo', () => {
+  const hoy = '2026-10-17'
+  const activo = { fechaInicio: '2026-09-20' }
+  const cerrado = { fechaInicio: '2026-08-01', fechaCierre: '2026-09-12' }
+
+  it('acepta del día de llegada a hoy', () => {
+    expect(errorFechaDelCiclo('2026-09-20', activo, hoy)).toBeUndefined()
+    expect(errorFechaDelCiclo(hoy, activo, hoy)).toBeUndefined()
+  })
+
+  it('no acepta antes de que llegaran los pollitos', () => {
+    expect(errorFechaDelCiclo('2026-09-19', activo, hoy)).toMatch(/antes de que llegaran/)
+  })
+
+  // Un día anotado por error en el mes que viene callaba el aviso de días sin
+  // registro hasta esa fecha.
+  it('no acepta una fecha que todavía no llega', () => {
+    expect(errorFechaDelCiclo('2026-11-17', activo, hoy)).toMatch(/todavía no llega/)
+  })
+
+  it('en un ciclo cerrado, nada después del cierre', () => {
+    expect(topeDelCiclo(cerrado, hoy)).toBe('2026-09-12')
+    expect(errorFechaDelCiclo('2026-09-13', cerrado, hoy)).toMatch(/cerró/)
+    expect(errorFechaDelCiclo('2026-09-12', cerrado, hoy)).toBeUndefined()
+  })
+
+  it('una compra puede ser de antes del ciclo, pero no del futuro', () => {
+    expect(errorFechaFutura('2026-01-01', hoy)).toBeUndefined()
+    expect(errorFechaFutura('2026-10-18', hoy)).toMatch(/todavía no llega/)
+    expect(errorFechaFutura('', hoy)).toBeDefined()
   })
 })
