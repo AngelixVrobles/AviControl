@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avesPorGalpon, fraseMovimiento } from './reparto'
+import { avesPorGalpon, ciclosPorGalpon, fraseMovimiento } from './reparto'
 import { galponesOcupados, galponLibre, nombreGalpon } from './galpones'
 import { hace, ingreso, lote, registro } from '../test/fixtures'
 
@@ -108,5 +108,26 @@ describe('los galpones del ciclo', () => {
     expect(fraseMovimiento({ fecha: hoy, de: 'g9', a: 'g1', aves: 1 }, granja)).toBe(
       '1 ave de un galpón que se quitó a Galpón 1',
     )
+  })
+})
+
+describe('ciclosPorGalpon', () => {
+  const m = (mortalidadPct: number, ganancia: number, vendidas = 100) => ({ mortalidadPct, fca: 1.6, iep: 400, ganancia, vendidas })
+
+  it('promedia los ciclos de cada galpón y aparta las polladas repartidas', () => {
+    const g = ciclosPorGalpon(
+      [
+        { lote: lote({ galponId: 'g1' }), metrics: m(4, 10000) },
+        { lote: lote({ galponId: 'g1' }), metrics: m(6, 20000) },
+        { lote: lote({ galponId: 'g2' }), metrics: m(3, 5000) },
+        { lote: pollada, metrics: m(5, 0) },
+      ],
+      granja,
+    )
+    expect(g.map((x) => [x.nombre, x.ciclos, x.mortalidadPct, x.gananciaPorAve])).toEqual([
+      ['Galpón 1', 2, 5, 150],
+      ['Galpón 2', 1, 3, 50],
+      ['Varios galpones', 1, 5, 0],
+    ])
   })
 })

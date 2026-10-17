@@ -1,7 +1,7 @@
 import type { Ingreso, Lote, MovimientoAves, Registro } from '../db/schema'
 import { num, plural } from './format'
 import { equipoDeLaGranja } from './equipo'
-import { nombreDeGalpon } from './galpones'
+import { galponInicial, nombreDeGalpon } from './galpones'
 import { pesoObjetivoDe } from './lote'
 import type { Galpon, Settings } from './settings'
 import { diaParaPeso } from './standards'
@@ -118,4 +118,51 @@ export function caben(
   if (!g?.largoM || !g.anchoM) return undefined
   const peso = pesoObjetivoDe(lote)
   return equipoDeLaGranja(Math.max(1, aves), peso, diaParaPeso(peso), s, g)?.galpon?.avesMaximas
+}
+
+export interface CiclosDeGalpon {
+  /** El galpón, o `varios` para las polladas repartidas. */
+  id: string
+  nombre: string
+  ciclos: number
+  mortalidadPct: number
+  fca?: number
+  iep?: number
+  /** Lo que dejó cada ave vendida. */
+  gananciaPorAve?: number
+}
+
+export const VARIOS_GALPONES = 'varios'
+
+const promedio = (xs: (number | undefined)[]) => {
+  const v = xs.filter((x): x is number => x != null && Number.isFinite(x))
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : undefined
+}
+
+// Los ciclos cerrados de cada galpón, uno junto a otro: el galpón que da más
+// mortalidad o peor conversión se nota. Una pollada repartida no es de uno
+// solo: va aparte, en «Varios galpones».
+export function ciclosPorGalpon(
+  ciclos: {
+    lote: Pick<Lote, 'galponId' | 'movimientos'>
+    metrics: { mortalidadPct: number; fca?: number; iep?: number; ganancia: number; vendidas: number }
+  }[],
+  s: Pick<Settings, 'galpones'>,
+): CiclosDeGalpon[] {
+  const grupos = new Map<string, typeof ciclos>()
+  for (const c of ciclos) {
+    const id = repartido(c.lote) ? VARIOS_GALPONES : galponInicial(c.lote, s)
+    grupos.set(id, [...(grupos.get(id) ?? []), c])
+  }
+  return [...grupos.entries()]
+    .map(([id, xs]) => ({
+      id,
+      nombre: id === VARIOS_GALPONES ? 'Varios galpones' : nombreDeGalpon(id, s),
+      ciclos: xs.length,
+      mortalidadPct: promedio(xs.map((c) => c.metrics.mortalidadPct)) ?? 0,
+      fca: promedio(xs.map((c) => c.metrics.fca)),
+      iep: promedio(xs.map((c) => c.metrics.iep)),
+      gananciaPorAve: promedio(xs.map((c) => (c.metrics.vendidas > 0 ? c.metrics.ganancia / c.metrics.vendidas : undefined))),
+    }))
+    .sort((a, b) => (a.id === VARIOS_GALPONES ? 1 : b.id === VARIOS_GALPONES ? -1 : a.nombre.localeCompare(b.nombre)))
 }

@@ -6,6 +6,7 @@ import {
   type Aplicacion,
   type CategoriaDeuda,
   type CategoriaGasto,
+  type CausaBaja,
   type Deuda,
   type EntregaSocio,
   type Gasto,
@@ -18,7 +19,7 @@ import {
 } from '../db/schema'
 import { Button, DangerButton, Field, Input, Segmentado, Select, Sheet } from './ui'
 import { confirmar, toast } from './confirm'
-import { CATEGORIAS, categoriaLabel } from '../lib/labels'
+import { CATEGORIAS, CAUSAS_BAJA, categoriaLabel } from '../lib/labels'
 import { CATEGORIAS_DEUDA } from '../lib/deudas'
 import {
   computeLiquidacion,
@@ -48,6 +49,7 @@ import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
 import { useEnvio } from './useEnvio'
 import { DatosDePago } from './Venta'
+import { deshacerTraspaso } from '../db/traspaso'
 
 export function RegistroSheet({
   lote,
@@ -67,6 +69,7 @@ export function RegistroSheet({
   const [fecha, setFecha] = useState(hoyISO())
   const [mortalidad, setMortalidad] = useState(0)
   const [descarte, setDescarte] = useState(0)
+  const [causa, setCausa] = useState<CausaBaja>()
   // En la unidad que el productor eligió (sacos o libras); al guardar pasa a lb.
   const [alimento, setAlimento] = useState('')
   const [aguaL, setAguaL] = useState('')
@@ -114,6 +117,7 @@ export function RegistroSheet({
     cargadoDe.current = r?.fecha
     const valor = r?.alimentoLb ? enUnidad(r.alimentoLb, unidadRef.current) : undefined
     setMortalidad(r?.mortalidad ?? 0)
+    setCausa(r?.causa)
     setDescarte(r?.descarte ?? 0)
     setAlimento(valor != null ? String(valor) : '')
     setAguaL(r?.aguaL ? String(r.aguaL) : '')
@@ -198,6 +202,7 @@ export function RegistroSheet({
       tempMaxC: tempValida ? tempNum : undefined,
       humedadPct: humedadValida ? humedadNum : undefined,
       pesoPromedio: !sinPesar && Number(peso.replace(',', '.')) > 0 ? Number(peso.replace(',', '.')) : undefined,
+      causa: mortalidad > 0 ? causa : undefined,
       nota: nota.trim() || undefined,
     }
     // Guardar desde aquí completa el día: si lo había creado un pesaje, deja de
@@ -251,6 +256,31 @@ export function RegistroSheet({
         <div>
           <span className="mb-1.5 block text-sm font-medium text-ink-soft">Mortalidad (aves)</span>
           <Stepper value={mortalidad} onChange={setMortalidad} etiqueta="Mortalidad" />
+          {mortalidad > 0 && (
+            <div className="mt-3">
+              <span className="mb-1.5 block text-xs font-medium text-ink-faint">
+                ¿De qué {mortalidad === 1 ? 'murió' : 'murió la mayoría'}? Opcional
+              </span>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="De qué murieron">
+                {CAUSAS_BAJA.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    aria-pressed={causa === c.id}
+                    onClick={() => setCausa(causa === c.id ? undefined : c.id)}
+                    className={clsx(
+                      'h-11 rounded-full border px-3.5 text-sm font-semibold transition',
+                      causa === c.id
+                        ? 'border-2 border-forest-500 bg-forest-50 text-ink'
+                        : 'border-line bg-paper-raised text-ink-soft',
+                    )}
+                  >
+                    {c.corto}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -956,6 +986,37 @@ export function GastoSheet({
     await db.gastos.delete(editar!.id)
     onClose()
   }
+
+  // El alimento que se pasó entre ciclos no se edita suelto: son dos gastos que
+  // van juntos, y cambiar uno solo descuadraba los dos ciclos.
+  async function deshacer() {
+    const g = editar!
+    const ok = await confirmar({
+      titulo: 'Deshacer el traspaso',
+      mensaje: `Se borra en los dos ciclos: ${num(Math.abs(g.cantidadQq ?? 0), 1)} qq por ${money(Math.abs(g.monto))}.`,
+      confirmar: 'Deshacer',
+      peligro: true,
+    })
+    if (!ok) return
+    await deshacerTraspaso(g)
+    onClose()
+  }
+
+  if (editar?.traspaso)
+    return (
+      <Sheet open={open} onClose={onClose} title="Alimento entre ciclos">
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-ink-soft tnum">
+            {editar.descripcion}: {num(Math.abs(editar.cantidadQq ?? 0), 1)} qq por {money(Math.abs(editar.monto))}, el{' '}
+            {fechaCorta(editar.fecha)}.{' '}
+            {editar.monto < 0
+              ? 'Este ciclo dejó de cargar con ese alimento.'
+              : 'Entró a este ciclo como una compra.'}
+          </p>
+          <DangerButton onClick={deshacer}>Deshacer el traspaso</DangerButton>
+        </div>
+      </Sheet>
+    )
 
   return (
     <Sheet open={open} onClose={onClose} title={editar ? 'Editar gasto' : 'Registrar gasto'}>
@@ -2524,7 +2585,7 @@ export function ConteoSheet({
   }, [open])
 
   const compras = comprasAlimento(gastos)
-  const sinCantidad = compras.filter((g) => !((g.cantidadQq ?? 0) > 0)).length
+  const sinCantidad = compras.filter((g) => !g.cantidadQq).length
   const compradoQq = compras
     .filter((g) => g.fecha <= fecha)
     .reduce((a, g) => a + (g.cantidadQq ?? 0), 0)

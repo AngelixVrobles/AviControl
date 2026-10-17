@@ -16,7 +16,9 @@ import { esArchivoDeCiclo } from '../lib/compartido'
 import { elegirArchivo } from '../lib/archivo'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
-import { Banda, Button, DangerButton, Field, Input, Segmentado, Seccion } from '../components/ui'
+import { Banda, Button, DangerButton, Field, Input, Segmentado, Seccion, Sheet } from '../components/ui'
+import { ListaNovedades } from '../components/Novedades'
+import { NOVEDADES } from '../lib/novedades'
 import { MedidasGalpon } from './fichas/Galpon'
 import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
@@ -24,6 +26,7 @@ import { confirmar, toast } from '../components/confirm'
 export function Ajustes() {
   const s = useSettings()
   const [restauraciones, setRestauraciones] = useState(0)
+  const [novedades, setNovedades] = useState(false)
   const { respaldar } = useRespaldo()
   const abrirCiclo = useAbrirCiclo()
   const conteos = useLiveQuery(async () => {
@@ -278,7 +281,15 @@ export function Ajustes() {
         <DangerButton onClick={borrarTodo}>Borrar todo</DangerButton>
       </Banda>
 
-      <p className="mt-8 text-center text-sm text-ink-soft">AviControl · v{__APP_VERSION__} · datos locales</p>
+      <p className="mt-8 text-center text-sm text-ink-soft">
+        AviControl · v{__APP_VERSION__} · datos locales ·{' '}
+        <button type="button" onClick={() => setNovedades(true)} className="-my-3 py-3 font-medium text-forest-600">
+          Qué hay de nuevo
+        </button>
+      </p>
+      <Sheet open={novedades} onClose={() => setNovedades(false)} title={`Lo nuevo de la ${NOVEDADES.version}`}>
+        <ListaNovedades />
+      </Sheet>
     </div>
   )
 }
