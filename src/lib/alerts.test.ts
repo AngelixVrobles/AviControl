@@ -105,3 +105,13 @@ describe('días con fecha futura', () => {
     expect(textos).toContain('Sin registro desde hace 6 días')
   })
 })
+
+describe('conversión que no cuadra', () => {
+  it('avisa que falta alimento cuando el FCA sale imposible de bajo', () => {
+    const l = lote({ fechaInicio: hace(24) })
+    const regs = [registro(24, { fecha: hace(0), pesoPromedio: 2.6, alimentoLb: 100 })]
+    const m = computeMetrics(l, regs, [], [])
+    const textos = computeAlertas(l, regs, [], m, { plan: [] }).map((a) => a.texto)
+    expect(textos.some((t) => t.startsWith('La conversión sale en') && t.includes('falta alimento'))).toBe(true)
+  })
+})

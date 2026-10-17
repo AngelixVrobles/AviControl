@@ -17,7 +17,7 @@ import {
   type Registro,
 } from "../db/schema";
 import { useLoteData, useSettings } from "../lib/hooks";
-import { agruparGastos, type LoteMetrics } from "../lib/metrics";
+import { agruparGastos, juicioFca, type LoteMetrics } from "../lib/metrics";
 import { proyectarVenta, type Proyeccion } from "../lib/proyeccion";
 import { analizarPrecio, precioAlimentoLb } from "../lib/precios";
 import { resultadoCiclo, type Contraste } from "../lib/cierre";
@@ -49,11 +49,7 @@ import {
   porLb,
 } from "../lib/format";
 import { categoriaLabel, RAZA, tipoIngresoLabel } from "../lib/labels";
-import {
-  LB_POR_QUINTAL,
-  fcaEstandar,
-  pesoEstandarLb,
-} from "../lib/standards";
+import { LB_POR_QUINTAL, pesoEstandarLb } from "../lib/standards";
 import type { Settings } from "../lib/settings";
 import { AlertaChip } from "../components/AlertaChip";
 import { FichasNav } from "../components/FichasNav";
@@ -1413,15 +1409,30 @@ function GridCrecimiento({ metrics: m }: { metrics: LoteMetrics }) {
 }
 
 function Diagnostico({ metrics: m }: { metrics: LoteMetrics }) {
-  const std = fcaEstandar(m.dias);
-  if (m.dias < 21 || m.fca == null || m.fca <= std + 0.15) return null;
+  const j = juicioFca(m);
+  if (m.fca == null || !j) return null;
+  if (j.estado === "dudosoBajo" || j.estado === "dudosoAlto")
+    return (
+      <div className="mt-6 rounded-xl2 border-l-4 border-amber-400 bg-amber-tint p-4">
+        <div className="font-display text-base font-semibold text-amber-text">
+          La conversión no cuadra
+        </div>
+        <p className="mt-1 text-sm leading-relaxed text-amber-text">
+          {j.estado === "dudosoBajo"
+            ? `Sale en ${num(m.fca, 2)}, y al día ${j.dia} Cobb 500 da ${num(j.estandar, 2)}: ningún lote convierte tanto mejor. Falta alimento por anotar; cuenta los sacos que quedan y la app saca lo que se dio.`
+            : `Sale en ${num(m.fca, 2)}, más del doble de Cobb 500 al día ${j.dia} (${num(j.estandar, 2)}). Revisa el alimento anotado: ¿libras donde iban sacos?`}{" "}
+          Mientras no cuadre, la proyección usa el consumo del estándar.
+        </p>
+      </div>
+    );
+  if (j.dia < 21 || m.fca <= j.estandar + 0.15) return null;
   return (
     <div className="mt-6 rounded-xl2 border-l-4 border-amber-400 bg-amber-tint p-4">
       <div className="font-display text-base font-semibold text-amber-text">
         La conversión va por encima del estándar
       </div>
       <p className="mt-1 text-sm leading-relaxed text-amber-text">
-        Con FCA {num(m.fca, 2)} (Cobb 500 al día {m.dias}: {num(std, 2)}) las
+        Con FCA {num(m.fca, 2)} (Cobb 500 al día {j.dia}: {num(j.estandar, 2)}) las
         aves comen de más por cada libra que ganan. Revisa desperdicio en
         comederos, densidad y temperatura del galpón antes del día 35.
       </p>

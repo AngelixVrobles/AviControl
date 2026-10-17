@@ -1,5 +1,5 @@
-import type { LoteMetrics } from './metrics'
-import { fcaEstandar, mortalidadEsperadaPct, pesoEstandarLb } from './standards'
+import { juicioFca, type LoteMetrics } from './metrics'
+import { mortalidadEsperadaPct, pesoEstandarLb } from './standards'
 import { num, pct } from './format'
 
 export interface Desviacion {
@@ -28,11 +28,17 @@ export function desviaciones(m: LoteMetrics): {
     return { valor, detalle: '✓ en peso', estado: 'bien' }
   })()
 
+  // Contra el estándar del día en que se midió, y sin dar por buena una
+  // conversión imposible: un 0.05 salía con «✓ FCA».
   const fca = ((): Desviacion => {
-    if (m.fca == null) return { valor: '—', detalle: 'FCA', estado: 'bien' }
-    const dif = m.fca - fcaEstandar(dia)
-    if (dif > 0.1) return { valor: num(m.fca, 2), detalle: `▲ ${num(dif, 2)} FCA`, estado: 'mal' }
-    return { valor: num(m.fca, 2), detalle: '✓ FCA', estado: 'bien' }
+    const j = juicioFca(m)
+    if (m.fca == null || !j) return { valor: '—', detalle: 'FCA', estado: 'bien' }
+    const valor = num(m.fca, 2)
+    if (j.estado === 'dudosoBajo') return { valor, detalle: 'falta alimento', estado: 'mal' }
+    if (j.estado === 'dudosoAlto') return { valor, detalle: 'revisa alimento', estado: 'mal' }
+    if (j.estado === 'alto')
+      return { valor, detalle: `▲ ${num(m.fca - j.estandar, 2)} FCA`, estado: 'mal' }
+    return { valor, detalle: '✓ FCA', estado: 'bien' }
   })()
 
   const mortalidad = ((): Desviacion => {

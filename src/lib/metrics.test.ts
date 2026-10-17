@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { computeMetrics } from './metrics'
+import { computeMetrics, eficienciaAlimento, fcaDudoso, juicioFca } from './metrics'
 import { gasto, hace, ingreso, lote, registro } from '../test/fixtures'
-import { pesoEstandarLb } from './standards'
+import { fcaEstandar, pesoEstandarLb } from './standards'
 
 const dias = (n: number) => Array.from({ length: n }, (_, i) => i + 1)
 
@@ -176,5 +176,45 @@ describe('peso final', () => {
     const m = computeMetrics(lote(), [registro(30, { pesoPromedio: 4.8 })], [], [])
     expect(m.pesoVentaLb).toBeUndefined()
     expect(m.pesoFinalLb).toBe(m.pesoEstimadoLb)
+  })
+})
+
+describe('juicioFca', () => {
+  const m = (fca: number, dias = 24, diaAlimento: number | undefined = 24) => ({ fca, dias, diaAlimento })
+
+  it('se mide contra el estándar del día del último dato de alimento', () => {
+    // Medido al día 14: el estándar de ese día, no el del 24.
+    const j = juicioFca(m(1.1, 24, 14))!
+    expect(j.dia).toBe(14)
+    expect(j.estandar).toBeCloseTo(fcaEstandar(14), 6)
+    expect(j.estado).toBe('bien')
+    // 1.2 al día 14 va mal aunque esté por debajo del estándar del día 24.
+    expect(juicioFca(m(1.2, 24, 14))!.estado).toBe('alto')
+  })
+
+  // Antes un 0.05 salía con «✓ FCA».
+  it('un FCA imposible de bajo es alimento sin anotar', () => {
+    expect(juicioFca(m(0.05))!.estado).toBe('dudosoBajo')
+    expect(fcaDudoso(m(0.05))).toBe(true)
+  })
+
+  it('más del doble del estándar es alimento anotado de más', () => {
+    expect(juicioFca(m(12.79))!.estado).toBe('dudosoAlto')
+  })
+
+  it('los primeros días no se juzgan como dudosos', () => {
+    expect(fcaDudoso(m(0.3, 4, 4))).toBe(false)
+  })
+})
+
+describe('eficienciaAlimento', () => {
+  // Con un FCA dudoso, el alimento que falta sale del estándar: uno bajísimo
+  // hacía el alimento casi gratis y el precio mínimo, más bajo de lo real.
+  it('no escala nada con un FCA dudoso', () => {
+    const l = lote()
+    const regs = [registro(30, { pesoPromedio: 4, alimentoLb: 50 })]
+    const m = computeMetrics(l, regs, [], [])
+    expect(fcaDudoso(m)).toBe(true)
+    expect(eficienciaAlimento(m)).toBe(1)
   })
 })
