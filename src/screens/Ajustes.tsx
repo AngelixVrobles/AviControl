@@ -1,24 +1,13 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import {
-  db,
-  type Abono,
-  type Aplicacion,
-  type Deuda,
-  type EntregaSocio,
-  type Gasto,
-  type Ingreso,
-  type Lote,
-  type Pesaje,
-  type Registro,
-} from '../db/schema'
+import { db, type Lote } from '../db/schema'
 import { leerGalpones, saveSettings, type Galpon, type Settings } from '../lib/settings'
 import { useLotes, useSettings } from '../lib/hooks'
-import { enumerar, fecha, num } from '../lib/format'
+import { enumerar, fecha, haceCuanto, num } from '../lib/format'
 import { galponDe, nuevoGalpon } from '../lib/galpones'
 import { borrarTodo as borrarTodoDeLaBase } from '../db/ciclo'
 import { borrarBorradoresDe } from '../lib/borrador'
-import { diasSinRespaldo } from '../lib/respaldo'
+import { diasSinRespaldo, validarRespaldo } from '../lib/respaldo'
 import { VERSION_RESPALDO } from '../db/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 import { useAbrirCiclo } from '../components/useCicloCompartido'
@@ -29,42 +18,6 @@ import { Banda, Button, DangerButton, Field, Input, Segmentado, Seccion } from '
 import { MedidasGalpon } from './fichas/Galpon'
 import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
-
-const KG_A_LB = 2.20462
-
-interface Respaldo {
-  version?: number
-  settings?: Partial<Settings>
-  lotes?: Lote[]
-  registros?: Registro[]
-  gastos?: Gasto[]
-  ingresos?: Ingreso[]
-  pesajes?: Pesaje[]
-  aplicaciones?: Aplicacion[]
-  deudas?: Deuda[]
-  abonos?: Abono[]
-  entregas?: EntregaSocio[]
-}
-
-// Los respaldos anteriores a la migración a libras traen alimentoKg/pesoKg.
-function migrarUnidades(data: Respaldo) {
-  for (const r of data.registros ?? []) {
-    const viejo = r as Registro & { alimentoKg?: number }
-    if (viejo.alimentoKg != null) {
-      r.alimentoLb = Math.round(viejo.alimentoKg * KG_A_LB * 10) / 10
-      if (r.pesoPromedio != null) r.pesoPromedio = Math.round(r.pesoPromedio * KG_A_LB * 100) / 100
-      delete viejo.alimentoKg
-    }
-    r.alimentoLb ??= 0
-  }
-  for (const i of data.ingresos ?? []) {
-    const viejo = i as Ingreso & { pesoKg?: number }
-    if (viejo.pesoKg != null) {
-      i.pesoLb = Math.round(viejo.pesoKg * KG_A_LB * 10) / 10
-      delete viejo.pesoKg
-    }
-  }
-}
 
 export function Ajustes() {
   const s = useSettings()
@@ -87,31 +40,28 @@ export function Ajustes() {
   }, [])
 
   async function importar(file: File) {
-    let data: Respaldo
+    let crudo: unknown
     try {
-      data = JSON.parse(await file.text())
+      crudo = JSON.parse(await file.text())
     } catch {
       toast('El archivo no se pudo leer. ¿Es el .json que exportó AviControl?')
       return
     }
     // Un ciclo que mandó un socio no es un respaldo: se abre como copia y no
     // reemplaza nada.
-    if (esArchivoDeCiclo(data)) {
-      await abrirCiclo(data)
+    if (esArchivoDeCiclo(crudo)) {
+      await abrirCiclo(crudo)
       return
     }
-    const listas = [data?.lotes, data?.registros, data?.gastos, data?.ingresos]
-    if (!data || typeof data !== 'object' || !listas.every(Array.isArray)) {
-      toast('El archivo no tiene el formato de un respaldo de AviControl.')
+    const lectura = validarRespaldo(crudo, VERSION_RESPALDO)
+    if (!lectura.ok) {
+      toast(lectura.error)
       return
     }
-    if ((data.version ?? 1) > VERSION_RESPALDO) {
-      toast('Ese respaldo es de una versión más nueva de la app. Actualiza AviControl primero.')
-      return
-    }
+    const data = lectura.respaldo
 
-    const fechas = (data.lotes ?? []).map((l) => l.fechaInicio).sort()
-    const trae = `${resumen(data.lotes)}, ${num(data.registros!.length)} registros${
+    const fechas = data.lotes.map((l) => l.fechaInicio).sort()
+    const trae = `${resumen(data.lotes)}, ${num(data.registros.length)} registros${
       fechas.length ? ` · ${fecha(fechas[0])}` : ''
     }`
     const hay = `${num(conteos?.ciclos ?? 0)} ciclos y ${num(conteos?.registros ?? 0)} registros`
@@ -124,7 +74,6 @@ export function Ajustes() {
     )
       return
 
-    migrarUnidades(data)
     try {
       await db.transaction(
         'rw',
@@ -151,15 +100,15 @@ export function Ajustes() {
             db.abonos.clear(),
             db.entregas.clear(),
           ])
-          await db.lotes.bulkAdd(data.lotes!)
-          await db.registros.bulkAdd(data.registros!)
-          await db.gastos.bulkAdd(data.gastos!)
-          await db.ingresos.bulkAdd(data.ingresos!)
-          await db.pesajes.bulkAdd(data.pesajes ?? [])
-          await db.aplicaciones.bulkAdd(data.aplicaciones ?? [])
-          await db.deudas.bulkAdd(data.deudas ?? [])
-          await db.abonos.bulkAdd(data.abonos ?? [])
-          await db.entregas.bulkAdd(data.entregas ?? [])
+          await db.lotes.bulkAdd(data.lotes)
+          await db.registros.bulkAdd(data.registros)
+          await db.gastos.bulkAdd(data.gastos)
+          await db.ingresos.bulkAdd(data.ingresos)
+          await db.pesajes.bulkAdd(data.pesajes)
+          await db.aplicaciones.bulkAdd(data.aplicaciones)
+          await db.deudas.bulkAdd(data.deudas)
+          await db.abonos.bulkAdd(data.abonos)
+          await db.entregas.bulkAdd(data.entregas)
         },
       )
     } catch {
@@ -380,7 +329,7 @@ function AvisoRespaldo({
       </p>
       <p className="mt-2 text-sm font-medium text-amber-text">
         {ultimo
-          ? `Último respaldo: hace ${num(dias!)} ${dias === 1 ? 'día' : 'días'} · ${fecha(ultimo)}`
+          ? `Último respaldo: ${haceCuanto(dias!)} · ${fecha(ultimo)}`
           : 'Nunca has hecho un respaldo.'}
       </p>
       <div className="mt-3 grid grid-cols-2 gap-3">
