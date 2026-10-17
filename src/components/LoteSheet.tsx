@@ -4,6 +4,7 @@ import { db, type Lote, type Socio } from '../db/schema'
 import { borrarCiclo } from '../db/ciclo'
 import { enumerar, money, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
+import { galponDe } from '../lib/galpones'
 import { erroresLote, type LimitesLote } from '../lib/lote'
 import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
@@ -84,6 +85,8 @@ function FormLote({
     lote.costoInicialPagadoPor != null ? String(lote.costoInicialPagadoPor) : '',
   )
   const [notas, setNotas] = useState(lote.notas ?? '')
+  const varios = settings.galpones.length > 1
+  const [galponId, setGalponId] = useState(() => galponDe(lote, settings)?.id ?? '')
 
   const cantidadNum = Number(cantidad) || 0
   const costoNum = Number(costo) || 0
@@ -108,6 +111,7 @@ function FormLote({
       pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
       socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
+      galponId: varios ? galponId || undefined : lote.galponId,
       notas: notas.trim() || undefined,
     })
     toast('Ciclo corregido.')
@@ -227,6 +231,18 @@ function FormLote({
         <p className="-mt-3 text-xs text-ink-faint">
           Vacío, el ciclo usa el peso de Ajustes ({num(settings.pesoObjetivoLb, 1)} lb).
         </p>
+      )}
+
+      {varios && (
+        <Field label="Galpón">
+          <Select value={galponId} onChange={(e) => setGalponId(e.target.value)}>
+            {settings.galpones.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nombre}
+              </option>
+            ))}
+          </Select>
+        </Field>
       )}
 
       <EditorSocios

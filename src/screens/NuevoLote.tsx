@@ -7,7 +7,9 @@ import { IconBack } from '../components/icons'
 import { EditorSocios } from '../components/Socios'
 import { useEnvio } from '../components/useEnvio'
 import { hoyISO, num } from '../lib/format'
-import { useSettings } from '../lib/hooks'
+import { useLotes, useSettings } from '../lib/hooks'
+import { galponDe, galponLibre } from '../lib/galpones'
+import type { Galpon } from '../lib/settings'
 import { RAZA } from '../lib/labels'
 import { equipoDeLaGranja, resumenEquipo } from '../lib/equipo'
 import { sociosParaGuardar } from '../lib/sociedad'
@@ -34,6 +36,14 @@ export function NuevoLote() {
   ])
   const [pagoAves, setPagoAves] = useState('')
   const [notas, setNotas] = useState('')
+  // Con varios galpones, el primero que no tiene un ciclo en curso; se elige
+  // otro si los pollitos van a otro lado.
+  const activos = useLotes('activo')
+  const [galponElegido, setGalponElegido] = useState<string>()
+  const galpon =
+    settings.galpones.find((g) => g.id === galponElegido) ??
+    (activos ? galponLibre(settings.galpones, activos) : galponDe(undefined, settings))
+  const varios = settings.galpones.length > 1
 
   const cantidadNum = Number(cantidad) || 0
   const pesoNum = Number(pesoVenta) || 0
@@ -59,6 +69,7 @@ export function NuevoLote() {
       pesoObjetivoLb: pesoQueRige,
       socios: reparto?.socios,
       costoInicialPagadoPor: reparto && costoInicial > 0 ? reparto.pagador : undefined,
+      galponId: varios ? galpon?.id : undefined,
       notas: notas.trim() || undefined,
       creado: Date.now(),
     })
@@ -153,7 +164,19 @@ export function NuevoLote() {
           </Field>
         </div>
 
-        {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} pesoVentaLb={pesoQueRige} />}
+        {varios && (
+          <Field label="Galpón" hint="Donde van a estar los pollitos.">
+            <Select value={galpon?.id ?? ''} onChange={(e) => setGalponElegido(e.target.value)}>
+              {settings.galpones.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nombre}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
+        {cantidadNum > 0 && <EquipoNecesario aves={cantidadNum} pesoVentaLb={pesoQueRige} galpon={galpon} />}
 
         <EditorSocios
           titulo="Llevar en sociedad"
@@ -201,11 +224,20 @@ function autoNombre(fecha: string) {
 
 // Antes de recibir los pollitos: lo que hace falta montar en el galpón para esa
 // cantidad, con el equipo que la granja tiene anotado, y si caben.
-function EquipoNecesario({ aves, pesoVentaLb }: { aves: number; pesoVentaLb: number }) {
+function EquipoNecesario({
+  aves,
+  pesoVentaLb,
+  galpon,
+}: {
+  aves: number
+  pesoVentaLb: number
+  galpon?: Galpon
+}) {
   const settings = useSettings()
-  const plan = equipoDeLaGranja(aves, pesoVentaLb, diaParaPeso(pesoVentaLb), settings)
+  const plan = equipoDeLaGranja(aves, pesoVentaLb, diaParaPeso(pesoVentaLb), settings, galpon)
   if (!plan) return null
   const g = plan.galpon
+  const cual = settings.galpones.length > 1 && galpon ? galpon.nombre : 'Tu galpón'
   return (
     <div className="rounded-xl2 border border-line bg-paper-raised p-4">
       <div className="text-sm font-medium text-ink-soft">Para {num(aves)} pollitos vas a necesitar</div>
@@ -218,14 +250,14 @@ function EquipoNecesario({ aves, pesoVentaLb }: { aves: number; pesoVentaLb: num
           )}
         >
           {g.sobrepoblado
-            ? `Tu galpón aguanta ${num(g.avesMaximas)} aves al peso de venta: con ${num(aves)} quedan apretadas.`
-            : `Tu galpón aguanta ${num(g.avesMaximas)} aves al peso de venta.`}
+            ? `${cual} aguanta ${num(g.avesMaximas)} aves al peso de venta: con ${num(aves)} quedan apretadas.`
+            : `${cual} aguanta ${num(g.avesMaximas)} aves al peso de venta.`}
         </p>
       )}
       <p className="mt-2 text-xs text-ink-faint">
         {g
           ? 'El detalle y cómo repartirlos está en la ficha Galpón del ciclo.'
-          : 'Pon las medidas del galpón en Ajustes y te digo si caben.'}
+          : `Pon las medidas ${settings.galpones.length > 1 && galpon ? `de ${galpon.nombre}` : 'del galpón'} en Ajustes y te digo si caben.`}
       </p>
     </div>
   )

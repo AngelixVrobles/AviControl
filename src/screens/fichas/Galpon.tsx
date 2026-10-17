@@ -1,6 +1,6 @@
 import type { Lote } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
-import { saveSettings, type Settings } from '../../lib/settings'
+import { saveSettings, type Galpon, type Settings } from '../../lib/settings'
 import { num, plural } from '../../lib/format'
 import {
   EQUIPOS,
@@ -14,6 +14,7 @@ import {
   type ItemEquipo,
   type TipoEquipo,
 } from '../../lib/equipo'
+import { galponDe } from '../../lib/galpones'
 import { pesoObjetivoDe } from '../../lib/lote'
 import { Banda, Segmentado, Seccion } from '../../components/ui'
 
@@ -50,7 +51,8 @@ export function FichaGalpon({
 }) {
   const aves = metrics.avesVivas > 0 ? metrics.avesVivas : lote.cantidadInicial
   const pesoObjetivo = pesoObjetivoDe(lote)
-  const plan = equipoDeLaGranja(aves, pesoObjetivo, metrics.diaObjetivo, settings)
+  const galpon = galponDe(lote, settings)
+  const plan = equipoDeLaGranja(aves, pesoObjetivo, metrics.diaObjetivo, settings, galpon)
   if (!plan) return null
   const g = plan.galpon
   const u = settings.unidadMedida
@@ -103,7 +105,7 @@ export function FichaGalpon({
       <div>
         <Seccion
           className="mb-3"
-          etiqueta="Medidas del galpón"
+          etiqueta={settings.galpones.length > 1 && galpon ? `Medidas · ${galpon.nombre}` : 'Medidas del galpón'}
           accion={
             <Segmentado
               etiqueta="Unidad de las medidas"
@@ -116,7 +118,7 @@ export function FichaGalpon({
             />
           }
         />
-        <MedidasGalpon settings={settings} />
+        <MedidasGalpon settings={settings} galpon={galpon} />
 
         {!g ? (
           <p className="mt-3 text-sm leading-relaxed text-ink-faint">
@@ -290,16 +292,18 @@ function FilaReparto({
   )
 }
 
-// Largo y ancho en la unidad que elija el productor; se guardan en metros.
-export function MedidasGalpon({ settings }: { settings: Settings }) {
+// Las medidas de un galpón de la granja: se escriben en metros o pies y se
+// guardan en metros.
+export function MedidasGalpon({ settings, galpon }: { settings: Settings; galpon?: Galpon }) {
   const u = settings.unidadMedida
   const mostrar = (m?: number) => (m ? String(Math.round(aMedida(m, u) * 10) / 10) : '')
+  if (!galpon) return null
   return (
     <div className="grid grid-cols-2 gap-3">
       {(
         [
-          ['galponLargoM', 'Largo'],
-          ['galponAnchoM', 'Ancho'],
+          ['largoM', 'Largo'],
+          ['anchoM', 'Ancho'],
         ] as const
       ).map(([campo, label]) => (
         <label key={campo} className="block">
@@ -307,13 +311,18 @@ export function MedidasGalpon({ settings }: { settings: Settings }) {
             {label} en {u === 'pies' ? 'pies' : 'metros'}
           </span>
           <input
-            key={`${campo}-${u}-${settings[campo] ?? ''}`}
+            key={`${galpon.id}-${campo}-${u}-${galpon[campo] ?? ''}`}
             type="number"
             inputMode="decimal"
-            defaultValue={mostrar(settings[campo])}
+            defaultValue={mostrar(galpon[campo])}
             onBlur={(e) => {
               const v = Number(e.target.value.replace(',', '.'))
-              saveSettings({ [campo]: v > 0 ? deMedida(v, u) : undefined })
+              const valor = v > 0 ? deMedida(v, u) : undefined
+              saveSettings({
+                galpones: settings.galpones.map((g) =>
+                  g.id === galpon.id ? { ...g, [campo]: valor } : g,
+                ),
+              })
             }}
             placeholder="0"
             className="h-12 w-full rounded-xl border border-line bg-paper-raised px-4 text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"

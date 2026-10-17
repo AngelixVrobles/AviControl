@@ -3,11 +3,20 @@ import type { TipoBebedero, TipoComedero, TipoEquipo } from './equipo'
 
 const KEY = 'avicontrol.settings'
 
+// Un galpón de la granja con sus medidas, que se guardan en metros. Quien tiene
+// dos o tres galpones con ciclos a la vez necesita que cada ciclo sepa en cuál
+// está: la densidad y el equipo salen de sus medidas.
+export interface Galpon {
+  id: string
+  nombre: string
+  largoM?: number
+  anchoM?: number
+}
+
 export interface Settings {
   moneda: string
   granja: string
-  galponLargoM?: number
-  galponAnchoM?: number
+  galpones: Galpon[]
   // Las medidas se guardan en metros; esto es solo cómo se escriben y se leen.
   unidadMedida: 'm' | 'pies'
   // El equipo de la granja: con qué se da agua y comida, y para cuántas aves
@@ -32,6 +41,7 @@ const defaults: Settings = {
   bebedero: 'plasson',
   comedero: 'tolva',
   avesPorEquipo: {},
+  galpones: [{ id: 'g1', nombre: 'Galpón 1' }],
   pesoObjetivoLb: PESO_OBJETIVO_DEFAULT,
   avesPorM2: AVES_POR_M2,
   unidadAlimento: 'qq',
@@ -51,10 +61,31 @@ export function getSettings(): Settings {
         Array.isArray(guardado.planSanitario) && guardado.planSanitario.length
           ? guardado.planSanitario
           : defaults.planSanitario,
+      galpones: leerGalpones(guardado),
     }
   } catch {
     return defaults
   }
+}
+
+// Antes la granja tenía un solo galpón, con sus medidas sueltas en los
+// ajustes: pasan a ser el «Galpón 1». Siempre queda al menos uno.
+export function leerGalpones(guardado: Record<string, unknown>): Galpon[] {
+  const lista = Array.isArray(guardado.galpones)
+    ? (guardado.galpones as Galpon[]).filter(
+        (g) => g && typeof g.id === 'string' && typeof g.nombre === 'string',
+      )
+    : []
+  if (lista.length) return lista
+  const medida = (v: unknown) => (typeof v === 'number' && v > 0 ? v : undefined)
+  return [
+    {
+      id: 'g1',
+      nombre: 'Galpón 1',
+      largoM: medida(guardado.galponLargoM),
+      anchoM: medida(guardado.galponAnchoM),
+    },
+  ]
 }
 
 export function saveSettings(patch: Partial<Settings>) {
