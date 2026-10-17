@@ -27,15 +27,16 @@ Sin cuentas, sin servidor, sin internet: los datos se guardan en el dispositivo 
 ## Funcionalidades
 
 - **Varios galpones**: cada uno con su nombre y sus medidas, y cada ciclo en el suyo —al crearlo propone el que no tiene un ciclo en curso—, con la densidad, el recibo y el equipo calculados con las medidas de ese galpón.
+- **Una pollada en varios galpones**: cuando de grandes ya no caben, parte de las aves se pasa a otro galpón y sigue siendo el mismo ciclo. Se anota la fecha, de cuál salen, a cuál van y cuántas —el otro galpón se crea ahí mismo si no estaba—, o se reparte desde el día que llegan. La ficha Galpón dice cuántas hay en cada uno y cuántas aguanta al peso de venta; las bajas se reparten según las aves de cada galpón, y la venta dice de cuál salieron. Un aviso dice cuándo un galpón no aguanta sus aves, y cuántas pasar.
 - **Ciclos de engorde** con barra de progreso e hitos (recibo, vacunas, cambios de alimento, retiro y venta), sobre la curva Cobb 500 escalada al rendimiento real del lote. Con el lápiz del ciclo se corrige lo que se anotó al crearlo —fecha, pollitos, lo que costaron, peso y precio de venta, socios— sin romper lo ya registrado, o se borra el ciclo con todo lo suyo. Cada ciclo nuevo trae el peso de venta de Ajustes, y el que no tiene el suyo lo sigue.
 - **Inicio**: el registro de hoy de cada ciclo, las alertas y el **precio mínimo para no perder** de todos los ciclos juntos —sus costos entre sus libras, para que cada galpón pese lo que produce—, contra el precio de mercado. Si pasa una semana sin respaldo, lo recuerda y deja respaldar ahí mismo.
-- **Registro diario en segundos**: mortalidad y descarte con *steppers*, alimento **en sacos de 100 lb o en libras** con chips sugeridos según tu consumo reciente, peso opcional y la **temperatura máxima y la humedad** del galpón, que dicen al momento qué significan a esa edad. Un pesaje no cuenta como el registro del día hasta que se completan las bajas y el alimento. Un toque guarda una vez, y las fechas se quedan dentro del ciclo.
+- **Registro diario en segundos**: mortalidad y descarte que se escriben o se cuentan con **+** y **−**, y de qué murió la mayoría —calor, amontonadas, enfermedad, muerte súbita, ascitis—, que la ficha Aves junta para decir de qué se muere el lote; alimento **en sacos de 100 lb o en libras** con chips sugeridos según tu consumo reciente, peso opcional y la **temperatura máxima y la humedad** del galpón, que dicen al momento qué significan a esa edad. Un pesaje no cuenta como el registro del día hasta que se completan las bajas y el alimento. Un toque guarda una vez, y las fechas se quedan dentro del ciclo.
 - **El recibo y la primera semana**: incubadora, peso de los pollitos al llegar y muertos en las cajas. La primera semana se juzga contra lo normal —muertos en las cajas hasta 0.5 %, bajas hasta 1 %, y al día 7 pesar 4.5 veces lo que pesaron al llegar— y Reportes compara las incubadoras entre ciclos.
 - **Calor**: avisa el calor de hoy o de ayer según la edad —desde el día 21, 30 °C ya es calor y 34 °C es peligro, o °F más % de humedad sobre 160 y 170—, el frío de los pollitos, y compara lo que murió los días de calor contra los demás.
 - **Muestreo de peso**: dice cuántas aves pesar para que el promedio valga para todo el galpón, y al ir pesando calcula en vivo el promedio, el **margen de error** (IC 95 % con corrección por población finita), la **uniformidad** y el **CV**, el % del estándar Cobb y las libras vivas del galpón. La casilla y el **+** se quedan fijos arriba aunque la lista crezca, cada peso se guarda en el teléfono al momento (si la hoja se cierra, al abrirla siguen ahí), se deshace el último con un toque y se marcan en rojo los pesos que parecen un error al escribir.
 - **Guía del día**: peso ideal para la edad vs. el real, alimento del día y acumulado, FCA esperado, agua, temperatura de galpón, densidad y mortalidad esperada.
 - **Plan de alimento en cuatro fases** (pre-inicio, iniciador, crecimiento, engorde) con proteína, energía y presentación de cada una: quintales y costo por fase, lo consumido vs. lo esperado y el día de cambio.
-- **Existencia de alimento**: anotando los quintales de cada compra, la app lleva el saldo del galpón, calcula **hasta qué día alcanza** con el consumo real del lote, avisa cuando quedan tres días o menos, y usa el **precio real del quintal** — promedio ponderado de lo que pagaste — para costear el plan, la proyección y el precio de equilibrio.
+- **Existencia de alimento**: anotando los quintales de cada compra, la app lleva el saldo del galpón, calcula **hasta qué día alcanza** con el consumo real del lote, avisa cuando quedan tres días o menos, y usa el **precio real del quintal** — promedio ponderado de lo que pagaste — para costear el plan, la proyección y el precio de equilibrio. Lo que sobró al cerrar **pasa al ciclo que sigue con su costo**: el que cierra deja de cargar con sacos que no se comió y el siguiente los tiene en su almacén.
 - **Conteo de sacos**: para quien no pesa el alimento cada día. Cuentas los sacos que quedan en el almacén y la app saca lo que se dio (lo comprado menos lo que queda); lo que no se anotó día por día se reparte con la curva de consumo Cobb. Con eso salen el consumo por fase y la **conversión**, que se mide al último día con dato de alimento. Sin alimento la conversión no se inventa: la ficha dice qué falta y cómo llenarlo.
 - **Detalle en pestañas** (Hoy / Crecimiento / Dinero) con la curva de peso vs. estándar, índice de eficiencia (EPEF) y resumen semanal.
 - **«¿A cómo vender?»**: precio mínimo por libra para no perder, cuánto de cada libra es alimento / pollito / lo demás, y la escalera de precios por margen (10 %, 15 %, 20 %, 25 %) con tu precio marcado en su lugar.
@@ -44,12 +45,13 @@ Sin cuentas, sin servidor, sin internet: los datos se guardan en el dispositivo 
 - **«Si vendes…»**: compara la ganancia de vender hoy, al peso objetivo (recomendado) o más tarde, con la advertencia cuando las aves comen más de lo que crecen.
 - **Proyección de venta financiera**: fecha estimada al peso objetivo, mortalidad que falta por ocurrir, alimento restante en quintales —separando lo que ya está pagado en el almacén de lo que falta comprar, para no cobrar dos veces lo comprado por adelantado—, costo e ingreso proyectados y **precio de equilibrio** por libra.
 - **Sociedad**: reparte gastos y ganancias entre socios con % configurables y lleva la cuenta de cada uno: lo que puso, lo que cobró de las ventas y **su ganancia individual** (estimada antes de vender, real después). Dice quién le entrega cuánto a quién —antes de vender, para seguir mitad y mitad con los gastos; después, para que cada uno recupere lo suyo— y las **entregas entre socios** se anotan, también por partes, para que la cuenta quede al día en vez de pedir el mismo pago para siempre. La cuenta se comparte por WhatsApp.
-- **Alertas** con tope y prioridad por severidad: días sin registrar, días sin pesar, mortalidad alta, FCA desviado del estándar Cobb —juzgado al día en que se midió, y sin dar por buena una conversión imposible—, calor, cambios de fase de alimento, las vacunas de **tu plan sanitario** —la víspera, el día y unos días si se pasan sin anotar; lo ya aplicado no avisa— y el **retiro de cada medicina**: con los días que se da y los días de retiro del frasco, avisa si la venta cae antes de que se cumpla, y la hoja de venta lo dice antes de guardar. Las cuentas del día se rehacen solas a medianoche aunque la app siga abierta.
-- **Venta**: si una venta se lleva las últimas aves, el ciclo se cierra con ella y guarda lo que la app proyectaba para compararlo con lo que pasó. Se vende de contado o **a crédito**, con lo que dio al llevarse el pollo y los cobros que van llegando; **«Te deben»** junta, en Inicio y en su pantalla, lo que debe cada comprador y desde cuándo. Lo cobrado es lo que cuenta en la cuenta de los socios.
-- **Inversión por día**: cuánto llevabas invertido a los 10, 20, 30 o 40 días (o el día que elijas), con el desglose por categoría y la comparación por pollito contra tus otros ciclos a la misma edad, día a día en una gráfica.
-- **Comparación entre camadas** —con el peso real de venta de cada ciclo cerrado— y **reporte compartible** en imagen para WhatsApp. Lo que no se ha vendido sale como lo invertido, no como pérdida.
+- **Alertas** con tope y prioridad por severidad: días sin registrar, días sin pesar, mortalidad alta, FCA desviado del estándar Cobb —juzgado al día en que se midió, y sin dar por buena una conversión imposible—, calor, cambios de fase de alimento, las vacunas de **tu plan sanitario** —la víspera, el día y unos días si se pasan sin anotar; lo ya aplicado no avisa— y el **retiro de cada medicina**: con los días que se da y los días de retiro del frasco, avisa si la venta cae antes de que se cumpla, y la hoja de venta lo dice antes de guardar. También el galpón que no aguanta sus aves al peso de venta. Las cuentas del día se rehacen solas a medianoche aunque la app siga abierta.
+- **Venta**: el total sale del peso por el **precio por libra**, o se escribe a mano si el comprador redondeó. Si una venta se lleva las últimas aves, el ciclo se cierra con ella y guarda lo que la app proyectaba para compararlo con lo que pasó. Se vende de contado o **a crédito**, con lo que dio al llevarse el pollo y los cobros que van llegando; **«Te deben»** junta, en Inicio y en su pantalla, lo que debe cada comprador y desde cuándo. Lo cobrado es lo que cuenta en la cuenta de los socios.
+- **Inversión por día**: cuánto llevabas invertido a los 10, 20, 30 o 40 días (o el día que elijas), con el desglose por categoría —alimento, pollitos, medicinas, cama, gas y luz, mano de obra…— y la comparación por pollito contra tus otros ciclos a la misma edad, día a día en una gráfica.
+- **Comparación entre camadas** —con el peso real de venta de cada ciclo cerrado—, **por incubadora** y **por galpón**, y **reporte compartible** en imagen para WhatsApp. Lo que no se ha vendido sale como lo invertido, no como pérdida.
 - **Excel y PDF**: el ciclo en un `.xlsx` —resumen, días, gastos, ventas, pesajes, sanidad y entregas, con fechas y montos como tales— armado en el teléfono sin librerías, y un reporte en hoja limpia para imprimir o guardar en PDF.
 - **Mandar el ciclo al socio**: un archivo con todo el ciclo que el socio abre en su AviControl como una copia de solo mirar; no entra en las cuentas de su granja, y cuando se lo mandas otra vez se pone al día.
+- **Lo nuevo de cada versión**: después de actualizar, Inicio lo cuenta una vez; en Ajustes se vuelve a ver.
 - **Respaldo**: exportar/importar todos los datos en `.json`, con migración automática de respaldos antiguos. Antes de restaurar, cada fila se revisa: un archivo dañado no cambia nada y dice qué tiene. En el teléfono el archivo sale por el menú de compartir y el último respaldo solo se anota si el archivo salió. La app le pide al navegador que no borre sus datos cuando le falte espacio.
 
 ## Arquitectura
@@ -66,9 +68,11 @@ src/
                primera semana, proyección de venta, precios y punto óptimo,
                cobros, sociedad, reporte en canvas, Excel (.xlsx propio), ciclo
                compartido, revisión de archivos, formato es-DO
-  components/  UI reutilizable (cards, sheets, gráficos, comparación)
-  screens/     Inicio, Ciclos, Detalle y fichas, Nuevo ciclo, Reportes,
-               Te deben, Deudas, Ajustes, Imprimir
+  components/  UI reutilizable: las hojas para anotar (hojas/), cards,
+               gráficos, comparación
+  screens/     Inicio, Ciclos, Detalle con sus pestañas (ciclo/) y sus fichas,
+               Nuevo ciclo, Reportes, Te deben, Deudas, Ajustes, Imprimir
+e2e/           Pruebas de pantalla con Playwright
 ```
 
 **Flujo de datos:** `IndexedDB (Dexie)` → `useLiveQuery` → `métricas puras` → `UI (React)`.
@@ -79,12 +83,12 @@ src/
 
 | Capa | Tecnologías |
 |------|-------------|
-| UI | React 19, Tailwind CSS, Motion (animaciones), gráficas propias en SVG |
+| UI | React 19, Tailwind CSS, animaciones en CSS, gráficas propias en SVG |
 | Datos | Dexie sobre IndexedDB, live queries reactivas |
 | Offline / PWA | vite-plugin-pwa (Workbox), letras incluidas en la app (Fontsource) |
 | Lenguaje / build | TypeScript, Vite |
 | Reporte | Canvas 2D nativo + Web Share API, `.xlsx` propio, hoja para imprimir |
-| Calidad | Vitest, oxlint, GitHub Actions en cada PR |
+| Calidad | Vitest, Playwright (pruebas de pantalla), oxlint, GitHub Actions en cada PR |
 | Despliegue | Vercel |
 
 ## Cómo ejecutar
@@ -94,11 +98,12 @@ src/
 npm install
 npm run dev       # desarrollo en http://localhost:5173
 npm test          # pruebas
+npm run test:e2e  # pruebas de pantalla (Playwright, en el tamaño de un iPhone)
 npm run lint      # lint
 npm run build     # tipos y build de producción en dist/
 ```
 
-Cada PR corre lo mismo en GitHub Actions: lint, pruebas y build.
+Cada PR corre lo mismo en GitHub Actions: lint, pruebas, build y las pruebas de pantalla.
 
 ## Instalar en el teléfono
 
