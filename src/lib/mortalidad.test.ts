@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LIMITE_PRIMERA_SEMANA_PCT, resumenMortalidad } from './mortalidad'
+import { LIMITE_PRIMERA_SEMANA_PCT, causasDelCiclo, resumenMortalidad } from './mortalidad'
 import { ingreso, lote, registro } from '../test/fixtures'
 import { computeMetrics } from './metrics'
 
@@ -81,5 +81,27 @@ describe('una sola mortalidad en toda la app', () => {
     const l = lote({ cantidadInicial: 1000 })
     const r = resumenMortalidad(l, [registro(0, { mortalidad: 12 })])!
     expect(r.primeraSemana).toBe(12)
+  })
+})
+
+describe('de qué se murieron', () => {
+  it('suma las muertes de cada causa y aparta las que no la tienen', () => {
+    const c = causasDelCiclo([
+      registro(30, { mortalidad: 40, causa: 'calor' }),
+      registro(31, { mortalidad: 10, causa: 'calor' }),
+      registro(25, { mortalidad: 10, causa: 'amontonadas' }),
+      registro(10, { mortalidad: 5 }),
+    ])
+    expect(c).toEqual({
+      causas: [
+        { causa: 'calor', muertes: 50, pct: (50 / 60) * 100 },
+        { causa: 'amontonadas', muertes: 10, pct: (10 / 60) * 100 },
+      ],
+      sinCausa: 5,
+    })
+  })
+
+  it('sin ninguna causa anotada no hay nada que mostrar', () => {
+    expect(causasDelCiclo([registro(3, { mortalidad: 4 })])).toBeNull()
   })
 })

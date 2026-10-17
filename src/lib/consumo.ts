@@ -53,7 +53,7 @@ export function consumoAlimento(lote: Lote, registros: Registro[], gastos: Gasto
   const extra = new Map<number, number>()
 
   const compras = comprasAlimento(gastos)
-  const comprasCompletas = compras.length > 0 && compras.every((g) => (g.cantidadQq ?? 0) > 0)
+  const comprasCompletas = compras.length > 0 && compras.every((g) => !!g.cantidadQq)
 
   const limite = lote.fechaCierre ?? '9999-12-31'
   const porFecha = new Map<string, number>()

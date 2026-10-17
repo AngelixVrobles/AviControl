@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Gasto, Ingreso, Lote, Registro } from '../../db/schema'
 import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, numCompacto, numCorto, pct, plural, porLb } from '../../lib/format'
-import { useSettings } from '../../lib/hooks'
+import { useLotes, useSettings } from '../../lib/hooks'
 import { estadoAgua, type ResumenAgua, resumenAgua } from '../../lib/agua'
 import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
 import { precioQuintalReal } from '../../lib/precios'
@@ -13,6 +13,8 @@ import { proyectarVenta } from '../../lib/proyeccion'
 import { db } from '../../db/schema'
 import { Banda, Seccion } from '../../components/ui'
 import { ConteoSheet, RegistroSheet } from '../../components/sheets'
+import { TraspasoAlimentoSheet } from '../../components/Traspaso'
+import { Button } from '../../components/ui'
 import { GraficaLineas } from '../../components/chart'
 import { Vacio } from './Vacio'
 
@@ -36,6 +38,10 @@ export function FichaAlimento({
   // El día se anota aquí mismo: antes llevaba al ciclo, y «Volver» regresaba a
   // esta ficha en vez de al ciclo.
   const [anotando, setAnotando] = useState(false)
+  const [pasando, setPasando] = useState(false)
+  // Lo que sobró al cerrar puede pasar a un ciclo en curso, con su costo.
+  const enCurso = useLotes('activo')
+  const destinos = (enCurso ?? []).filter((l) => l.id !== lote.id)
   const fases = consumoPorFase(lote, metrics).filter((f) => f.realLb > 0 || f.planALaFechaLb > 0)
   const precioQq = precioQuintalReal(gastos)
   const plan = computePlanAlimento(lote, metrics, precioQq ?? lote.precioQuintal)
@@ -262,6 +268,17 @@ export function FichaAlimento({
                   : ''}
               </p>
               )}
+              {!activo && !soloVer && inv.existenciaQq >= 0.5 && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <p className="text-sm leading-relaxed text-ink-soft">
+                    Si esos sacos los usa el ciclo que sigue, pásalos con su costo: este ciclo deja de cargar con
+                    ellos y el otro los tiene en su almacén.
+                  </p>
+                  <Button variant="soft" className="mt-3" onClick={() => setPasando(true)}>
+                    Pasar al ciclo que sigue
+                  </Button>
+                </div>
+              )}
               {proy && !proy.listo && proy.alimentoRestanteLb > 0 && (
                 <p className="mt-2 text-sm leading-relaxed text-ink-soft tnum">
                   Para vender el día {proy.diaVenta} ({fecha(proy.fechaEstimada)}) se comerán{' '}
@@ -423,6 +440,16 @@ export function FichaAlimento({
         <>
           <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
           <RegistroSheet lote={lote} registros={registros} open={anotando} onClose={() => setAnotando(false)} />
+          {!activo && (
+            <TraspasoAlimentoSheet
+              lote={lote}
+              destinos={destinos}
+              sobranQq={Math.max(0, inv?.existenciaQq ?? 0)}
+              precioQq={precioQq}
+              open={pasando}
+              onClose={() => setPasando(false)}
+            />
+          )}
         </>
       )}
     </div>

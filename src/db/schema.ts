@@ -73,6 +73,10 @@ export interface Lote {
   creado: number
 }
 
+// De qué murió la mayoría ese día. Al final del ciclo dice de qué se muere el
+// lote: no es lo mismo perder 60 por calor que por enfermedad.
+export type CausaBaja = 'calor' | 'amontonadas' | 'enfermedad' | 'subita' | 'ascitis' | 'otra'
+
 export interface Registro {
   id: number
   loteId: number
@@ -86,6 +90,7 @@ export interface Registro {
   tempMaxC?: number
   humedadPct?: number
   pesoPromedio?: number
+  causa?: CausaBaja
   nota?: string
   // Lo creó un pesaje en un día sin registro: trae el peso y nada más. No cuenta
   // como el registro del día —faltan las bajas y el alimento— hasta que se
@@ -124,6 +129,8 @@ export type CategoriaGasto =
   | 'alimento'
   | 'aves'
   | 'medicina'
+  | 'cama'
+  | 'energia'
   | 'mano_obra'
   | 'transporte'
   | 'equipo'
@@ -138,6 +145,9 @@ export interface Gasto {
   descripcion?: string
   cantidadQq?: number
   pagadoPor?: number
+  // Alimento que sobró y se pasó de un ciclo a otro: el gasto va en los dos,
+  // en negativo en el que lo pasó, y cada uno apunta al otro.
+  traspaso?: { loteId: number; gastoId?: number }
   creado: number
 }
 
