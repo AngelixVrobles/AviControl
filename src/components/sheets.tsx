@@ -41,6 +41,7 @@ import { LB_POR_QUINTAL, pesoEstandarLb } from '../lib/standards'
 import { pesoObjetivoDe } from '../lib/lote'
 import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
+import { useEnvio } from './useEnvio'
 
 export function RegistroSheet({
   lote,
@@ -55,6 +56,7 @@ export function RegistroSheet({
   editar?: Registro
   registros?: Registro[]
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const { unidadAlimento: unidad } = useSettings()
   const [fecha, setFecha] = useState(hoyISO())
   const [mortalidad, setMortalidad] = useState(0)
@@ -154,9 +156,20 @@ export function RegistroSheet({
       nota: nota.trim() || undefined,
     }
     // Guardar desde aquí completa el día: si lo había creado un pesaje, deja de
-    // ser «solo peso».
-    if (existente) await db.registros.update(existente.id, { ...datos, soloPeso: undefined })
-    else await db.registros.add({ ...datos, creado: Date.now() })
+    // ser «solo peso». Un día nuevo se busca otra vez dentro de la transacción:
+    // si ya existe —anotado desde otra pantalla o por un pesaje— se corrige en
+    // vez de quedar dos veces.
+    if (editar) await db.registros.update(editar.id, { ...datos, soloPeso: undefined })
+    else
+      await db.transaction('rw', db.registros, async () => {
+        const ya = await db.registros
+          .where('loteId')
+          .equals(lote.id)
+          .filter((r) => r.fecha === fecha)
+          .first()
+        if (ya) await db.registros.update(ya.id, { ...datos, soloPeso: undefined })
+        else await db.registros.add({ ...datos, creado: Date.now() })
+      })
     toast(existente && !existente.soloPeso ? `Día ${dia} corregido` : `Día ${dia} anotado`)
     onClose()
   }
@@ -331,7 +344,7 @@ export function RegistroSheet({
           </button>
         )}
 
-        <Button block className="h-14" onClick={guardar}>
+        <Button block className="h-14" disabled={ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar cambios' : `Guardar día ${dia}`}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -398,6 +411,7 @@ export function PesajeSheet({
   onClose: () => void
   editar?: Pesaje
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [fecha, setFecha] = useState(hoyISO())
   const [pesos, setPesos] = useState<number[]>([])
   const [entrada, setEntrada] = useState('')
@@ -675,7 +689,7 @@ export function PesajeSheet({
           <Input type="date" value={fecha} onChange={(e) => cambiar(pesos, e.target.value)} />
         </Field>
 
-        <Button block className="h-14" disabled={!muestra} onClick={guardar}>
+        <Button block className="h-14" disabled={!muestra || ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar cambios' : 'Guardar pesaje'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -707,6 +721,7 @@ export function GastoSheet({
   onClose: () => void
   editar?: Gasto
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [categoria, setCategoria] = useState<CategoriaGasto>('alimento')
   const [monto, setMonto] = useState('')
   const [quintales, setQuintales] = useState('')
@@ -813,7 +828,7 @@ export function GastoSheet({
             </Select>
           </Field>
         )}
-        <Button block disabled={!(Number(monto) > 0)} onClick={guardar}>
+        <Button block disabled={!(Number(monto) > 0) || ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar cambios' : 'Guardar gasto'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -839,6 +854,7 @@ export function IngresoSheet({
   onClose: () => void
   editar?: Ingreso
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [cantidad, setCantidad] = useState('')
   const [pesoLb, setPesoLb] = useState('')
   const [monto, setMonto] = useState('')
@@ -966,7 +982,7 @@ export function IngresoSheet({
             <Interruptor activo={cerrar} />
           </button>
         )}
-        <Button block disabled={!(Number(monto) > 0)} onClick={guardar}>
+        <Button block disabled={!(Number(monto) > 0) || ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar cambios' : vendeTodo && cerrar ? 'Guardar y cerrar el ciclo' : 'Guardar venta'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -990,6 +1006,7 @@ export function CierreSheet({
   open: boolean
   onClose: () => void
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [paso, setPaso] = useState(1)
   const [aves, setAves] = useState('')
   const [pesoTotal, setPesoTotal] = useState('')
@@ -1240,7 +1257,7 @@ export function CierreSheet({
             <Button variant="soft" className="flex-1" onClick={() => setPaso(1)}>
               Atrás
             </Button>
-            <Button className="h-14 flex-[2]" onClick={guardar}>
+            <Button className="h-14 flex-[2]" disabled={ocupado} onClick={enviar(guardar)}>
               {parcial ? 'Guardar venta' : 'Cerrar ciclo'}
             </Button>
           </div>
@@ -1312,6 +1329,7 @@ export function AplicacionSheet({
   editar?: Aplicacion
   sugerencia?: { nombre: string; fecha: string }
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [tipo, setTipo] = useState<TipoAplicacion>('vacuna')
   const [nombre, setNombre] = useState('')
   const [fecha, setFecha] = useState(hoyISO())
@@ -1415,7 +1433,7 @@ export function AplicacionSheet({
           <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Lote del frasco, quién aplicó…" />
         </Field>
 
-        <Button block className="h-14" disabled={!nombre.trim()} onClick={guardar}>
+        <Button block className="h-14" disabled={!nombre.trim() || ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar cambios' : 'Anotar aplicación'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
@@ -1466,6 +1484,7 @@ export function DeudaSheet({
   editar?: Deuda
   sociosSugeridos?: Socio[]
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [concepto, setConcepto] = useState('')
   const [categoria, setCategoria] = useState<CategoriaDeuda>('estructura')
   const [monto, setMonto] = useState('')
@@ -1583,7 +1602,7 @@ export function DeudaSheet({
           fijas={editar?.socios?.length ?? 0}
         />
 
-        <Button block disabled={!valido} onClick={guardar}>
+        <Button block disabled={!valido || ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar' : 'Agregar deuda'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar deuda</DangerButton>}
@@ -1605,6 +1624,7 @@ export function AbonoSheet({
   onClose: () => void
   editar?: Abono
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [monto, setMonto] = useState('')
   const [fecha, setFecha] = useState(hoyISO())
   const [pagadoPor, setPagadoPor] = useState('')
@@ -1695,7 +1715,7 @@ export function AbonoSheet({
             </div>
           ))}
 
-        <Button block disabled={valor <= 0} onClick={guardar}>
+        <Button block disabled={valor <= 0 || ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar' : 'Anotar abono'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar abono</DangerButton>}
@@ -1727,6 +1747,7 @@ export function EntregaSheet({
   editar?: EntregaSocio
   sugerida?: { de: number; a: number; monto: number }
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const socios = lote.socios ?? []
   const nombre = (i: number) => (socios[i] ? nombreSocio(socios[i], i) : `Socio ${i + 1}`)
   const [de, setDe] = useState(0)
@@ -1887,7 +1908,7 @@ export function EntregaSheet({
             </div>
           ))}
 
-        <Button block className="h-14" disabled={valor <= 0 || de === a} onClick={guardar}>
+        <Button block className="h-14" disabled={valor <= 0 || de === a || ocupado} onClick={enviar(guardar)}>
           {editar ? 'Guardar' : 'Anotar entrega'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar entrega</DangerButton>}
@@ -1910,6 +1931,7 @@ export function ConteoSheet({
   open: boolean
   onClose: () => void
 }) {
+  const { ocupado, enviar } = useEnvio(open)
   const [fecha, setFecha] = useState(hoyISO())
   const [quedan, setQuedan] = useState('')
 
@@ -2016,7 +2038,7 @@ export function ConteoSheet({
           <p className="text-sm text-clay-text">La fecha es anterior al inicio del ciclo.</p>
         )}
 
-        <Button block className="h-14" disabled={!valido || antesDelCiclo} onClick={guardar}>
+        <Button block className="h-14" disabled={!valido || antesDelCiclo || ocupado} onClick={enviar(guardar)}>
           {yaContado ? `Corregir el conteo del ${fechaCorta(fecha)}` : 'Guardar conteo'}
         </Button>
 
