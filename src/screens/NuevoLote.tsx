@@ -5,6 +5,7 @@ import { db, type Socio } from '../db/schema'
 import { Button, Field, Input, Select } from '../components/ui'
 import { IconBack } from '../components/icons'
 import { EditorSocios } from '../components/Socios'
+import { useEnvio } from '../components/useEnvio'
 import { hoyISO, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
 import { RAZA } from '../lib/labels'
@@ -15,6 +16,8 @@ import { diaParaPeso } from '../lib/standards'
 export function NuevoLote() {
   const nav = useNavigate()
   const settings = useSettings()
+  // Un toque crea un ciclo: con dos seguidos se creaban dos iguales.
+  const { ocupado, enviar } = useEnvio()
   const [nombre, setNombre] = useState('')
   const [fechaInicio, setFechaInicio] = useState(hoyISO())
   const [cantidad, setCantidad] = useState('')
@@ -184,7 +187,7 @@ export function NuevoLote() {
       </div>
 
       <div className="mt-8">
-        <Button block disabled={!valido} onClick={crear}>
+        <Button block disabled={!valido || ocupado} onClick={enviar(crear)}>
           Crear ciclo
         </Button>
       </div>

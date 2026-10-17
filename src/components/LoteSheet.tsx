@@ -9,6 +9,7 @@ import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
 import { confirmar, toast } from './confirm'
 import { EditorSocios } from './Socios'
+import { useEnvio } from './useEnvio'
 import { Button, DangerButton, Field, Input, Select, Sheet } from './ui'
 
 export interface ContenidoCiclo {
@@ -60,6 +61,8 @@ function FormLote({
 }) {
   const nav = useNavigate()
   const settings = useSettings()
+  // El formulario nace con la hoja abierta: un guardado por cada vez que se abre.
+  const { ocupado, enviar } = useEnvio()
   const sociosAntes = lote.socios?.length ?? 0
   const [nombre, setNombre] = useState(lote.nombre)
   const [fechaInicio, setFechaInicio] = useState(lote.fechaInicio)
@@ -262,7 +265,7 @@ function FormLote({
       </Field>
 
       <div className="space-y-2 pt-1">
-        <Button block disabled={!valido} onClick={guardar}>
+        <Button block disabled={!valido || ocupado} onClick={enviar(guardar)}>
           Guardar cambios
         </Button>
         <DangerButton onClick={borrar}>Borrar este ciclo</DangerButton>
