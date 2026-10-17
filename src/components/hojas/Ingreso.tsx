@@ -115,8 +115,10 @@ export function IngresoSheet({
   const precioLb = Number(precio) || 0
   const totalAuto = lb > 0 && precioLb > 0 ? Math.round(lb * precioLb) : 0
   const total = modoTotal === 'auto' ? totalAuto : Number(monto) || 0
-  // Cambiar el peso o el precio de una venta guardada vuelve a sacar el total.
-  const recalcular = () => setModoTotal((m) => (m === 'guardado' ? 'auto' : m))
+  // Cambiar el peso o el precio de una venta guardada vuelve a sacar el total,
+  // si hay con qué: en una venta sin precio, poner el peso no borra el total.
+  const recalcular = (nuevoLb: number, nuevoPrecio: number) =>
+    setModoTotal((m) => (m === 'guardado' && nuevoLb > 0 && nuevoPrecio > 0 ? 'auto' : m))
   const dio = Math.min(Number(adelanto) || 0, total)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && (!!editar || dio < total)
@@ -237,7 +239,7 @@ export function IngresoSheet({
               value={pesoLb}
               onChange={(e) => {
                 setPesoLb(e.target.value)
-                recalcular()
+                recalcular(Number(e.target.value) || 0, precioLb)
               }}
               placeholder="0"
             />
@@ -250,7 +252,7 @@ export function IngresoSheet({
               value={precio}
               onChange={(e) => {
                 setPrecio(e.target.value)
-                recalcular()
+                recalcular(lb, Number(e.target.value) || 0)
               }}
               placeholder="0"
             />
