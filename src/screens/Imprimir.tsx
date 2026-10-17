@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLoteData, useSettings } from '../lib/hooks'
 import { fecha, hoyISO, money, num, pct, porLb } from '../lib/format'
@@ -22,6 +22,23 @@ export function Imprimir() {
   const volver = useVolver(id ? `/lotes/${id}` : '/lotes')
   const data = useLoteData(id ? Number(id) : undefined)
   const settings = useSettings()
+  const [sinVista, setSinVista] = useState(false)
+
+  // Con la app instalada en el iPhone, imprimir a veces no hace nada. Si la
+  // vista previa no se abrió, se ofrece abrir el reporte en el navegador, donde
+  // sí se imprime o se guarda en PDF.
+  function imprimir() {
+    let abrio = false
+    const marcar = () => {
+      abrio = true
+    }
+    window.addEventListener('beforeprint', marcar)
+    window.print()
+    window.setTimeout(() => {
+      window.removeEventListener('beforeprint', marcar)
+      setSinVista(!abrio)
+    }, 1500)
+  }
 
   if (data === undefined) return <div className="pt-10 text-center text-ink-faint">Cargando…</div>
   if (data === null)
@@ -83,8 +100,20 @@ export function Imprimir() {
         <p className="min-w-0 flex-1 text-sm leading-snug text-ink-soft">
           En la vista previa elige «Guardar como PDF» o compártelo.
         </p>
-        <Button onClick={() => window.print()}>Imprimir</Button>
+        <Button onClick={imprimir}>Imprimir</Button>
       </div>
+
+      {sinVista && (
+        <div className="mb-6 rounded-xl2 border border-amber-line bg-amber-tint p-4 text-sm leading-relaxed text-amber-text print:hidden">
+          <p>
+            La vista previa no se abrió: con la app instalada en el iPhone a veces pasa. Ábrelo en el navegador y
+            ahí toca Compartir → Imprimir, o «Guardar en Archivos» para el PDF.
+          </p>
+          <Button variant="soft" className="mt-3" onClick={() => window.open(window.location.href, '_blank')}>
+            Abrir en el navegador
+          </Button>
+        </div>
+      )}
 
       <header className="border-b-2 border-ink pb-4">
         <div className="text-xs font-semibold uppercase tracking-widest text-ink-soft">Reporte del ciclo</div>

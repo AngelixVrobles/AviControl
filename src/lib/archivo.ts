@@ -30,6 +30,37 @@ export async function entregarArchivo(archivo: File): Promise<ComoSeGuardo> {
   return 'descargado'
 }
 
+// En el iPhone, una descarga desde la app instalada puede no llegar a ninguna
+// parte; en Android y en la computadora queda en Descargas.
+export function descargaSegura(): boolean {
+  if (typeof navigator === 'undefined') return true
+  const ios =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  return !ios
+}
+
+// Elegir un archivo del teléfono. En el iPhone, un selector que no está en la
+// página puede no entregar el archivo elegido: se pone en la página, sin
+// verse, y se quita al elegir o al cancelar.
+export function elegirArchivo(accept: string, alElegir: (f: File) => void) {
+  document.getElementById('elegir-archivo')?.remove()
+  const input = document.createElement('input')
+  input.id = 'elegir-archivo'
+  input.type = 'file'
+  input.accept = accept
+  input.setAttribute('aria-hidden', 'true')
+  input.tabIndex = -1
+  Object.assign(input.style, { position: 'fixed', top: '0', left: '0', width: '1px', height: '1px', opacity: '0' })
+  input.addEventListener('change', () => {
+    const f = input.files?.[0]
+    input.remove()
+    if (f) alElegir(f)
+  })
+  input.addEventListener('cancel', () => input.remove())
+  document.body.appendChild(input)
+  input.click()
+}
+
 // Un nombre de archivo que sirve en cualquier teléfono: sin acentos, sin
 // barras ni puntos medios. «Galpón 1 · octubre» → «galpon-1-octubre».
 export function nombreArchivo(texto: string): string {

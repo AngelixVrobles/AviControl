@@ -4,7 +4,7 @@ import type { LoteConMetrics } from '../lib/hooks'
 import { useDeudas, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { precioMinimoConjunto } from '../lib/precios'
 import { desdeHace, diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
-import { Banda, Seccion } from '../components/ui'
+import { Banda, Pestanas, Seccion } from '../components/ui'
 import { gananciaPorSocio } from '../lib/sociedad'
 import { GraficaBarras } from '../components/chart'
 import { ComparacionLotes } from '../components/Comparacion'
@@ -39,20 +39,16 @@ export function Reportes() {
     <div className="animate-rise pt-3">
       <h1 className="font-display text-2xl font-semibold">Reportes</h1>
 
-      <div className="mt-4 flex gap-1 rounded-full bg-sunken p-1">
-        {(['cerrado', 'activo'] as Segmento[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => setSeg(s)}
-            className={clsx(
-              'flex-1 rounded-full py-2.5 text-sm font-semibold transition',
-              seg === s ? 'bg-paper-raised text-ink shadow-card' : 'text-ink-soft',
-            )}
-          >
-            {s === 'cerrado' ? 'Cerrados' : 'En curso'}
-          </button>
-        ))}
-      </div>
+      <Pestanas
+        className="mt-4"
+        etiqueta="Qué ciclos ver"
+        valor={seg}
+        onCambio={setSeg}
+        opciones={[
+          { id: 'cerrado', label: 'Cerrados' },
+          { id: 'activo', label: 'En curso' },
+        ]}
+      />
 
       <p className="mt-3 text-sm text-ink-soft">{alcance(lista, seg)}</p>
 
@@ -362,8 +358,13 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
     .sort((a, b) => a.lote.fechaInicio.localeCompare(b.lote.fechaInicio))
   if (conIep.length < 2) return null
 
-  const datos = conIep.map((r) => ({
-    nombre: r.lote.nombre.replace(/^(Lote|Ciclo)\s*/i, ''),
+  const nombres = conIep.map((r) => r.lote.nombre.replace(/^(Lote|Ciclo)\s*/i, ''))
+  // Debajo de cada barra, el nombre si es corto; si no, la fecha en que
+  // llegaron los pollitos, que también distingue un ciclo de otro y cabe.
+  const cortos = nombres.every((n) => n.length <= 8)
+  const datos = conIep.map((r, i) => ({
+    nombre: nombres[i],
+    rotulo: cortos ? nombres[i] : fecha(r.lote.fechaInicio),
     iep: Math.round(r.metrics.iep!),
   }))
   const attr = atribucionIEP(conIep)
@@ -382,7 +383,7 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
       />
       <Banda className="mt-3 px-5 py-4 pt-6">
         <GraficaBarras
-          etiquetas={datos.map((d) => d.nombre)}
+          etiquetas={datos.map((d) => d.rotulo)}
           valores={datos.map((d) => d.iep)}
           alto={180}
           formatoValor={(v) => num(v)}
