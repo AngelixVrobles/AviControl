@@ -1,6 +1,7 @@
 import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
 import { consumoAlimento, type ConsumoAlimento } from './consumo'
 import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
+import { pendienteDe } from './cobros'
 import { pesoObjetivoDe } from './lote'
 import { KG_POR_LB, diaParaPeso, fcaEstandar, pesoEstandarLb } from './standards'
 
@@ -19,6 +20,8 @@ export interface LoteMetrics {
   diaAlimento?: number
   costos: number
   ingresos: number
+  /** De lo vendido a crédito, lo que el comprador todavía no paga. */
+  porCobrar: number
   ganancia: number
   margenPct: number
   costoPorAve: number
@@ -65,7 +68,10 @@ export function computeMetrics(
   const alimento = consumoAlimento(lote, registros, gastos)
   const alimentoTotalLb = alimento.totalLb
   const costos = lote.costoInicial + sum(gastos.map((g) => g.monto))
+  // Lo vendido cuenta en la ganancia aunque se venda a crédito: el pollo ya
+  // salió. Lo que falta por cobrar se lleva aparte.
   const ingresosTot = sum(ingresos.map((i) => i.monto))
+  const porCobrar = sum(ingresos.map(pendienteDe))
   const ganancia = ingresosTot - costos
   const margenPct = ingresosTot > 0 ? (ganancia / ingresosTot) * 100 : 0
   const costoPorAve = lote.cantidadInicial > 0 ? costos / lote.cantidadInicial : 0
@@ -95,6 +101,7 @@ export function computeMetrics(
     diaAlimento: alimento.hastaDia,
     costos,
     ingresos: ingresosTot,
+    porCobrar,
     ganancia,
     margenPct,
     costoPorAve,

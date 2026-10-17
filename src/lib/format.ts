@@ -37,6 +37,10 @@ export function numCompacto(value: number): string {
 export const plural = (n: number, singular: string, plural: string) =>
   Math.abs(n) === 1 ? singular : plural
 
+// «desde hoy», «desde ayer», «desde hace 12 días»: «hace 0 días» no lo dice nadie.
+export const desdeHace = (dias: number) =>
+  dias <= 0 ? 'desde hoy' : dias === 1 ? 'desde ayer' : `desde hace ${num(dias)} días`
+
 // «3 ciclos, 12 gastos y 2 ventas»: lo que hay, sin lo que está en cero.
 export function enumerar(partes: readonly (readonly [number, string, string])[]): string {
   const lista = partes
