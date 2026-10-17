@@ -1,0 +1,93 @@
+import { num, plural } from './format'
+
+// Lo que entra de un archivo —un respaldo, o un ciclo que mandó un socio— se
+// revisa fila por fila antes de tocar la base. Un archivo editado a mano,
+// cortado a la mitad o de otra app no puede dejar ciclos sin fecha, montos que
+// no son números o dos filas con el mismo número, que hacían fallar la
+// restauración a medias o, peor, entraban y rompían las cuentas después.
+
+export type Tabla =
+  | 'lotes'
+  | 'registros'
+  | 'gastos'
+  | 'ingresos'
+  | 'pesajes'
+  | 'aplicaciones'
+  | 'deudas'
+  | 'abonos'
+  | 'entregas'
+
+type Fila = Record<string, unknown>
+
+export const esObjeto = (v: unknown): v is Fila => typeof v === 'object' && v !== null && !Array.isArray(v)
+const esFecha = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+const esNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+const esNumOpc = (v: unknown) => v == null || esNum(v)
+const esTexto = (v: unknown) => typeof v === 'string'
+const esId = (v: unknown) => esNum(v) && Number.isInteger(v)
+const esIdOpc = (v: unknown) => v == null || esId(v)
+
+const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
+  lotes: (l) =>
+    esTexto(l.nombre) &&
+    esFecha(l.fechaInicio) &&
+    esNum(l.cantidadInicial) &&
+    esNumOpc(l.costoInicial) &&
+    (l.estado === 'activo' || l.estado === 'cerrado') &&
+    (l.socios == null || Array.isArray(l.socios)),
+  registros: (r) =>
+    esId(r.loteId) && esFecha(r.fecha) && esNumOpc(r.mortalidad) && esNumOpc(r.descarte) && esNumOpc(r.alimentoLb),
+  gastos: (g) => esIdOpc(g.loteId) && esFecha(g.fecha) && esNum(g.monto),
+  ingresos: (i) =>
+    esIdOpc(i.loteId) && esFecha(i.fecha) && esNum(i.monto) && (i.cobros == null || Array.isArray(i.cobros)),
+  pesajes: (p) => esId(p.loteId) && esFecha(p.fecha) && Array.isArray(p.pesos) && p.pesos.every(esNum),
+  aplicaciones: (a) => esId(a.loteId) && esFecha(a.fecha) && esTexto(a.nombre),
+  deudas: (d) => esTexto(d.concepto) && esNum(d.monto) && esFecha(d.fecha),
+  abonos: (a) => esId(a.deudaId) && esFecha(a.fecha) && esNum(a.monto),
+  entregas: (e) => esId(e.loteId) && esFecha(e.fecha) && esId(e.de) && esId(e.a) && esNum(e.monto),
+}
+
+const NOMBRES: Record<Tabla, [string, string]> = {
+  lotes: ['ciclo', 'ciclos'],
+  registros: ['día anotado', 'días anotados'],
+  gastos: ['gasto', 'gastos'],
+  ingresos: ['venta', 'ventas'],
+  pesajes: ['pesaje', 'pesajes'],
+  aplicaciones: ['vacuna o medicina', 'vacunas y medicinas'],
+  deudas: ['deuda', 'deudas'],
+  abonos: ['abono', 'abonos'],
+  entregas: ['entrega entre socios', 'entregas entre socios'],
+}
+
+const cuantos = (n: number, tabla: Tabla) => `${num(n)} ${plural(n, ...NOMBRES[tabla])}`
+
+/**
+ * Revisa una lista del archivo. Devuelve qué está mal, en palabras del
+ * productor, o nada si se puede guardar. Con `conId`, cada fila trae su número
+ * y no se puede repetir: así se guardan en la base.
+ */
+export function revisarFilas(tabla: Tabla, filas: unknown, { conId = true } = {}): string | undefined {
+  if (!Array.isArray(filas)) return `la lista de ${NOMBRES[tabla][1]} no se puede leer`
+  const malas = filas.filter((f) => !esObjeto(f) || (conId && !esId(f.id)) || !REVISAR[tabla](f)).length
+  if (malas) return `${cuantos(malas, tabla)} ${malas === 1 ? 'viene incompleto o dañado' : 'vienen incompletos o dañados'}`
+  if (conId) {
+    const ids = new Set<unknown>()
+    let repetidas = 0
+    for (const f of filas as Fila[]) {
+      if (ids.has(f.id)) repetidas++
+      ids.add(f.id)
+    }
+    if (repetidas)
+      return `${cuantos(repetidas, tabla)} ${repetidas === 1 ? 'repite' : 'repiten'} el número de otro`
+  }
+  return undefined
+}
+
+/** El texto de la primera lista con problemas, o nada. */
+export function primerProblema(listas: [Tabla, unknown][], opciones?: { conId?: boolean }): string | undefined {
+  for (const [tabla, filas] of listas) {
+    const p = revisarFilas(tabla, filas, opciones)
+    if (p) return p
+  }
+  return undefined
+}

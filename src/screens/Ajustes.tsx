@@ -21,9 +21,11 @@ import { borrarBorradoresDe } from '../lib/borrador'
 import { diasSinRespaldo } from '../lib/respaldo'
 import { VERSION_RESPALDO } from '../db/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
+import { useAbrirCiclo } from '../components/useCicloCompartido'
+import { esArchivoDeCiclo } from '../lib/compartido'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
-import { Banda, DangerButton, Field, Input, Segmentado, Seccion } from '../components/ui'
+import { Banda, Button, DangerButton, Field, Input, Segmentado, Seccion } from '../components/ui'
 import { MedidasGalpon } from './fichas/Galpon'
 import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
@@ -67,6 +69,7 @@ function migrarUnidades(data: Respaldo) {
 export function Ajustes() {
   const s = useSettings()
   const { respaldar } = useRespaldo()
+  const abrirCiclo = useAbrirCiclo()
   const conteos = useLiveQuery(async () => {
     const [ciclos, registros, gastos, ventas, pesajes, aplicaciones, entregas, deudas, abonos] =
       await Promise.all([
@@ -89,6 +92,12 @@ export function Ajustes() {
       data = JSON.parse(await file.text())
     } catch {
       toast('El archivo no se pudo leer. ¿Es el .json que exportó AviControl?')
+      return
+    }
+    // Un ciclo que mandó un socio no es un respaldo: se abre como copia y no
+    // reemplaza nada.
+    if (esArchivoDeCiclo(data)) {
+      await abrirCiclo(data)
       return
     }
     const listas = [data?.lotes, data?.registros, data?.gastos, data?.ingresos]
@@ -166,15 +175,27 @@ export function Ajustes() {
     toast('Respaldo restaurado.')
   }
 
-  function pickFile() {
+  function elegirArchivo(alElegir: (f: File) => void) {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'application/json'
+    input.accept = 'application/json,.json'
     input.onchange = () => {
       const f = input.files?.[0]
-      if (f) importar(f)
+      if (f) alElegir(f)
     }
     input.click()
+  }
+  const pickFile = () => elegirArchivo(importar)
+
+  async function abrirArchivoDeCiclo(file: File) {
+    let data: unknown
+    try {
+      data = JSON.parse(await file.text())
+    } catch {
+      toast('El archivo no se pudo leer. ¿Es el .json que te mandó tu socio?')
+      return
+    }
+    await abrirCiclo(data)
   }
 
   async function borrarTodo() {
@@ -285,6 +306,17 @@ export function Ajustes() {
             className="w-48"
           />
         </div>
+      </Banda>
+
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Ciclos de un socio"
+        nota="Si tu socio lleva el ciclo en su teléfono, que te lo mande desde la pestaña Dinero del ciclo. Aquí lo abres: lo ves todo, sin poder cambiarlo, y no se mezcla con tus ciclos."
+      />
+      <Banda className="px-5 py-4">
+        <Button variant="soft" block onClick={() => elegirArchivo(abrirArchivoDeCiclo)}>
+          Abrir un ciclo que te mandaron
+        </Button>
       </Banda>
 
       <Seccion className="mb-3 mt-8 text-clay-deep" etiqueta="Zona de peligro" />

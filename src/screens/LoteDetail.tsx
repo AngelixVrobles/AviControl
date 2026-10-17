@@ -26,6 +26,9 @@ import { analizarMuestra, tamanoMuestra } from "../lib/muestreo";
 import { computeGuiaDia } from "../lib/guia";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
 import { nombreGalpon } from "../lib/galpones";
+import { armarCiclo } from "../lib/compartido";
+import { mandarCiclo } from "../components/useCicloCompartido";
+import { borrarCiclo } from "../db/ciclo";
 import { conCalor, juicioDe } from "../lib/calor";
 import { pendienteDe } from "../lib/cobros";
 import { computeInventarioAlimento, computePlanAlimento } from "../lib/plan";
@@ -64,6 +67,7 @@ import { Button, Banda, Pill, Seccion } from "../components/ui";
 import { GraficaLineas } from "../components/chart";
 import {
   IconBack,
+  IconClose,
   IconLapiz,
   IconMoney,
   IconPesa,
@@ -164,6 +168,21 @@ export function LoteDetail() {
   const positivo = metrics.ganancia >= 0;
   // Activo con el galpón vacío: en vez de los botones del día, cerrar el ciclo.
   const vacio = lote.estado === "activo" && sinAves(metrics);
+  // Un ciclo que mandó un socio se mira y no se toca: lo lleva él.
+  const soloVer = !!lote.compartido;
+
+  async function quitarCopia() {
+    const ok = await confirmar({
+      titulo: "Quitar esta copia",
+      mensaje: `Se quita de este teléfono la copia de ${lote.nombre}. El ciclo sigue en el teléfono de ${lote.compartido?.de ?? "tu socio"}, y te lo puede mandar otra vez.`,
+      confirmar: "Quitar",
+      peligro: true,
+    });
+    if (!ok) return;
+    await borrarCiclo(lote.id);
+    toast("Copia quitada.");
+    nav("/lotes", { replace: true });
+  }
 
   // El ingreso llega el día de la venta: hasta entonces la ganancia solo puede
   // decir «pérdida», y del tamaño de toda la inversión.
@@ -257,18 +276,39 @@ export function LoteDetail() {
             <span className="text-sm text-ink-soft tnum">
               Día {metrics.dias}
             </span>
-            <span className="text-sm text-ink-soft">· {nombreGalpon(lote, settings) ?? RAZA}</span>
+            <span className="truncate text-sm text-ink-soft">
+              · {lote.compartido ? `de ${lote.compartido.de}` : (nombreGalpon(lote, settings) ?? RAZA)}
+            </span>
             {lote.estado === "cerrado" && <Pill tone="neutral">Cerrado</Pill>}
           </div>
         </div>
-        <button
-          onClick={() => abrir("lote")}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken text-ink-soft"
-          aria-label="Corregir o borrar el ciclo"
-        >
-          <IconLapiz width={20} height={20} />
-        </button>
+        {soloVer ? (
+          <button
+            onClick={quitarCopia}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken text-ink-soft"
+            aria-label="Quitar esta copia"
+          >
+            <IconClose width={20} height={20} />
+          </button>
+        ) : (
+          <button
+            onClick={() => abrir("lote")}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken text-ink-soft"
+            aria-label="Corregir o borrar el ciclo"
+          >
+            <IconLapiz width={20} height={20} />
+          </button>
+        )}
       </header>
+
+      {lote.compartido && (
+        <div className="mb-4 rounded-xl2 border border-line bg-sunken px-4 py-3 text-sm leading-relaxed text-ink-soft">
+          <span className="font-semibold text-ink">Te lo mandó {lote.compartido.de}</span>{" "}
+          el {fecha(lote.compartido.exportado.slice(0, 10))}. Es una copia para mirar: no se
+          puede cambiar y no entra en tus cuentas. Para verlo al día, pídele que te lo mande otra
+          vez.
+        </div>
+      )}
 
       {alertas.length > 0 && !vacio && (
         <div className="mb-4 space-y-2">
@@ -278,7 +318,7 @@ export function LoteDetail() {
         </div>
       )}
 
-      {vacio && (
+      {vacio && !soloVer && (
         <CerrarSinAves
           lote={lote}
           metrics={metrics}
@@ -287,7 +327,7 @@ export function LoteDetail() {
         />
       )}
 
-      {lote.estado === "activo" && !vacio && (
+      {lote.estado === "activo" && !vacio && !soloVer && (
         <div className="mt-1 grid grid-cols-4 gap-2">
           <ActionButton
             label="Día"
@@ -368,9 +408,11 @@ export function LoteDetail() {
             </p>
           ) : (
             <>
-              <p className="mb-3 text-xs text-ink-faint">
-                Toca un día para corregirlo.
-              </p>
+              {!soloVer && (
+                <p className="mb-3 text-xs text-ink-faint">
+                  Toca un día para corregirlo.
+                </p>
+              )}
               <Banda className="divide-y divide-line">
                 {[...registros]
                   .reverse()
@@ -378,13 +420,14 @@ export function LoteDetail() {
                   .map((r) => (
                     <button
                       key={r.id}
+                      disabled={soloVer}
                       onClick={() => {
                         setEditRegistro(r);
                         setEditGasto(undefined);
                         setEditIngreso(undefined);
                         setSheet("registro");
                       }}
-                      className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
+                      className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
                     >
                       <span className="font-medium">
                         {fecha(r.fecha)}
@@ -444,14 +487,18 @@ export function LoteDetail() {
             lote={lote}
             pesajes={pesajes}
             metrics={metrics}
-            onNuevo={() => abrir("pesaje")}
-            onEditar={(p) => {
-              setEditRegistro(undefined);
-              setEditGasto(undefined);
-              setEditIngreso(undefined);
-              setEditPesaje(p);
-              setSheet("pesaje");
-            }}
+            onNuevo={soloVer ? undefined : () => abrir("pesaje")}
+            onEditar={
+              soloVer
+                ? undefined
+                : (p) => {
+                    setEditRegistro(undefined);
+                    setEditGasto(undefined);
+                    setEditIngreso(undefined);
+                    setEditPesaje(p);
+                    setSheet("pesaje");
+                  }
+            }
           />
           <Diagnostico metrics={metrics} />
         </div>
@@ -577,27 +624,31 @@ export function LoteDetail() {
             entregas={entregas}
             metrics={metrics}
             settings={settings}
+            soloVer={soloVer}
           />
 
           {ingresos.length > 0 && (
             <>
               <Seccion className="mb-3 mt-8" etiqueta="Ventas" />
-              <p className="mb-3 text-xs text-ink-faint">
-                Toca una para corregirla.
-              </p>
+              {!soloVer && (
+                <p className="mb-3 text-xs text-ink-faint">
+                  Toca una para corregirla.
+                </p>
+              )}
               <Banda className="divide-y divide-line">
                 {[...ingresos]
                   .sort((a, b) => b.fecha.localeCompare(a.fecha))
                   .map((i) => (
                     <button
                       key={i.id}
+                      disabled={soloVer}
                       onClick={() => {
                         setEditIngreso(i);
                         setEditRegistro(undefined);
                         setEditGasto(undefined);
                         setSheet("ingreso");
                       }}
-                      className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
+                      className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-medium">
@@ -654,92 +705,119 @@ export function LoteDetail() {
             >
               Compartir reporte
             </Button>
-            <div className="flex justify-center">
-              {lote.estado === "activo" ? (
-                <Button variant="ghost" onClick={() => abrir("cierre")}>
-                  Vender y cerrar ciclo
+            {!soloVer && (
+              <>
+                <Button
+                  block
+                  variant="soft"
+                  onClick={() =>
+                    mandarCiclo(
+                      armarCiclo(
+                        { lote, registros, pesajes, gastos, ingresos, aplicaciones, entregas },
+                        settings.granja,
+                      ),
+                    )
+                  }
+                >
+                  Mandar el ciclo a un socio
                 </Button>
-              ) : (
-                <Button variant="ghost" onClick={reabrir}>
-                  Reabrir ciclo
-                </Button>
-              )}
-            </div>
+                <p className="px-2 text-center text-xs leading-relaxed text-ink-faint">
+                  Le llega un archivo que abre en su AviControl, en Ajustes: ve todo el ciclo,
+                  sin poder cambiarlo.
+                </p>
+                <div className="flex justify-center">
+                  {lote.estado === "activo" ? (
+                    <Button variant="ghost" onClick={() => abrir("cierre")}>
+                      Vender y cerrar ciclo
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" onClick={reabrir}>
+                      Reabrir ciclo
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      <RegistroSheet
-        lote={lote}
-        registros={registros}
-        open={sheet === "registro"}
-        onClose={() => setSheet(null)}
-        editar={editRegistro}
-      />
-      <CierreSheet
-        lote={lote}
-        metrics={metrics}
-        registros={registros}
-        gastos={gastos}
-        aplicaciones={aplicaciones}
-        open={sheet === "cierre"}
-        onClose={() => setSheet(null)}
-      />
-      <PesajeSheet
-        lote={lote}
-        avesVivas={metrics.avesVivas}
-        open={sheet === "pesaje"}
-        onClose={() => setSheet(null)}
-        editar={editPesaje}
-      />
-      <GastoSheet
-        lote={lote}
-        open={sheet === "gasto"}
-        onClose={() => setSheet(null)}
-        editar={editGasto}
-      />
-      <IngresoSheet
-        lote={lote}
-        metrics={metrics}
-        registros={registros}
-        gastos={gastos}
-        aplicaciones={aplicaciones}
-        open={sheet === "ingreso"}
-        onClose={() => setSheet(null)}
-        editar={editIngreso}
-        onCobrar={(i) => {
-          setCobroDe(i.id);
-          setSheet("cobro");
-        }}
-      />
-      <CobroSheet
-        ingreso={ingresos.find((i) => i.id === cobroDe)}
-        lote={lote}
-        open={sheet === "cobro"}
-        onClose={() => setSheet(null)}
-      />
-      <EditarLoteSheet
-        lote={lote}
-        limites={{
-          primeraFecha: [registros[0]?.fecha, pesajes[0]?.fecha, aplicaciones[0]?.fecha]
-            .filter((f): f is string => !!f)
-            .sort()[0],
-          salidas:
-            registros.reduce((a, r) => a + (r.mortalidad ?? 0) + (r.descarte ?? 0), 0) +
-            metrics.vendidas,
-          fechaCierre: lote.fechaCierre,
-        }}
-        contenido={{
-          registros: registros.length,
-          gastos: gastos.length,
-          ventas: ingresos.length,
-          pesajes: pesajes.length,
-          aplicaciones: aplicaciones.length,
-          entregas: entregas.length,
-        }}
-        open={sheet === "lote"}
-        onClose={() => setSheet(null)}
-      />
+      {/* Un ciclo compartido no abre hojas para anotar: ni con ?reg=1. */}
+      {!soloVer && (
+        <>
+          <RegistroSheet
+            lote={lote}
+            registros={registros}
+            open={sheet === "registro"}
+            onClose={() => setSheet(null)}
+            editar={editRegistro}
+          />
+          <CierreSheet
+            lote={lote}
+            metrics={metrics}
+            registros={registros}
+            gastos={gastos}
+            aplicaciones={aplicaciones}
+            open={sheet === "cierre"}
+            onClose={() => setSheet(null)}
+          />
+          <PesajeSheet
+            lote={lote}
+            avesVivas={metrics.avesVivas}
+            open={sheet === "pesaje"}
+            onClose={() => setSheet(null)}
+            editar={editPesaje}
+          />
+          <GastoSheet
+            lote={lote}
+            open={sheet === "gasto"}
+            onClose={() => setSheet(null)}
+            editar={editGasto}
+          />
+          <IngresoSheet
+            lote={lote}
+            metrics={metrics}
+            registros={registros}
+            gastos={gastos}
+            aplicaciones={aplicaciones}
+            open={sheet === "ingreso"}
+            onClose={() => setSheet(null)}
+            editar={editIngreso}
+            onCobrar={(i) => {
+              setCobroDe(i.id);
+              setSheet("cobro");
+            }}
+          />
+          <CobroSheet
+            ingreso={ingresos.find((i) => i.id === cobroDe)}
+            lote={lote}
+            open={sheet === "cobro"}
+            onClose={() => setSheet(null)}
+          />
+          <EditarLoteSheet
+            lote={lote}
+            limites={{
+              primeraFecha: [registros[0]?.fecha, pesajes[0]?.fecha, aplicaciones[0]?.fecha]
+                .filter((f): f is string => !!f)
+                .sort()[0],
+              salidas:
+                registros.reduce((a, r) => a + (r.mortalidad ?? 0) + (r.descarte ?? 0), 0) +
+                metrics.vendidas,
+              fechaCierre: lote.fechaCierre,
+            }}
+            contenido={{
+              registros: registros.length,
+              gastos: gastos.length,
+              ventas: ingresos.length,
+              pesajes: pesajes.length,
+              aplicaciones: aplicaciones.length,
+              entregas: entregas.length,
+            }}
+            open={sheet === "lote"}
+            onClose={() => setSheet(null)}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -814,8 +892,8 @@ function Muestreo({
   lote: Lote;
   pesajes: Pesaje[];
   metrics: LoteMetrics;
-  onNuevo: () => void;
-  onEditar: (p: Pesaje) => void;
+  onNuevo?: () => void;
+  onEditar?: (p: Pesaje) => void;
 }) {
   const aves = metrics.avesVivas;
   const sugeridas = tamanoMuestra(aves);
@@ -828,12 +906,14 @@ function Muestreo({
         className="mb-3 mt-8"
         etiqueta="Muestreo de peso"
         accion={
-          <button
-            onClick={onNuevo}
-            className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
-          >
-            Pesar aves →
-          </button>
+          onNuevo && (
+            <button
+              onClick={onNuevo}
+              className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
+            >
+              Pesar aves →
+            </button>
+          )
         }
       />
 
@@ -848,9 +928,11 @@ function Muestreo({
             margen de ±3 %. De ahí salen las libras que vas a vender y a qué
             precio te conviene.
           </p>
-          <Button variant="soft" block className="mt-3" onClick={onNuevo}>
-            Empezar pesaje
-          </Button>
+          {onNuevo && (
+            <Button variant="soft" block className="mt-3" onClick={onNuevo}>
+              Empezar pesaje
+            </Button>
+          )}
         </Banda>
       ) : (
         <>
@@ -949,8 +1031,9 @@ function Muestreo({
                   return (
                     <button
                       key={p.id}
-                      onClick={() => onEditar(p)}
-                      className="flex w-full items-center justify-between px-5 py-2.5 text-left text-sm transition active:bg-paper-sunken"
+                      disabled={!onEditar}
+                      onClick={() => onEditar?.(p)}
+                      className="flex w-full items-center justify-between px-5 py-2.5 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
                     >
                       <span className="font-medium">
                         Día {diasEntre(lote.fechaInicio, p.fecha)}
@@ -1652,6 +1735,7 @@ function Sociedad({
   entregas,
   metrics,
   settings,
+  soloVer = false,
 }: {
   lote: Lote;
   registros: Registro[];
@@ -1660,6 +1744,7 @@ function Sociedad({
   entregas: EntregaSocio[];
   metrics: LoteMetrics;
   settings: Settings;
+  soloVer?: boolean;
 }) {
   const [hoja, setHoja] = useState(false);
   const [sugerida, setSugerida] = useState<{ de: number; a: number; monto: number }>();
@@ -1801,12 +1886,14 @@ function Sociedad({
                     </>
                   )}
                 </span>
-                <button
-                  onClick={() => anotar(t)}
-                  className="h-11 shrink-0 rounded-full bg-forest-600 px-4 text-sm font-semibold text-paper-raised transition active:scale-[0.97]"
-                >
-                  Ya se entregó
-                </button>
+                {!soloVer && (
+                  <button
+                    onClick={() => anotar(t)}
+                    className="h-11 shrink-0 rounded-full bg-forest-600 px-4 text-sm font-semibold text-paper-raised transition active:scale-[0.97]"
+                  >
+                    Ya se entregó
+                  </button>
+                )}
               </div>
             );
           })}
@@ -1837,7 +1924,7 @@ function Sociedad({
       {entregas.length > 0 && (
         <>
           <div className="mb-2 mt-5 text-xs font-medium text-ink-faint">
-            Entregas anotadas · toca una para corregirla
+            {soloVer ? "Entregas anotadas" : "Entregas anotadas · toca una para corregirla"}
           </div>
           <Banda className="divide-y divide-line">
             {[...entregas].reverse().map((e) => {
@@ -1847,12 +1934,13 @@ function Sociedad({
               return (
                 <button
                   key={e.id}
+                  disabled={soloVer}
                   onClick={() => {
                     setSugerida(undefined);
                     setEditar(e);
                     setHoja(true);
                   }}
-                  className="flex w-full items-baseline justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
+                  className="flex w-full items-baseline justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
                 >
                   <span className="min-w-0">
                     <span className="block">
@@ -1874,10 +1962,12 @@ function Sociedad({
         </>
       )}
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <Button variant="soft" onClick={() => anotar(liq.traspasos[0])}>
-          Anotar entrega
-        </Button>
+      <div className={clsx("mt-3 grid gap-2", soloVer ? "grid-cols-1" : "grid-cols-2")}>
+        {!soloVer && (
+          <Button variant="soft" onClick={() => anotar(liq.traspasos[0])}>
+            Anotar entrega
+          </Button>
+        )}
         <Button variant="soft" onClick={compartir}>
           Compartir
         </Button>

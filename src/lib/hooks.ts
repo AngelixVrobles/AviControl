@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { db, type Gasto, type Lote } from '../db/schema'
+import { db, type Gasto, type Ingreso, type Lote } from '../db/schema'
 import { computeAlertas, type Alerta } from './alerts'
 import { computeMetrics, type LoteMetrics } from './metrics'
 import { pesoObjetivoDe } from './lote'
@@ -44,9 +44,11 @@ export function useHoy(): string {
   return hoy
 }
 
+// Los ciclos de la granja. Los que mandó un socio no se registran ni ocupan
+// un galpón aquí: se ven aparte, en la lista de ciclos.
 export function useLotes(estado?: 'activo' | 'cerrado') {
   return useLiveQuery(async () => {
-    const all = await db.lotes.orderBy('fechaInicio').reverse().toArray()
+    const all = (await db.lotes.orderBy('fechaInicio').reverse().toArray()).filter((l) => !l.compartido)
     return estado ? all.filter((l) => l.estado === estado) : all
   }, [estado])
 }
@@ -97,11 +99,19 @@ export function useLoteData(id: number | undefined) {
   }, [id, hoy, settings])
 }
 
-export function useResumen(estado: 'cerrado' | 'activo' | 'todos' = 'todos') {
+// Con `compartidos`, también los ciclos que mandó un socio (con 'solo', nada
+// más esos). Sin eso —Inicio, Reportes— solo los de la granja: un ciclo ajeno
+// no entra en sus cuentas.
+export function useResumen(
+  estado: 'cerrado' | 'activo' | 'todos' = 'todos',
+  { compartidos = false }: { compartidos?: boolean | 'solo' } = {},
+) {
   const hoy = useHoy()
   const settings = useSettings()
   return useLiveQuery(async () => {
-    const todos = await db.lotes.toArray()
+    const todos = (await db.lotes.toArray()).filter((l) =>
+      compartidos === 'solo' ? !!l.compartido : compartidos || !l.compartido,
+    )
     const lotes = estado === 'todos' ? todos : todos.filter((l) => l.estado === estado)
     const out: LoteConMetrics[] = []
     for (const lote of lotes) {
@@ -134,7 +144,7 @@ export function useResumen(estado: 'cerrado' | 'activo' | 'todos' = 'todos') {
       })
     }
     return out
-  }, [estado, hoy, settings])
+  }, [estado, compartidos, hoy, settings])
 }
 
 export function useSettings(): Settings {
@@ -159,7 +169,8 @@ export function useDeudas() {
 export function useGastosPorCiclo() {
   const hoy = useHoy()
   return useLiveQuery(async () => {
-    const [lotes, gastos] = await Promise.all([db.lotes.toArray(), db.gastos.toArray()])
+    const [todos, gastos] = await Promise.all([db.lotes.toArray(), db.gastos.toArray()])
+    const lotes = todos.filter((l) => !l.compartido)
     const porLote = new Map<number, Gasto[]>()
     for (const g of gastos) {
       if (g.loteId == null) continue
@@ -173,7 +184,19 @@ export function useGastosPorCiclo() {
 
 // Los compradores de antes, para no escribir el nombre cada vez.
 export function useCompradores(): string[] {
-  return useLiveQuery(async () => compradoresConocidos(await db.ingresos.toArray()), []) ?? []
+  return (
+    useLiveQuery(async () => {
+      const [ingresos, lotes] = await Promise.all([db.ingresos.toArray(), db.lotes.toArray()])
+      return compradoresConocidos(deLaGranja(ingresos, lotes))
+    }, []) ?? []
+  )
+}
+
+// Las ventas de los ciclos de la granja: las de un ciclo compartido son del socio
+// que lo lleva, y lo que le deben a él no es lo que te deben a ti.
+function deLaGranja(ingresos: Ingreso[], lotes: Lote[]) {
+  const ajenos = new Set(lotes.filter((l) => l.compartido).map((l) => l.id))
+  return ingresos.filter((i) => i.loteId == null || !ajenos.has(i.loteId))
 }
 
 // Lo que te deben de las ventas a crédito, de todos los ciclos.
@@ -181,6 +204,6 @@ export function usePorCobrar() {
   const hoy = useHoy()
   return useLiveQuery(async () => {
     const [ingresos, lotes] = await Promise.all([db.ingresos.toArray(), db.lotes.toArray()])
-    return cuentasPorCobrar(ingresos, lotes, hoy)
+    return cuentasPorCobrar(deLaGranja(ingresos, lotes), lotes, hoy)
   }, [hoy])
 }

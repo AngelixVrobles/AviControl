@@ -15,18 +15,24 @@ export function FichaSanidad({
   metrics,
   gastos,
   aplicaciones,
+  soloVer = false,
 }: {
   lote: Lote
   metrics: LoteMetrics
   gastos: Gasto[]
   aplicaciones: Aplicacion[]
+  soloVer?: boolean
 }) {
   const settings = useSettings()
   const [abierta, setAbierta] = useState(false)
   const [editar, setEditar] = useState<Aplicacion>()
   const [sugerencia, setSugerencia] = useState<{ nombre: string; fecha: string }>()
 
-  const agenda = agendaSanitaria(lote, metrics.dias, settings.planSanitario, aplicaciones)
+  // De un ciclo compartido se ve lo que se aplicó: el plan de esta granja no es
+  // el de quien lo lleva.
+  const agenda = agendaSanitaria(lote, metrics.dias, settings.planSanitario, aplicaciones).filter(
+    (e) => !soloVer || e.aplicacion,
+  )
   const gastoSanitario = gastos
     .filter((g) => g.categoria === 'medicina')
     .reduce((a, g) => a + g.monto, 0)
@@ -87,20 +93,26 @@ export function FichaSanidad({
           className="mb-3"
           etiqueta="Agenda del ciclo"
           accion={
-            <button
-              onClick={() => anotar()}
-              className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
-            >
-              Anotar →
-            </button>
+            !soloVer && (
+              <button
+                onClick={() => anotar()}
+                className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
+              >
+                Anotar →
+              </button>
+            )
           }
         />
         <Banda className="divide-y divide-line">
+          {agenda.length === 0 && (
+            <p className="px-5 py-4 text-sm text-ink-faint">No se ha anotado ninguna vacuna ni medicina.</p>
+          )}
           {agenda.map((e, i) => (
             <button
               key={`${e.nombre}-${i}`}
+              disabled={soloVer}
               onClick={() => anotar(e)}
-              className="flex w-full items-center justify-between px-5 py-3 text-left transition active:bg-paper-sunken"
+              className="flex w-full items-center justify-between px-5 py-3 text-left transition active:bg-paper-sunken disabled:active:bg-transparent"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-sm font-medium">
@@ -128,15 +140,19 @@ export function FichaSanidad({
             </button>
           ))}
         </Banda>
-        <p className="mt-2 text-xs leading-relaxed text-ink-faint">
-          El plan sale de Ajustes y lo puedes cambiar según lo que diga tu veterinario. Toca
-          cualquier línea para anotar lo que aplicaste de verdad.
-        </p>
+        {!soloVer && (
+          <p className="mt-2 text-xs leading-relaxed text-ink-faint">
+            El plan sale de Ajustes y lo puedes cambiar según lo que diga tu veterinario. Toca
+            cualquier línea para anotar lo que aplicaste de verdad.
+          </p>
+        )}
       </div>
 
-      <Button block variant="soft" onClick={() => anotar()}>
-        Anotar una aplicación
-      </Button>
+      {!soloVer && (
+        <Button block variant="soft" onClick={() => anotar()}>
+          Anotar una aplicación
+        </Button>
+      )}
 
       <AplicacionSheet
         lote={lote}
