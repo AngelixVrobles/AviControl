@@ -2,11 +2,12 @@ import type { Aplicacion, Gasto, Lote, Registro } from '../db/schema'
 import { juicioFca, type LoteMetrics } from './metrics'
 import { resumenAgua } from './agua'
 import { calorReciente, fraseCalor, gradosCalor } from './calor'
+import { retiroEn } from './retiro'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
 import { sinAves } from './lote'
 import { agendaSanitaria } from './sanidad'
 import { getSettings } from './settings'
-import { diasEntre, fecha, hoyISO, num, pct, plural } from './format'
+import { diasEntre, fecha, hoyISO, num, pct, plural, sumarDias } from './format'
 import {
   DIAS_RETIRO,
   FASES_ALIMENTO,
@@ -189,6 +190,28 @@ export function computeAlertas(
         nivel: 'warn',
         texto: `${e.nombre} tocaba el día ${e.diaPlan} y no se ha anotado: si ya se puso, márcalo en Sanidad`,
       })
+  }
+
+  // El retiro de lo que se dio: si se vende antes de que se cumpla, la carne
+  // sale con residuos de la medicina. Con el ciclo ya en su día de venta, la
+  // venta es cualquier día desde hoy.
+  const enRetiro = retiroEn(sanidad.aplicaciones ?? [], hoy)
+  if (enRetiro) {
+    const venta = sumarDias(lote.fechaInicio, m.diaObjetivo)
+    const fechaVenta = venta > hoy ? venta : hoy
+    alertas.push(
+      enRetiro.libreDesde > fechaVenta
+        ? {
+            nivel: 'bad',
+            texto: `No vendas antes del ${fecha(enRetiro.libreDesde)}: ${enRetiro.nombre} tiene ${enRetiro.dias} días de retiro${
+              fechaVenta === hoy ? ', aunque ya estén en peso' : ` y la venta iba para el ${fecha(fechaVenta)}`
+            }`,
+          }
+        : {
+            nivel: 'info',
+            texto: `En retiro de ${enRetiro.nombre}: se puede vender desde el ${fecha(enRetiro.libreDesde)}`,
+          },
+    )
   }
 
   const paraVenta = m.diaObjetivo - m.dias

@@ -90,6 +90,10 @@ export interface Aplicacion {
   nombre: string
   via?: string
   dosis?: string
+  // Una medicina se da varios días seguidos, y después hay que esperar su
+  // retiro para vender: lo que diga el frasco.
+  diasTratamiento?: number
+  retiroDias?: number
   nota?: string
   creado: number
 }

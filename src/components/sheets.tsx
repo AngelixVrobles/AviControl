@@ -41,6 +41,7 @@ import { EDAD_CALOR, CALOR_C, fraseCalor, juicioCalor } from '../lib/calor'
 import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra } from '../lib/muestreo'
 import { LB_POR_QUINTAL, pesoEstandarLb, tempRecomendadaC } from '../lib/standards'
 import { errorFechaDelCiclo, errorFechaFutura, pesoObjetivoDe, topeDelCiclo } from '../lib/lote'
+import { retiroDe, retiroEn, type Retiro } from '../lib/retiro'
 import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
 import { useEnvio } from './useEnvio'
@@ -941,6 +942,7 @@ export function IngresoSheet({
   onClose,
   editar,
   onCobrar,
+  aplicaciones = [],
 }: {
   lote: Lote
   metrics: LoteMetrics
@@ -950,6 +952,7 @@ export function IngresoSheet({
   onClose: () => void
   editar?: Ingreso
   onCobrar?: (i: Ingreso) => void
+  aplicaciones?: Aplicacion[]
 }) {
   const { ocupado, enviar } = useEnvio(open)
   const conocidos = useCompradores()
@@ -1123,6 +1126,7 @@ export function IngresoSheet({
             </Select>
           </Field>
         )}
+        <AvisoRetiro retiro={retiroEn(aplicaciones, fecha)} fecha={fecha} />
         {vendeTodo && (
           <button
             type="button"
@@ -1164,6 +1168,7 @@ export function CierreSheet({
   gastos,
   open,
   onClose,
+  aplicaciones = [],
 }: {
   lote: Lote
   metrics: LoteMetrics
@@ -1171,6 +1176,7 @@ export function CierreSheet({
   gastos: Gasto[]
   open: boolean
   onClose: () => void
+  aplicaciones?: Aplicacion[]
 }) {
   const { ocupado, enviar } = useEnvio(open)
   const [paso, setPaso] = useState(1)
@@ -1382,6 +1388,8 @@ export function CierreSheet({
             </p>
           )}
 
+          <AvisoRetiro retiro={retiroEn(aplicaciones, fecha)} fecha={fecha} />
+
           <Button block className="h-14" disabled={!listo} onClick={() => setPaso(2)}>
             Ver el resultado
           </Button>
@@ -1464,6 +1472,20 @@ export function CierreSheet({
   )
 }
 
+// Vender dentro del retiro de una medicina deja residuos en la carne. No se
+// bloquea —puede que el frasco diga otra cosa—, pero se dice antes de guardar.
+function AvisoRetiro({ retiro, fecha }: { retiro?: Retiro; fecha: string }) {
+  if (!retiro) return null
+  const faltan = diasEntre(fecha, retiro.libreDesde)
+  return (
+    <div className="rounded-xl border-l-4 border-clay bg-clay-tint px-4 py-3 text-sm leading-relaxed text-clay-text">
+      <div className="font-semibold">Todavía en retiro de {retiro.nombre}</div>
+      Se puede vender desde el {fechaCorta(retiro.libreDesde)}: {faltan === 1 ? 'falta 1 día' : `faltan ${num(faltan)} días`}.
+      Vender antes deja residuos de la medicina en la carne.
+    </div>
+  )
+}
+
 function DatoCierre({ label, valor }: { label: string; valor: string }) {
   return (
     <div>
@@ -1519,12 +1541,15 @@ export function AplicacionSheet({
   onClose,
   editar,
   sugerencia,
+  diaVenta,
 }: {
   lote: Lote
   open: boolean
   onClose: () => void
   editar?: Aplicacion
   sugerencia?: { nombre: string; fecha: string }
+  /** El día del ciclo en que se piensa vender, para decir si el retiro alcanza. */
+  diaVenta?: number
 }) {
   const { ocupado, enviar } = useEnvio(open)
   const [tipo, setTipo] = useState<TipoAplicacion>('vacuna')
@@ -1533,6 +1558,8 @@ export function AplicacionSheet({
   const [via, setVia] = useState('')
   const [dosis, setDosis] = useState('')
   const [nota, setNota] = useState('')
+  const [diasTratamiento, setDiasTratamiento] = useState('')
+  const [retiroDias, setRetiroDias] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -1542,9 +1569,18 @@ export function AplicacionSheet({
     setVia(editar?.via ?? '')
     setDosis(editar?.dosis ?? '')
     setNota(editar?.nota ?? '')
+    setDiasTratamiento(editar?.diasTratamiento ? String(editar.diasTratamiento) : '')
+    setRetiroDias(editar?.retiroDias ? String(editar.retiroDias) : '')
   }, [open, editar, sugerencia])
 
   const dia = diasEntre(lote.fechaInicio, fecha)
+  const esMedicina = tipo === 'medicina'
+  const nDias = Math.round(Number(diasTratamiento) || 0)
+  const nRetiro = Math.round(Number(retiroDias) || 0)
+  const retiro = esMedicina
+    ? retiroDe({ id: 0, loteId: lote.id, fecha, tipo, nombre, diasTratamiento: nDias, retiroDias: nRetiro, creado: 0 })
+    : undefined
+  const diaLibre = retiro ? diasEntre(lote.fechaInicio, retiro.libreDesde) : undefined
 
   async function guardar() {
     const datos = {
@@ -1554,6 +1590,8 @@ export function AplicacionSheet({
       nombre: nombre.trim(),
       via: via || undefined,
       dosis: dosis.trim() || undefined,
+      diasTratamiento: esMedicina && nDias > 1 ? nDias : undefined,
+      retiroDias: esMedicina && nRetiro > 0 ? nRetiro : undefined,
       nota: nota.trim() || undefined,
     }
     if (editar) await db.aplicaciones.update(editar.id, datos)
@@ -1611,6 +1649,43 @@ export function AplicacionSheet({
             <Input value={dosis} onChange={(e) => setDosis(e.target.value)} placeholder="1 gota, 1 cc…" />
           </Field>
         </div>
+
+        {esMedicina && (
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Días que se da">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={diasTratamiento}
+                  onChange={(e) => setDiasTratamiento(e.target.value)}
+                  placeholder="1"
+                />
+              </Field>
+              <Field label="Días de retiro">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={retiroDias}
+                  onChange={(e) => setRetiroDias(e.target.value)}
+                  placeholder="Ej. 7"
+                />
+              </Field>
+            </div>
+            <p
+              className={clsx(
+                'mt-1 text-xs leading-relaxed tnum',
+                retiro && diaVenta != null && diaLibre! > diaVenta ? 'font-medium text-clay-text' : 'text-ink-faint',
+              )}
+            >
+              {retiro
+                ? `Se puede vender desde el ${fechaCorta(retiro.libreDesde)}, día ${diaLibre} del ciclo${
+                    diaVenta != null && diaLibre! > diaVenta ? `: después del día ${diaVenta}, cuando llegan al peso.` : '.'
+                  }`
+                : 'El retiro viene en la etiqueta: los días que hay que esperar después de la última dosis para vender.'}
+            </p>
+          </div>
+        )}
 
         <div>
           <span className="mb-1.5 block text-sm font-medium text-ink-soft">Vía</span>
