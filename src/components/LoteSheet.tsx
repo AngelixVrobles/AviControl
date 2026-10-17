@@ -4,7 +4,8 @@ import { db, type Lote, type Socio } from '../db/schema'
 import { borrarCiclo } from '../db/ciclo'
 import { enumerar, money, num } from '../lib/format'
 import { useSettings } from '../lib/hooks'
-import { galponDe } from '../lib/galpones'
+import { galponDe, galponesOcupados, galponInicial, nombreDeGalpon, nombresGalpones } from '../lib/galpones'
+import { repartido } from '../lib/reparto'
 import { errorNegativo, erroresLote, type LimitesLote } from '../lib/lote'
 import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
@@ -92,6 +93,9 @@ function FormLote({
   const [muertosLlegada, setMuertosLlegada] = useState(aTexto(lote.muertosLlegada))
   const varios = settings.galpones.length > 1
   const [galponId, setGalponId] = useState(() => galponDe(lote, settings)?.id ?? '')
+  // Con la pollada repartida, el galpón donde llegaron no se cambia aquí: los
+  // movimientos salen de él, y cambiarlo los dejaría sin aves que mover.
+  const enVarios = repartido(lote)
 
   const cantidadNum = Number(cantidad) || 0
   const costoNum = Number(costo) || 0
@@ -179,7 +183,7 @@ function FormLote({
         pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
         socios: reparto?.socios,
         costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
-        galponId: varios ? galponId || undefined : lote.galponId,
+        galponId: varios && !enVarios ? galponId || undefined : lote.galponId,
         ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
         notas: notas.trim() || undefined,
       })
@@ -317,7 +321,7 @@ function FormLote({
         errorMuertos={errores.muertosLlegada}
       />
 
-      {varios && (
+      {varios && !enVarios && (
         <Field label="Galpón">
           <Select value={galponId} onChange={(e) => setGalponId(e.target.value)}>
             {settings.galpones.map((g) => (
@@ -327,6 +331,13 @@ function FormLote({
             ))}
           </Select>
         </Field>
+      )}
+      {enVarios && (
+        <p className="rounded-xl bg-paper-sunken px-4 py-3 text-sm leading-relaxed text-ink-soft">
+          Llegaron a {nombreDeGalpon(galponInicial(lote, settings), settings)} y están repartidas en{' '}
+          {nombresGalpones(galponesOcupados(lote, settings), settings)}. Lo que se pasó de un galpón a otro se
+          corrige en la ficha Galpón.
+        </p>
       )}
 
       <EditorSocios

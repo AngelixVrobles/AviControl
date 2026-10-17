@@ -52,4 +52,14 @@ describe('lo que va dentro de cada fila', () => {
   it('un socio sin nombre de texto no pasa', () => {
     expect(revisarFilas('lotes', [lote({ socios: [{ nombre: 3 as unknown as string, pct: 50 }] })])).toBeDefined()
   })
+
+  it('las aves que se pasaron de galpón y el galpón de una venta se revisan', () => {
+    const bien = lote({ movimientos: [{ fecha: '2026-10-01', de: 'g1', a: 'g2', aves: 350 }] })
+    const mal = lote({ movimientos: [{ fecha: '2026-10-01', de: 'g1', a: 'g2', aves: '350' as unknown as number }] })
+    expect(revisarFilas('lotes', [bien])).toBeUndefined()
+    expect(revisarFilas('lotes', [mal])).toBe('1 ciclo viene incompleto o dañado')
+    const venta = { id: 1, loteId: 1, tipo: 'aves', cantidad: 10, monto: 9000, fecha: '2026-10-01', creado: 0 }
+    expect(revisarFilas('ingresos', [{ ...venta, galponId: 'g2' }])).toBeUndefined()
+    expect(revisarFilas('ingresos', [{ ...venta, galponId: 2 }])).toBeDefined()
+  })
 })

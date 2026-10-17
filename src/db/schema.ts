@@ -29,6 +29,17 @@ export interface ConteoAlimento {
   qq: number
 }
 
+// Aves que se pasan de un galpón a otro sin dejar el ciclo: llegaron 1,000
+// pollitos a un galpón de 8.6 × 8.6 m, crecieron, ya no cabían y 350 se pasaron
+// a otro. Sigue siendo la misma pollada, con sus mismas cuentas.
+export interface MovimientoAves {
+  fecha: string
+  /** El galpón de donde salen y al que van: el id de Ajustes. */
+  de: string
+  a: string
+  aves: number
+}
+
 export interface Lote {
   id: number
   tipo: TipoLote
@@ -45,8 +56,10 @@ export interface Lote {
   fechaCierre?: string
   cierre?: CierreCiclo
   conteosAlimento?: ConteoAlimento[]
-  // En qué galpón de la granja está; sin él, el primero.
+  // En qué galpón de la granja está; sin él, el primero. Si la pollada se
+  // reparte, es donde llegaron los pollitos, y `movimientos` dice el resto.
   galponId?: string
+  movimientos?: MovimientoAves[]
   // El recibo: de qué incubadora vinieron, lo que pesaban al llegar (en gramos,
   // como se pesa el pollito) y cuántos llegaron muertos en las cajas. Los que
   // llegaron muertos están en `cantidadInicial` pero nunca entraron al galpón.
@@ -155,6 +168,9 @@ export interface Ingreso {
   // de la venta.
   credito?: boolean
   cobros?: Cobro[]
+  // Con la pollada en varios galpones, de cuál salieron las aves vendidas.
+  // Sin él, la venta se reparte entre los galpones según las aves de cada uno.
+  galponId?: string
   creado: number
 }
 

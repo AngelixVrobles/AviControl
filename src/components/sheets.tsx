@@ -42,6 +42,8 @@ import { PRECISION_OBJETIVO_PCT, analizarMuestra, faltanPorPesar, tamanoMuestra 
 import { LB_POR_QUINTAL, pesoEstandarLb, tempRecomendadaC } from '../lib/standards'
 import { errorFechaDelCiclo, errorFechaFutura, errorNegativo, pesoObjetivoDe, topeDelCiclo } from '../lib/lote'
 import { retiroDe, retiroEn, type Retiro } from '../lib/retiro'
+import { galponInicial, nombreDeGalpon } from '../lib/galpones'
+import { avesPorGalpon, repartido } from '../lib/reparto'
 import { IconClose } from './icons'
 import { EditorSocios, Interruptor } from './Socios'
 import { useEnvio } from './useEnvio'
@@ -1043,11 +1045,13 @@ export function IngresoSheet({
   editar,
   onCobrar,
   aplicaciones = [],
+  ingresos = [],
 }: {
   lote: Lote
   metrics: LoteMetrics
   registros: Registro[]
   gastos: Gasto[]
+  ingresos?: Ingreso[]
   open: boolean
   onClose: () => void
   editar?: Ingreso
@@ -1070,6 +1074,8 @@ export function IngresoSheet({
   const [fecha, setFecha] = useState(hoyISO())
   const [recibidoPor, setRecibidoPor] = useState('')
   const [cerrar, setCerrar] = useState(true)
+  const [galponVenta, setGalponVenta] = useState('')
+  const settings = useSettings()
 
   useEffect(() => {
     if (!open) return
@@ -1092,7 +1098,16 @@ export function IngresoSheet({
     setComprador(editar?.comprador ?? '')
     setCredito(!!editar?.credito)
     setAdelanto('')
+    setGalponVenta(editar?.galponId ?? '')
   }, [open, editar, lote.precioVentaLb])
+
+  // Con la pollada repartida, de qué galpón salen: vendidas las 350 del galpón
+  // 2, ese galpón queda vacío y el espacio del otro sigue igual. Sin decirlo,
+  // la venta se reparte entre los dos.
+  const otrasVentas = ingresos.filter((i) => i.id !== editar?.id)
+  const casasEseDia = repartido(lote)
+    ? avesPorGalpon(lote, galponInicial(lote, settings), registros, otrasVentas, fecha)
+    : []
 
   // Vender con «Venta» las aves que quedan dejaba el ciclo abierto con el
   // galpón vacío, pidiendo el registro del día. Si esta venta se lleva las
@@ -1141,6 +1156,7 @@ export function IngresoSheet({
       monto: total,
       fecha,
       comprador: comprador.trim() || undefined,
+      galponId: casasEseDia.length > 1 && galponVenta ? galponVenta : undefined,
       credito: aCredito || undefined,
       // A crédito, el dinero entra con los cobros, cada uno a quien lo recibió.
       recibidoPor: aCredito ? undefined : quien,
@@ -1295,6 +1311,18 @@ export function IngresoSheet({
             />
           </Field>
         </div>
+        {casasEseDia.length > 1 && (
+          <Field label="¿De qué galpón salen?">
+            <Select value={galponVenta} onChange={(e) => setGalponVenta(e.target.value)}>
+              <option value="">De todos (se reparte)</option>
+              {casasEseDia.map((c) => (
+                <option key={c.galponId} value={c.galponId}>
+                  {nombreDeGalpon(c.galponId, settings)} · {num(c.aves)} aves
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <DatosDePago
           comprador={comprador}
           onComprador={setComprador}

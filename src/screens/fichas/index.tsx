@@ -95,7 +95,16 @@ export function Ficha() {
         />
       )}
       {tipo === 'gastos' && <FichaGastos lote={lote} gastos={gastos} metrics={metrics} soloVer={soloVer} />}
-      {tipo === 'galpon' && <FichaGalpon lote={lote} metrics={metrics} settings={settings} />}
+      {tipo === 'galpon' && (
+        <FichaGalpon
+          lote={lote}
+          metrics={metrics}
+          settings={settings}
+          registros={registros}
+          ingresos={ingresos}
+          soloVer={soloVer}
+        />
+      )}
     </div>
   )
 }

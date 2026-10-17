@@ -24,6 +24,7 @@ const esFecha = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.t
 const esNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
 const esNumOpc = (v: unknown) => v == null || esNum(v)
 const esTexto = (v: unknown) => typeof v === 'string'
+const esTextoOpc = (v: unknown) => v == null || esTexto(v)
 const esId = (v: unknown) => esNum(v) && Number.isInteger(v)
 const esIdOpc = (v: unknown) => v == null || esId(v)
 // Lo que va dentro de una fila también se revisa: un cobro con el monto como
@@ -50,7 +51,8 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
   registros: (r) =>
     esId(r.loteId) && esFecha(r.fecha) && esNumOpc(r.mortalidad) && esNumOpc(r.descarte) && esNumOpc(r.alimentoLb),
   gastos: (g) => esIdOpc(g.loteId) && esFecha(g.fecha) && esNum(g.monto),
-  ingresos: (i) => esIdOpc(i.loteId) && esFecha(i.fecha) && esNum(i.monto) && listaDe(i.cobros, esCobro),
+  ingresos: (i) =>
+    esIdOpc(i.loteId) && esFecha(i.fecha) && esNum(i.monto) && listaDe(i.cobros, esCobro) && esTextoOpc(i.galponId),
   pesajes: (p) => esId(p.loteId) && esFecha(p.fecha) && Array.isArray(p.pesos) && p.pesos.every(esNum),
   aplicaciones: (a) => esId(a.loteId) && esFecha(a.fecha) && esTexto(a.nombre),
   deudas: (d) => esTexto(d.concepto) && esNum(d.monto) && esFecha(d.fecha) && listaDe(d.socios, esSocio),
