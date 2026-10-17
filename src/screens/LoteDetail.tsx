@@ -27,6 +27,9 @@ import { computeGuiaDia } from "../lib/guia";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
 import { nombreGalpon } from "../lib/galpones";
 import { armarCiclo } from "../lib/compartido";
+import { hojasDelCiclo } from "../lib/exportar";
+import { crearXlsx, TIPO_XLSX } from "../lib/xlsx";
+import { entregarArchivo, nombreArchivo } from "../lib/archivo";
 import { mandarCiclo } from "../components/useCicloCompartido";
 import { borrarCiclo } from "../db/ciclo";
 import { conCalor, juicioDe } from "../lib/calor";
@@ -705,6 +708,35 @@ export function LoteDetail() {
             >
               Compartir reporte
             </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="soft"
+                onClick={async () => {
+                  // Se arma al momento con lo que ya está en pantalla: en el
+                  // iPhone el menú de compartir solo se abre justo tras el toque.
+                  const bytes = crearXlsx(
+                    hojasDelCiclo(
+                      { lote, registros, pesajes, gastos, ingresos, aplicaciones, entregas, metrics },
+                      settings.granja,
+                    ),
+                  );
+                  try {
+                    const como = await entregarArchivo(
+                      new File([bytes], `${nombreArchivo(lote.nombre)}.xlsx`, { type: TIPO_XLSX }),
+                    );
+                    if (como === "descargado")
+                      toast("Hoja descargada: la encuentras en Descargas.");
+                  } catch {
+                    toast("No se pudo armar la hoja. Inténtalo de nuevo.");
+                  }
+                }}
+              >
+                Excel
+              </Button>
+              <Button variant="soft" onClick={() => nav(`/lotes/${lote.id}/imprimir`)}>
+                Imprimir o PDF
+              </Button>
+            </div>
             {!soloVer && (
               <>
                 <Button
