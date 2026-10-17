@@ -10,20 +10,20 @@ import { alimentoEn, desdeHace, fechaLarga, hoyISO, money, num, pct, plural, por
 import { precioMinimoConjunto } from '../lib/precios'
 import { sinAves } from '../lib/lote'
 import { nombreGalpon } from '../lib/galpones'
-import { usePorCobrar, useResumen, useSettings } from '../lib/hooks'
+import { useCuentaCerrados, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 
 export function Dashboard() {
   const activos = useResumen('activo')
-  const cerrados = useResumen('cerrado')
+  const cerrados = useCuentaCerrados()
   const compartidos = useResumen('activo', { compartidos: 'solo' })
   const settings = useSettings()
 
-  if (!activos || !cerrados) return <SkeletonHeader />
+  if (!activos || cerrados == null) return <SkeletonHeader />
 
   const hoy = capitalizar(fechaLarga(hoyISO()))
-  const recordar = tocaRecordarRespaldo(settings.ultimoRespaldo, activos.length + cerrados.length > 0)
+  const recordar = tocaRecordarRespaldo(settings.ultimoRespaldo, activos.length + cerrados > 0)
 
   return (
     <div className="animate-rise">
@@ -40,10 +40,10 @@ export function Dashboard() {
           <Compartidos lista={compartidos} />
           <EmptyState
             icon={<IconScale width={28} height={28} />}
-            title={cerrados.length ? 'No tienes ciclos en curso' : 'Aún no tienes ciclos'}
+            title={cerrados ? 'No tienes ciclos en curso' : 'Aún no tienes ciclos'}
             text={
-              cerrados.length
-                ? `Cerraste ${cerrados.length === 1 ? 'tu último ciclo' : `${cerrados.length} ciclos`}. El resultado está en Reportes; cuando recibas los pollitos, abre el siguiente.`
+              cerrados
+                ? `Cerraste ${cerrados === 1 ? 'tu último ciclo' : `${num(cerrados)} ciclos`}. El resultado está en Reportes; cuando recibas los pollitos, abre el siguiente.`
                 : 'Crea tu primer ciclo de engorde para empezar a llevar el control.'
             }
             action={
@@ -51,7 +51,7 @@ export function Dashboard() {
                 <Link to="/lotes/nuevo">
                   <Button>Crear ciclo</Button>
                 </Link>
-                {cerrados.length > 0 && (
+                {cerrados > 0 && (
                   <Link to="/reportes">
                     <Button variant="soft">Ver el resultado</Button>
                   </Link>

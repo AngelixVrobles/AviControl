@@ -55,6 +55,13 @@ export function useLotes(estado?: 'activo' | 'cerrado') {
   }, [estado])
 }
 
+// Inicio solo necesita saber cuántos ciclos se cerraron: sacar las cuentas de
+// cada uno para contarlos eran 248 consultas con 60 ciclos, y la pantalla se
+// quedaba en blanco hasta terminar.
+export function useCuentaCerrados() {
+  return useLiveQuery(() => db.lotes.where('estado').equals('cerrado').filter((l) => !l.compartido).count(), [])
+}
+
 export interface LoteConMetrics {
   lote: Lote
   metrics: LoteMetrics

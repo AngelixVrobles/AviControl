@@ -6,7 +6,6 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { clsx } from "clsx";
-import { motion } from "motion/react";
 import {
   db,
   type EntregaSocio,
@@ -70,7 +69,7 @@ import { InversionPorDia } from "../components/InversionPorDia";
 import { EditarLoteSheet } from "../components/LoteSheet";
 import { confirmar, toast } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
-import { Button, Banda, Pill, Seccion } from "../components/ui";
+import { Button, Banda, Pestanas, Pill, Seccion } from "../components/ui";
 import { GraficaLineas } from "../components/chart";
 import {
   IconBack,
@@ -373,34 +372,15 @@ export function LoteDetail() {
       )}
 
       <div className="sticky top-0 z-30 -mx-5 mt-5 bg-paper px-5 pb-2 pt-2">
-        <div className="flex gap-1 rounded-full bg-sunken p-1">
-          {TABS.map((t) => {
-            const label =
-              t.id === "hoy" && lote.estado === "cerrado" ? "Resumen" : t.label;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className="relative flex-1 rounded-full py-2.5 text-sm font-semibold"
-              >
-                {tab === t.id && (
-                  <motion.span
-                    layoutId="tab-activa"
-                    className="absolute inset-0 rounded-full bg-paper-raised shadow-card"
-                    transition={{ type: "spring", stiffness: 500, damping: 42 }}
-                  />
-                )}
-                <span
-                  className={
-                    "relative " + (tab === t.id ? "text-ink" : "text-ink-soft")
-                  }
-                >
-                  {label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <Pestanas
+          etiqueta="Partes del ciclo"
+          valor={tab}
+          onCambio={setTab}
+          opciones={TABS.map((t) => ({
+            id: t.id,
+            label: t.id === "hoy" && lote.estado === "cerrado" ? "Resumen" : t.label,
+          }))}
+        />
       </div>
 
       {tab === "hoy" && (
@@ -455,9 +435,11 @@ export function LoteDetail() {
                         setEditIngreso(undefined);
                         setSheet("registro");
                       }}
-                      className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
+                      className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
                     >
-                      <span className="font-medium">
+                      {/* A 320 px las cifras se partían en «15-/oct» y «35/°C»:
+                          cada una va entera, y si no caben bajan de línea. */}
+                      <span className="shrink-0 whitespace-nowrap font-medium">
                         {fecha(r.fecha)}
                         {r.soloPeso && (
                           <span className="ml-2 text-xs font-normal text-amber-text">
@@ -465,7 +447,7 @@ export function LoteDetail() {
                           </span>
                         )}
                       </span>
-                      <div className="flex items-center gap-3 text-ink-soft tnum">
+                      <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 whitespace-nowrap text-ink-soft tnum">
                         {r.pesoPromedio != null && (
                           <span>{num(r.pesoPromedio, 2)} lb</span>
                         )}
@@ -535,61 +517,60 @@ export function LoteDetail() {
       {tab === "dinero" && (
         <div className="animate-rise">
           <ComoSalio lote={lote} metrics={metrics} ingresos={ingresos} />
+          {/* La cifra grande va sola arriba y las otras dos debajo: lado a lado,
+              a 320 px se cortaban en «RD$74,2…» y «RD$1,37…». */}
           <Banda className={clsx("mt-5 overflow-hidden", cerrado && "hidden")}>
-            <div className="flex items-stretch">
-              <div className="flex-1 p-4">
-                <div className="flex items-center gap-1.5 text-ink-faint">
-                  <IconTrend width={16} height={16} />
-                  <span className="text-xs font-medium">
-                    {sinVender ? "Invertido" : positivo ? "Ganancia" : "Pérdida"}
-                  </span>
+            <div className="p-4">
+              <div className="flex items-center gap-1.5 text-ink-faint">
+                <IconTrend width={16} height={16} />
+                <span className="text-xs font-medium">
+                  {sinVender ? "Invertido" : positivo ? "Ganancia" : "Pérdida"}
+                </span>
+              </div>
+              <div
+                className={
+                  "mt-1 font-display text-2xl font-semibold tracking-tight tnum leading-none " +
+                  (sinVender ? "text-ink" : positivo ? "text-forest-600" : "text-clay-deep")
+                }
+              >
+                <AnimatedNumber
+                  value={sinVender ? metrics.costos : metrics.ganancia}
+                  format={(n) => money(n)}
+                />
+              </div>
+              <div className="mt-1 text-xs text-ink-faint tnum">
+                {!sinVender
+                  ? `Margen ${pct(metrics.margenPct)}`
+                  : metrics.ingresos > 0
+                    ? `vendido hasta hoy ${money(metrics.ingresos)}`
+                    : lote.estado === "activo"
+                      ? "todavía sin vender"
+                      : "sin ventas"}
+              </div>
+            </div>
+            <div className="grid border-t border-line min-[360px]:grid-cols-2">
+              <div className="border-line px-4 py-2.5 max-[359px]:border-b min-[360px]:border-r">
+                <div className="text-xs text-ink-faint">
+                  {sinVender ? "Valor en pie" : "Ingresos"}
                 </div>
-                <div
-                  className={
-                    "mt-1 font-display text-2xl font-semibold tracking-tight tnum leading-none " +
-                    (sinVender ? "text-ink" : positivo ? "text-forest-600" : "text-clay-deep")
-                  }
-                >
-                  <AnimatedNumber
-                    value={sinVender ? metrics.costos : metrics.ganancia}
-                    format={(n) => money(n)}
-                  />
-                </div>
-                <div className="mt-1 text-xs text-ink-faint tnum">
-                  {!sinVender
-                    ? `Margen ${pct(metrics.margenPct)}`
-                    : metrics.ingresos > 0
-                      ? `vendido hasta hoy ${money(metrics.ingresos)}`
-                      : lote.estado === "activo"
-                        ? "todavía sin vender"
-                        : "sin ventas"}
+                <div className="font-display text-lg font-semibold tnum leading-tight">
+                  {sinVender && valorEnPie > 0
+                    ? money(valorEnPie)
+                    : sinVender
+                      ? "—"
+                      : money(metrics.ingresos)}
                 </div>
               </div>
-              <div className="w-px bg-line" />
-              <div className="grid flex-1 grid-rows-2">
-                <div className="border-b border-line px-5 py-2.5">
-                  <div className="text-xs text-ink-faint">
-                    {sinVender ? "Valor en pie" : "Ingresos"}
-                  </div>
-                  <div className="font-display text-lg font-semibold tnum leading-tight">
-                    {sinVender && valorEnPie > 0
-                      ? money(valorEnPie)
-                      : sinVender
-                        ? "—"
-                        : money(metrics.ingresos)}
-                  </div>
+              <div className="px-4 py-2.5">
+                <div className="text-xs text-ink-faint">
+                  {sinVender ? "Costo por libra" : "Costos"}
                 </div>
-                <div className="px-5 py-2.5">
-                  <div className="text-xs text-ink-faint">
-                    {sinVender ? "Costo por libra" : "Costos"}
-                  </div>
-                  <div className="font-display text-lg font-semibold tnum leading-tight">
-                    {sinVender
-                      ? metrics.costoPorLb != null
-                        ? porLb(metrics.costoPorLb)
-                        : "—"
-                      : money(metrics.costos)}
-                  </div>
+                <div className="font-display text-lg font-semibold tnum leading-tight">
+                  {sinVender
+                    ? metrics.costoPorLb != null
+                      ? porLb(metrics.costoPorLb)
+                      : "—"
+                    : money(metrics.costos)}
                 </div>
               </div>
             </div>
@@ -1330,15 +1311,17 @@ function PrecioMinimo({
           <label className="flex items-center gap-1.5 text-xs text-ink-faint">
             Tu precio
             <input
+              key={String(lote.precioVentaLb ?? "")}
               type="number"
               inputMode="decimal"
+              min={0}
               defaultValue={lote.precioVentaLb ?? ""}
               onBlur={(e) =>
                 db.lotes.update(lote.id, {
-                  precioVentaLb: Number(e.target.value) || undefined,
+                  precioVentaLb: Math.max(0, Number(e.target.value) || 0) || undefined,
                 })
               }
-              className="h-11 w-20 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+              className="h-11 w-20 rounded-xl border border-borde bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
             />
             /lb
           </label>

@@ -67,7 +67,7 @@ export function InversionPorDia({
             onClick={() => setElegido(d)}
             aria-pressed={dia === d}
             className={clsx(
-              'h-10 rounded-full border px-3.5 text-sm font-semibold tnum transition active:scale-95',
+              'h-11 rounded-full border px-3.5 text-sm font-semibold tnum transition active:scale-95',
               dia === d
                 ? 'border-forest-500 bg-forest-50 text-forest-800'
                 : 'border-line bg-paper-raised text-ink-soft',
@@ -76,7 +76,7 @@ export function InversionPorDia({
             {etiquetaOpcion(d)}
           </button>
         ))}
-        <label className="flex h-10 items-center gap-1.5 rounded-full border border-line bg-paper-raised pl-3.5 pr-1 text-sm text-ink-soft">
+        <label className="flex h-11 items-center gap-1.5 rounded-full border border-line bg-paper-raised pl-3.5 pr-1.5 text-sm text-ink-soft">
           Otro
           <input
             type="number"

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Lote } from '../db/schema'
 import { reemplazarSettings, saveSettings, type Galpon, type Settings } from '../lib/settings'
@@ -12,6 +12,7 @@ import { VERSION_RESPALDO } from '../db/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 import { useAbrirCiclo } from '../components/useCicloCompartido'
 import { esArchivoDeCiclo } from '../lib/compartido'
+import { elegirArchivo } from '../lib/archivo'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
 import { Banda, Button, DangerButton, Field, Input, Segmentado, Seccion } from '../components/ui'
@@ -128,17 +129,7 @@ export function Ajustes() {
     toast('Respaldo restaurado.')
   }
 
-  function elegirArchivo(alElegir: (f: File) => void) {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'application/json,.json'
-    input.onchange = () => {
-      const f = input.files?.[0]
-      if (f) alElegir(f)
-    }
-    input.click()
-  }
-  const pickFile = () => elegirArchivo(importar)
+  const pickFile = () => elegirArchivo('application/json,.json', importar)
 
   async function abrirArchivoDeCiclo(file: File) {
     let data: unknown
@@ -275,7 +266,7 @@ export function Ajustes() {
         nota="Si tu socio lleva el ciclo en su teléfono, que te lo mande desde la pestaña Dinero del ciclo. Aquí lo abres: lo ves todo, sin poder cambiarlo, y no se mezcla con tus ciclos."
       />
       <Banda className="px-5 py-4">
-        <Button variant="soft" block onClick={() => elegirArchivo(abrirArchivoDeCiclo)}>
+        <Button variant="soft" block onClick={() => elegirArchivo('application/json,.json', abrirArchivoDeCiclo)}>
           Abrir un ciclo que te mandaron
         </Button>
       </Banda>
@@ -430,11 +421,27 @@ function Galpones({ settings: s }: { settings: Settings }) {
 
 function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
   const [items, setItems] = useState<HitoSanitario[]>(plan)
+  // Se guarda al salir de la casilla, no con cada letra: cada cambio de los
+  // ajustes vuelve a armar el respaldo, y escribir «Gumboro» leía la base
+  // entera siete veces. Si la pantalla se cierra antes, se guarda al salir.
+  const pendiente = useRef<HitoSanitario[] | null>(null)
 
   function guardar(next: HitoSanitario[]) {
-    setItems(next)
-    saveSettings({ planSanitario: next.filter((h) => h.nombre.trim() && h.dia > 0) })
+    pendiente.current = null
+    saveSettings({ planSanitario: limpiarPlan(next) })
   }
+  function cambiar(i: number, cambio: Partial<HitoSanitario>) {
+    const next = items.map((x, j) => (j === i ? { ...x, ...cambio } : x))
+    setItems(next)
+    pendiente.current = next
+  }
+  const soltar = () => pendiente.current && guardar(pendiente.current)
+  useEffect(
+    () => () => {
+      if (pendiente.current) saveSettings({ planSanitario: limpiarPlan(pendiente.current) })
+    },
+    [],
+  )
 
   return (
     <>
@@ -448,16 +455,21 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
           <div key={i} className="flex items-center gap-2">
             <Input
               value={h.nombre}
-              onChange={(e) => guardar(items.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x)))}
+              onChange={(e) => cambiar(i, { nombre: e.target.value })}
+              onBlur={soltar}
               placeholder="Vacuna"
+              aria-label={`Vacuna ${i + 1} del plan`}
               className="flex-1"
             />
             <div className="relative w-28">
               <Input
                 type="number"
                 inputMode="numeric"
+                min={0}
                 value={h.dia || ''}
-                onChange={(e) => guardar(items.map((x, j) => (j === i ? { ...x, dia: Number(e.target.value) || 0 } : x)))}
+                onChange={(e) => cambiar(i, { dia: Math.max(0, Math.round(Number(e.target.value))) || 0 })}
+                onBlur={soltar}
+                aria-label={`Día de la vacuna ${i + 1}`}
                 className="pr-10 text-center"
                 placeholder="día"
               />
@@ -466,16 +478,20 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
               </span>
             </div>
             <button
-              onClick={() => guardar(items.filter((_, j) => j !== i))}
+              onClick={() => {
+                const next = items.filter((_, j) => j !== i)
+                setItems(next)
+                guardar(next)
+              }}
               className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-soft active:bg-paper-sunken"
-              aria-label="Quitar"
+              aria-label={`Quitar ${h.nombre.trim() || `la vacuna ${i + 1}`} del plan`}
             >
               <IconClose width={18} height={18} />
             </button>
           </div>
         ))}
         <button
-          onClick={() => guardar([...items, { nombre: '', dia: 0 }])}
+          onClick={() => setItems([...items, { nombre: '', dia: 0 }])}
           className="-mx-2 -my-3 px-2 py-3 text-sm font-medium text-forest-600"
         >
           + Agregar al plan
@@ -484,6 +500,8 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
     </>
   )
 }
+
+const limpiarPlan = (plan: HitoSanitario[]) => plan.filter((h) => h.nombre.trim() && h.dia > 0)
 
 function FilaEstatica({ label, valor, sub }: { label: string; valor: string; sub: string }) {
   return (
@@ -528,7 +546,7 @@ function FilaNumero({
           // venta o el precio de mercado por debajo de cero.
           onBlur={(e) => onSave(Math.max(0, Number(e.target.value) || 0))}
           placeholder="—"
-          className="h-11 w-20 rounded-xl border border-line bg-paper-raised px-2 text-right font-display text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+          className="h-11 w-20 rounded-xl border border-borde bg-paper-raised px-2 text-right font-display text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
         />
         {unidad && <span className="text-sm text-ink-soft">{unidad}</span>}
       </div>
