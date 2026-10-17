@@ -248,7 +248,7 @@ export function RegistroSheet({
 
         <div>
           <span className="mb-1.5 block text-sm font-medium text-ink-soft">Mortalidad (aves)</span>
-          <Stepper value={mortalidad} onChange={setMortalidad} />
+          <Stepper value={mortalidad} onChange={setMortalidad} etiqueta="Mortalidad" />
         </div>
 
         <div>
@@ -432,7 +432,7 @@ export function RegistroSheet({
           <div className="space-y-4 border-t border-line pt-4">
             <div>
               <span className="mb-1.5 block text-sm font-medium text-ink-soft">Descarte (aves)</span>
-              <Stepper value={descarte} onChange={setDescarte} />
+              <Stepper value={descarte} onChange={setDescarte} etiqueta="Descarte" />
             </div>
             <Field label="Nota">
               <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Opcional" />
@@ -488,24 +488,47 @@ function redondearChip(lb: number, unidad: 'qq' | 'lb') {
   return sacos >= 2 ? Math.round(sacos * 2) / 2 : Math.round(sacos * 10) / 10
 }
 
-function Stepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+// Con un golpe de calor de 80 muertos, tocar el + ochenta veces no se aguanta:
+// el número del medio también se escribe.
+function Stepper({ value, onChange, etiqueta }: { value: number; onChange: (v: number) => void; etiqueta: string }) {
+  // Mientras se escribe se muestra lo escrito, aunque esté vacío; al salir,
+  // vuelve el número.
+  const [texto, setTexto] = useState<string | null>(null)
   return (
     <div className="flex items-center gap-3">
       <button
+        type="button"
         onClick={() => onChange(Math.max(0, value - 1))}
         disabled={value === 0}
         className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-line bg-paper-raised font-display text-2xl font-semibold text-ink-soft transition active:scale-95 disabled:opacity-40"
-        aria-label="Restar"
+        aria-label={`${etiqueta}: una menos`}
       >
         −
       </button>
-      <div className="grid h-14 flex-1 place-items-center rounded-2xl bg-sunken font-display text-2xl font-semibold tnum">
-        {value}
-      </div>
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="off"
+        aria-label={etiqueta}
+        value={texto ?? String(value)}
+        onFocus={(e) => {
+          setTexto(String(value))
+          e.target.select()
+        }}
+        onChange={(e) => {
+          const limpio = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 6)
+          setTexto(limpio)
+          onChange(limpio === '' ? 0 : Number(limpio))
+        }}
+        onBlur={() => setTexto(null)}
+        className="h-14 w-full min-w-0 flex-1 rounded-2xl bg-sunken text-center font-display text-2xl font-semibold tnum outline-none transition focus:ring-2 focus:ring-forest-100"
+      />
       <button
+        type="button"
         onClick={() => onChange(value + 1)}
         className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-forest-50 font-display text-2xl font-semibold text-forest-700 transition active:scale-95"
-        aria-label="Sumar"
+        aria-label={`${etiqueta}: una más`}
       >
         +
       </button>
@@ -1022,7 +1045,12 @@ export function IngresoSheet({
   const [adelanto, setAdelanto] = useState('')
   const [cantidad, setCantidad] = useState('')
   const [pesoLb, setPesoLb] = useState('')
+  const [precio, setPrecio] = useState('')
   const [monto, setMonto] = useState('')
+  // El pollo se vende por libra: el total sale del peso por el precio. Si se
+  // escribe a mano —el comprador redondeó— se queda lo escrito. Al corregir una
+  // venta queda el total guardado, hasta que se cambie el peso o el precio.
+  const [modoTotal, setModoTotal] = useState<'auto' | 'mano' | 'guardado'>('auto')
   const [fecha, setFecha] = useState(hoyISO())
   const [recibidoPor, setRecibidoPor] = useState('')
   const [cerrar, setCerrar] = useState(true)
@@ -1031,14 +1059,24 @@ export function IngresoSheet({
     if (!open) return
     setCantidad(editar ? String(editar.cantidad) : '')
     setPesoLb(editar?.pesoLb != null ? String(editar.pesoLb) : '')
+    setPrecio(
+      editar
+        ? editar.pesoLb
+          ? String(Math.round((editar.monto / editar.pesoLb) * 100) / 100)
+          : ''
+        : lote.precioVentaLb
+          ? String(lote.precioVentaLb)
+          : '',
+    )
     setMonto(editar ? String(editar.monto) : '')
+    setModoTotal(editar ? 'guardado' : 'auto')
     setFecha(editar?.fecha ?? hoyISO())
     setRecibidoPor(editar?.recibidoPor != null ? String(editar.recibidoPor) : '')
     setCerrar(true)
     setComprador(editar?.comprador ?? '')
     setCredito(!!editar?.credito)
     setAdelanto('')
-  }, [open, editar])
+  }, [open, editar, lote.precioVentaLb])
 
   // Vender con «Venta» las aves que quedan dejaba el ciclo abierto con el
   // galpón vacío, pidiendo el registro del día. Si esta venta se lleva las
@@ -1058,8 +1096,14 @@ export function IngresoSheet({
           ? `Solo hay ${num(maxAves)} ${plural(maxAves, 'ave', 'aves')} en el galpón.`
           : undefined
   const errorPeso = errorNegativo(pesoLb)
+  const errorPrecio = errorNegativo(precio)
 
-  const total = Number(monto) || 0
+  const lb = Number(pesoLb) || 0
+  const precioLb = Number(precio) || 0
+  const totalAuto = lb > 0 && precioLb > 0 ? Math.round(lb * precioLb) : 0
+  const total = modoTotal === 'auto' ? totalAuto : Number(monto) || 0
+  // Cambiar el peso o el precio de una venta guardada vuelve a sacar el total.
+  const recalcular = () => setModoTotal((m) => (m === 'guardado' ? 'auto' : m))
   const dio = Math.min(Number(adelanto) || 0, total)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && (!!editar || dio < total)
@@ -1177,21 +1221,55 @@ export function IngresoSheet({
               inputMode="decimal"
               min={0}
               value={pesoLb}
-              onChange={(e) => setPesoLb(e.target.value)}
+              onChange={(e) => {
+                setPesoLb(e.target.value)
+                recalcular()
+              }}
               placeholder="0"
             />
           </Field>
-          <Field label="Total de la venta" error={errorTotal}>
+          <Field label="Precio por libra" error={errorPrecio}>
             <Input
               type="number"
               inputMode="decimal"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
+              min={0}
+              value={precio}
+              onChange={(e) => {
+                setPrecio(e.target.value)
+                recalcular()
+              }}
+              placeholder="0"
+            />
+          </Field>
+          <Field
+            label="Total de la venta"
+            error={errorTotal}
+            hint={
+              modoTotal === 'mano'
+                ? 'Lo escribiste a mano'
+                : modoTotal === 'auto' && totalAuto > 0
+                  ? 'Peso por precio; puedes corregirlo'
+                  : undefined
+            }
+          >
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={modoTotal === 'auto' ? (totalAuto ? String(totalAuto) : '') : monto}
+              onChange={(e) => {
+                setModoTotal('mano')
+                setMonto(e.target.value)
+              }}
               placeholder="0"
               aria-invalid={!!errorTotal}
             />
           </Field>
-          <Field label="Fecha" error={errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })}>
+          <Field
+            label="Fecha"
+            className="col-span-2"
+            error={errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })}
+          >
             <Input
               type="date"
               value={fecha}
@@ -1263,18 +1341,19 @@ export function IngresoSheet({
           block
           disabled={
             !(nAves > 0) ||
-            !(Number(monto) > 0) ||
+            !(total > 0) ||
             ocupado ||
             !!errorAves ||
             !!errorPeso ||
+            !!errorPrecio ||
             !!errorTotal ||
             !!errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })
           }
           motivo={
             !(nAves > 0)
               ? 'Falta cuántas aves vendiste.'
-              : !(Number(monto) > 0)
-                ? 'Falta el total de la venta.'
+              : !(total > 0)
+                ? 'Falta el peso y el precio, o el total de la venta.'
                 : undefined
           }
           onClick={enviar(guardar)}

@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLoteData, useSettings } from '../../lib/hooks'
 import { Button } from '../../components/ui'
 import { IconBack } from '../../components/icons'
+import { useVolver } from '../../components/useVolver'
 import { FichaAlimento } from './Alimento'
 import { FichaGalpon } from './Galpon'
 import { FichaGastos } from './Gastos'
@@ -21,6 +22,7 @@ export type TipoFicha = keyof typeof FICHAS
 export function Ficha() {
   const { id, tipo } = useParams()
   const nav = useNavigate()
+  const volver = useVolver(`/lotes/${id}`)
   const data = useLoteData(id ? Number(id) : undefined)
   const settings = useSettings()
   const ficha = FICHAS[tipo as TipoFicha]
@@ -54,7 +56,7 @@ export function Ficha() {
     <div className="animate-rise">
       <header className="flex items-center gap-3 py-4">
         <button
-          onClick={() => nav(`/lotes/${lote.id}`)}
+          onClick={volver}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper-sunken"
           aria-label="Volver al ciclo"
         >
