@@ -42,3 +42,14 @@ describe('revisarFilas', () => {
     ).toBe('1 gasto viene incompleto o dañado')
   })
 })
+
+describe('lo que va dentro de cada fila', () => {
+  it('un cobro con el monto como texto no pasa', () => {
+    const venta = { id: 1, loteId: 1, tipo: 'aves', cantidad: 10, monto: 9000, fecha: '2026-10-01', credito: true, cobros: [{ fecha: 'ayer', monto: '5000' }], creado: 0 }
+    expect(revisarFilas('ingresos', [venta])).toBe('1 venta viene incompleta o dañada')
+  })
+
+  it('un socio sin nombre de texto no pasa', () => {
+    expect(revisarFilas('lotes', [lote({ socios: [{ nombre: 3 as unknown as string, pct: 50 }] })])).toBeDefined()
+  })
+})
