@@ -8,6 +8,7 @@ import { estadoAgua, type ResumenAgua, resumenAgua } from '../../lib/agua'
 import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
 import { precioQuintalReal } from '../../lib/precios'
 import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
+import { juicioFca } from '../../lib/metrics'
 import { pesoObjetivoDe } from '../../lib/lote'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { db } from '../../db/schema'
@@ -40,6 +41,7 @@ export function FichaAlimento({
   const consumo = metrics.alimento
   const diaFca = Math.min(metrics.diaAlimento ?? metrics.dias, metrics.dias)
   const stdFca = fcaEstandar(diaFca)
+  const estadoFca = juicioFca(metrics)?.estado
   const agua = resumenAgua(lote, registros)
   const activo = lote.estado === 'activo'
   const ultimoConteo = consumo.conteos.length ? consumo.conteos[consumo.conteos.length - 1] : undefined
@@ -84,14 +86,17 @@ export function FichaAlimento({
                   <div
                     className={
                       'font-display text-xl font-semibold leading-none tnum ' +
-                      (metrics.fca > stdFca + 0.1 ? 'text-clay-deep' : 'text-forest-600')
+                      (estadoFca === 'bien' ? 'text-forest-600' : 'text-clay-deep')
                     }
                   >
                     {num(metrics.fca, 2)}
                   </div>
                   <div className="mt-0.5 text-xs text-ink-faint tnum">
-                    Cobb {num(stdFca, 2)}
-                    {diaFca < metrics.dias ? ` · al día ${diaFca}` : ''}
+                    {estadoFca === 'dudosoBajo'
+                      ? 'no cuadra: falta alimento'
+                      : estadoFca === 'dudosoAlto'
+                        ? 'no cuadra: revisa lo anotado'
+                        : `Cobb ${num(stdFca, 2)}${diaFca < metrics.dias ? ` · al día ${diaFca}` : ''}`}
                   </div>
                 </>
               ) : (
