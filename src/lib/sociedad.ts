@@ -7,7 +7,10 @@ export interface SocioBalance {
   pct: number
   /** Lo que pagó de su bolsillo: los pollitos y los gastos, o su parte de lo común. */
   aporte: number
-  /** Lo que le entró de las ventas. */
+  /**
+   * Lo que le entró de las ventas. Mientras el ciclo sigue lo guarda para
+   * repartirlo al cerrar: no cuenta como dinero que ya recuperó.
+   */
   cobrado: number
   /** Lo que les dio a los otros socios. */
   entregado: number
@@ -19,7 +22,8 @@ export interface SocioBalance {
   corresponde: number
   /**
    * Lo que le falta para quedar según el acuerdo. Positivo: le falta recibir
-   * (o, antes de vender, puso de más). Negativo: tiene de más (o le falta poner).
+   * (o, mientras el ciclo sigue, puso de más). Negativo: tiene de más (o le
+   * falta poner).
    */
   ajuste: number
 }
@@ -127,13 +131,19 @@ export function computeLiquidacion(
     movido += e.monto
   }
 
-  // Lo que cada uno tiene en la mano por el ciclo —lo que cobró y le dieron,
-  // menos lo que puso y entregó— tiene que terminar siendo su parte de la
-  // ganancia. Antes de vender la ganancia es menos los costos, y la misma
-  // cuenta dice quién ha puesto de más.
+  // Al cerrar, lo que cada uno tiene en la mano por el ciclo —lo que cobró y
+  // le dieron, menos lo que puso y entregó— tiene que terminar siendo su parte
+  // de la ganancia. Mientras el ciclo sigue, la cuenta es solo de lo que pone
+  // cada uno: el dinero de las ventas lo guarda quien lo cobró y se reparte al
+  // final de la pollada. Antes se restaba de lo que le tocaba recibir por los
+  // gastos, como si ya fuera suyo.
+  const alCierre = lote.estado === 'cerrado'
   const balances: SocioBalance[] = socios.map((s, i) => {
     const corresponde = fr[i] * m.ganancia
-    const enMano = cobrado[i] + recibido[i] - aporte[i] - entregado[i]
+    const leTocaPoner = fr[i] * m.costos
+    const ajuste = alCierre
+      ? corresponde - (cobrado[i] + recibido[i] - aporte[i] - entregado[i])
+      : aporte[i] + entregado[i] - recibido[i] - leTocaPoner
     return {
       nombre: nombreSocio(s, i),
       pct: fr[i] * 100,
@@ -141,9 +151,9 @@ export function computeLiquidacion(
       cobrado: cobrado[i],
       entregado: entregado[i],
       recibido: recibido[i],
-      leTocaPoner: fr[i] * m.costos,
+      leTocaPoner,
       corresponde,
-      ajuste: corresponde - enMano,
+      ajuste,
     }
   })
 
