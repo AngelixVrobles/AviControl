@@ -230,3 +230,41 @@ describe('proyección vendiendo el pollo arreglado', () => {
     expect(arreglado.precioEquilibrioLb).toBeGreaterThan(enPie.precioEquilibrioLb)
   })
 })
+
+describe('con un día de venta fijo', () => {
+  // El productor vende a los días que quiere, no cuando lleguen al peso: el
+  // alimento que falta y el pago de los empleados van hasta ese día.
+  const registros = [registro(30, { pesoPromedio: pesoEstandarLb(30), alimentoLb: 4000 })]
+  const proyectarDia = (diaVenta?: number) => {
+    const l = lote({ precioVentaLb: 60, diaVenta, empleados: { monto: 700, cada: 'semana' } })
+    const m = computeMetrics(l, registros, gastos, [])
+    return { p: proyectarVenta(l, registros, gastos, m, 5.5)!, m }
+  }
+
+  it('se vende ese día, al peso que lleven', () => {
+    const { p, m } = proyectarDia(42)
+    expect(m.diaObjetivo).toBe(42)
+    expect(m.diaVentaEstimado).toBe(42)
+    expect(p.diaVenta).toBe(42)
+    expect(p.pesoVentaLb).toBeCloseTo(pesoEstandarLb(42), 5)
+  })
+
+  it('más días son más alimento y más sueldo', () => {
+    const corto = proyectarDia(35).p
+    const largo = proyectarDia(45).p
+    expect(largo.alimentoRestanteLb).toBeGreaterThan(corto.alimentoRestanteLb)
+    expect(largo.faltaEmpleados - corto.faltaEmpleados).toBeCloseTo(1000, 5)
+  })
+
+  it('si ya pasó el día, se vende hoy', () => {
+    const { p } = proyectarDia(25)
+    expect(p.listo).toBe(true)
+    expect(p.diaVenta).toBe(30)
+  })
+
+  // 0 es «por peso» a propósito: no toma el día de Ajustes.
+  it('con 0 se vende por peso', () => {
+    const { m } = proyectarDia(0)
+    expect(m.diaVentaFijo).toBeUndefined()
+  })
+})

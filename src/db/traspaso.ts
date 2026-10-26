@@ -13,12 +13,21 @@ export async function pasarAlimento({
   qq,
   monto,
   fecha,
+  seLoQueda,
+  loPone,
 }: {
   desde: Pick<Lote, 'id' | 'nombre'>
   hacia: Pick<Lote, 'id' | 'nombre'>
   qq: number
   monto: number
   fecha: string
+  /**
+   * Con socios distintos en cada ciclo: el socio del ciclo que lo pasa que se
+   * queda con el alimento, y el del que lo recibe que lo pone. Sin ellos, lo
+   * de todos según su parte, como cuando los socios son los mismos.
+   */
+  seLoQueda?: number
+  loPone?: number
 }) {
   await db.transaction('rw', db.gastos, async () => {
     const creado = Date.now()
@@ -30,6 +39,7 @@ export async function pasarAlimento({
       fecha,
       descripcion: `Lo que sobró de ${desde.nombre}`,
       traspaso: { loteId: desde.id },
+      pagadoPor: loPone,
       creado,
     })) as number
     const sale = (await db.gastos.add({
@@ -40,6 +50,8 @@ export async function pasarAlimento({
       fecha,
       descripcion: `Pasado a ${hacia.nombre}`,
       traspaso: { loteId: hacia.id, gastoId: llega },
+      // En negativo: lo que ese socio puso le vuelve en sacos.
+      pagadoPor: seLoQueda,
       creado,
     })) as number
     await db.gastos.update(llega, { traspaso: { loteId: desde.id, gastoId: sale } })

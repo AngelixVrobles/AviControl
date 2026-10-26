@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeLiquidacion, fraseEntrega, gananciaPorSocio, sociosParaGuardar } from './sociedad'
+import { computeLiquidacion, fraseEntrega, gananciaPorSocio, mismosSocios, sociosParaGuardar } from './sociedad'
 import { computeMetrics } from './metrics'
 import { entrega, gasto, ingreso, lote, registro } from '../test/fixtures'
 
@@ -350,5 +350,39 @@ describe('sociedad con ventas antes de cerrar', () => {
     expect(liq.traspasos[0]).toMatchObject({ de: 'Yo', a: 'Pedro', monto: 15000 })
     const cerrado = computeLiquidacion({ ...l, estado: 'cerrado' }, gastos, ingresos, m)!
     expect(cerrado.conVentas).toBe(true)
+  })
+})
+
+describe('alimento que pasa entre ciclos con socios distintos', () => {
+  // Ana pagó 100,000 de alimento y Beto 50,000 de pollitos; sobraron 10,000 de
+  // alimento que se lleva Ana a su ciclo. Antes la cuenta no cambiaba: Beto
+  // seguía entregando 25,000 y su parte de esos sacos no se la pagaba nadie.
+  const l = lote({ socios, costoInicial: 50000, costoInicialPagadoPor: 1 })
+  const compra = gasto({ id: 1, categoria: 'alimento', monto: 100000, pagadoPor: 0 })
+  const pasa = (seLoQueda?: number) =>
+    gasto({ id: 2, categoria: 'alimento', monto: -10000, cantidadQq: -5, pagadoPor: seLoQueda, traspaso: { loteId: 9, gastoId: 3 } })
+
+  it('los mismos socios: lo de todos, como antes', () => {
+    const { liq } = liquidar(l, [compra, pasa()])
+    expect(liq.traspasos).toMatchObject([{ de: 'Beto', a: 'Ana', monto: 25000 }])
+  })
+
+  it('si se lo queda un socio, le cuenta como lo que se lleva', () => {
+    const { liq } = liquidar(l, [compra, pasa(0)])
+    expect(liq.traspasos).toMatchObject([{ de: 'Beto', a: 'Ana', monto: 20000 }])
+    expect(liq.socios[0].aporte).toBe(90000)
+  })
+})
+
+describe('mismosSocios', () => {
+  it('los mismos nombres con las mismas partes, sin importar el orden', () => {
+    expect(mismosSocios(socios, [{ nombre: 'beto', pct: 1 }, { nombre: 'Ana', pct: 1 }])).toBe(true)
+    expect(mismosSocios(undefined, [])).toBe(true)
+  })
+
+  it('otro socio, otras partes o uno sin socios no son los mismos', () => {
+    expect(mismosSocios(socios, [{ nombre: 'Ana', pct: 50 }, { nombre: 'Carlos', pct: 50 }])).toBe(false)
+    expect(mismosSocios(socios, [{ nombre: 'Ana', pct: 60 }, { nombre: 'Beto', pct: 40 }])).toBe(false)
+    expect(mismosSocios(socios, undefined)).toBe(false)
   })
 })

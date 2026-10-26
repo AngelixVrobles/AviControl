@@ -3,7 +3,7 @@ import { db } from '../db/schema'
 import { guardarCicloCompartido } from '../db/compartido'
 import { entregarArchivo, nombreArchivo } from '../lib/archivo'
 import { claveOrigen, leerCiclo, type CicloCompartido } from '../lib/compartido'
-import { enumerar, fecha } from '../lib/format'
+import { diaLocal, enumerar, fecha } from '../lib/format'
 import { confirmar, toast } from './confirm'
 
 // Manda el ciclo como archivo: por WhatsApp o donde quieras, y el socio lo abre
@@ -13,7 +13,7 @@ export async function mandarCiclo(ciclo: CicloCompartido) {
     type: 'application/json',
   })
   try {
-    const como = await entregarArchivo(archivo)
+    const como = await entregarArchivo(archivo, { comoTexto: true })
     if (como === 'descargado')
       toast('Ciclo descargado: mándale el archivo a tu socio por WhatsApp o el correo.')
   } catch {
@@ -48,7 +48,7 @@ export function useAbrirCiclo() {
     const ok = await confirmar({
       titulo: previa ? 'Poner al día el ciclo' : 'Abrir el ciclo',
       mensaje: previa
-        ? `${ciclo.lote.nombre}, de ${ciclo.de}, se pone al día con lo que mandó el ${fecha(ciclo.exportado.slice(0, 10))}${trae ? `: ${trae}` : ''}.`
+        ? `${ciclo.lote.nombre}, de ${ciclo.de}, se pone al día con lo que mandó el ${fecha(diaLocal(ciclo.exportado))}${trae ? `: ${trae}` : ''}.`
         : `${ciclo.lote.nombre}, de ${ciclo.de}${trae ? `, con ${trae}` : ''}. Queda como una copia para mirar: no se puede cambiar, y no entra en las cuentas de tu granja.`,
       confirmar: previa ? 'Poner al día' : 'Abrir',
     })

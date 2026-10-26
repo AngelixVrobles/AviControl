@@ -6,6 +6,7 @@ import { toast } from './confirm'
 import { useEnvio } from './useEnvio'
 import { fecha as fechaCorta, hoyISO, money, num } from '../lib/format'
 import { errorFechaDelCiclo } from '../lib/lote'
+import { esYo, mismosSocios, nombreSocio } from '../lib/sociedad'
 
 // El alimento que sobró en el almacén al cerrar, al ciclo que sigue: con su
 // costo, para que el que cierra no cargue con sacos que no se comió y el que
@@ -32,14 +33,19 @@ export function TraspasoAlimentoSheet({
   const [monto, setMonto] = useState('')
   const [montoTocado, setMontoTocado] = useState(false)
   const [fecha, setFecha] = useState(hoyISO())
+  const [seLoQueda, setSeLoQueda] = useState('')
+  const [loPone, setLoPone] = useState('')
 
   const destino = destinos.find((d) => String(d.id) === destinoId) ?? destinos[0]
+  const sociosDesde = lote.socios && lote.socios.length >= 2 ? lote.socios : undefined
+  const sociosHacia = destino?.socios && destino.socios.length >= 2 ? destino.socios : undefined
+  const iguales = !destino || mismosSocios(lote.socios, destino.socios)
 
   // Por referencia: lo que llega de la base mientras la hoja está abierta no
   // vuelve a llenar lo que se está escribiendo.
-  const datos = useRef({ sobranQq, destinos, cierre: lote.fechaCierre })
+  const datos = useRef({ sobranQq, destinos, cierre: lote.fechaCierre, lote, destino })
   useEffect(() => {
-    datos.current = { sobranQq, destinos, cierre: lote.fechaCierre }
+    datos.current = { sobranQq, destinos, cierre: lote.fechaCierre, lote, destino }
   })
 
   useEffect(() => {
@@ -56,20 +62,50 @@ export function TraspasoAlimentoSheet({
     setFecha(primero && primero.fechaInicio > (cierre ?? hoy) ? primero.fechaInicio : hoy)
   }, [open])
 
+  // De quién es el alimento cuando los socios no son los mismos. Si el ciclo
+  // que lo recibe es tuyo solo, se lo queda «Yo»; si el que lo pasa era tuyo
+  // solo, lo pone «Yo». Si no se sabe, todos según su parte.
+  useEffect(() => {
+    if (!open) return
+    const { lote, destino } = datos.current
+    const yo = (socios?: { nombre: string }[]) => socios?.findIndex((s) => esYo(s.nombre)) ?? -1
+    const desdeYo = yo(lote.socios)
+    const haciaYo = yo(destino?.socios)
+    const sinSocios = (socios?: unknown[]) => !socios || socios.length < 2
+    setSeLoQueda(sinSocios(destino?.socios) && desdeYo >= 0 ? String(desdeYo) : '')
+    setLoPone(sinSocios(lote.socios) && haciaYo >= 0 ? String(haciaYo) : '')
+  }, [open, destino?.id])
+
   const nQq = Math.max(0, Number(qq.replace(',', '.')) || 0)
   const montoAuto = precioQq ? Math.round(nQq * precioQq) : 0
   const total = montoTocado ? Math.max(0, Number(monto) || 0) : montoAuto
-  const errorFecha = destino ? errorFechaDelCiclo(fecha, destino) : undefined
+  // No se pasa más de lo que sobró: 50 qq que no existían le bajaban los
+  // costos al ciclo cerrado y le daban una conversión de 1.04.
+  const tope = Math.round(sobranQq * 10) / 10
+  const errorQq = nQq > tope + 0.05 ? `Por las cuentas sobran ${num(tope, 1)} qq: no se puede pasar más.` : undefined
+  // Pasa después del cierre: los sacos que sobraron se cuentan al cerrar.
+  const errorFecha =
+    lote.fechaCierre && fecha < lote.fechaCierre
+      ? `Es antes del cierre de ${lote.nombre} (${fechaCorta(lote.fechaCierre)}).`
+      : destino
+        ? errorFechaDelCiclo(fecha, destino)
+        : undefined
   const motivo = !destino
     ? 'No hay otro ciclo en curso.'
     : !(nQq > 0)
       ? 'Pon cuántos quintales pasan.'
-      : !(total > 0)
-        ? 'Pon lo que valen.'
-        : errorFecha
+      : (errorQq ?? (!(total > 0) ? 'Pon lo que valen.' : errorFecha))
 
   async function guardar() {
-    await pasarAlimento({ desde: lote, hacia: destino!, qq: nQq, monto: total, fecha })
+    await pasarAlimento({
+      desde: lote,
+      hacia: destino!,
+      qq: nQq,
+      monto: total,
+      fecha,
+      seLoQueda: !iguales && sociosDesde && seLoQueda !== '' ? Number(seLoQueda) : undefined,
+      loPone: !iguales && sociosHacia && loPone !== '' ? Number(loPone) : undefined,
+    })
     toast(`${num(nQq, 1)} qq pasaron a ${destino!.nombre}`)
     onClose()
   }
@@ -93,7 +129,11 @@ export function TraspasoAlimentoSheet({
               </Select>
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Quintales" hint={sobranQq > 0 ? `Por las cuentas sobran ${num(sobranQq, 1)}` : undefined}>
+              <Field
+                label="Quintales"
+                error={errorQq}
+                hint={sobranQq > 0 ? `Por las cuentas sobran ${num(sobranQq, 1)}` : undefined}
+              >
                 <Input type="number" inputMode="decimal" min={0} value={qq} onChange={(e) => setQq(e.target.value)} placeholder="0" />
               </Field>
               <Field
@@ -114,8 +154,46 @@ export function TraspasoAlimentoSheet({
               </Field>
             </div>
             <Field label="Fecha" error={errorFecha}>
-              <Input type="date" value={fecha} max={hoyISO()} onChange={(e) => setFecha(e.target.value)} />
+              <Input
+                type="date"
+                value={fecha}
+                min={lote.fechaCierre}
+                max={hoyISO()}
+                onChange={(e) => setFecha(e.target.value)}
+              />
             </Field>
+            {!iguales && (sociosDesde || sociosHacia) && (
+              <div className="space-y-3 rounded-xl2 border border-line bg-paper-raised p-4">
+                <p className="text-sm leading-relaxed text-ink-soft">
+                  Los socios no son los mismos en los dos ciclos: di de quién es el alimento, para que la cuenta de
+                  cada uno salga bien.
+                </p>
+                {sociosDesde && (
+                  <Field label={`En ${lote.nombre}, ¿quién se queda con él?`}>
+                    <Select value={seLoQueda} onChange={(e) => setSeLoQueda(e.target.value)}>
+                      <option value="">Todos, según su parte</option>
+                      {sociosDesde.map((s, i) => (
+                        <option key={i} value={i}>
+                          {nombreSocio(s, i)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
+                {sociosHacia && destino && (
+                  <Field label={`En ${destino.nombre}, ¿quién lo pone?`}>
+                    <Select value={loPone} onChange={(e) => setLoPone(e.target.value)}>
+                      <option value="">Todos, según su parte</option>
+                      {sociosHacia.map((s, i) => (
+                        <option key={i} value={i}>
+                          {nombreSocio(s, i)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
+              </div>
+            )}
             <p className="text-sm leading-relaxed text-ink-soft">
               {lote.nombre} deja de cargar con {money(total)} y {destino?.nombre} los tiene en su almacén como una
               compra. Se deshace tocando el gasto en cualquiera de los dos.

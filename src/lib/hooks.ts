@@ -13,6 +13,8 @@ import { compradoresConocidos, cuentasPorCobrar } from './cobros'
 import { computeArranque, type Arranque } from './arranque'
 import { retiroEn, type Retiro } from './retiro'
 import { modoVenta, preciosDeVenta, type ModoVenta } from './venta'
+import { galponInicial } from './galpones'
+import { avesPorGalpon } from './reparto'
 
 // La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
 // cuentas del ciclo dependen del día: con la app abierta de un día para otro,
@@ -56,6 +58,35 @@ export function useLotes(estado?: 'activo' | 'cerrado') {
   }, [estado])
 }
 
+export interface Ocupacion {
+  /** Los galpones con aves de un ciclo en curso, hoy. */
+  ocupados: Set<string>
+  /** Las aves de cada ciclo en curso en cada galpón. */
+  porGalpon: Map<string, { lote: Lote; aves: number }[]>
+}
+
+// Los galpones que tienen aves hoy, con las bajas, los movimientos y las
+// ventas de cada ciclo en curso. Antes contaba solo lo que se movió: un galpón
+// que se vació con una venta seguía ocupado, el ciclo nuevo no lo proponía y en
+// Ajustes no se podía quitar.
+export function useOcupacion(): Ocupacion | undefined {
+  const hoy = useHoy()
+  const settings = useSettings()
+  return useLiveQuery(async () => {
+    const activos = (await db.lotes.where('estado').equals('activo').toArray()).filter((l) => !l.compartido)
+    const porGalpon = new Map<string, { lote: Lote; aves: number }[]>()
+    for (const lote of activos) {
+      const [registros, ingresos] = await Promise.all([
+        db.registros.where('loteId').equals(lote.id).toArray(),
+        db.ingresos.where('loteId').equals(lote.id).toArray(),
+      ])
+      for (const c of avesPorGalpon(lote, galponInicial(lote, settings), registros, ingresos, hoy))
+        porGalpon.set(c.galponId, [...(porGalpon.get(c.galponId) ?? []), { lote, aves: c.aves }])
+    }
+    return { ocupados: new Set(porGalpon.keys()), porGalpon }
+  }, [hoy, settings])
+}
+
 // Inicio solo necesita saber cuántos ciclos se cerraron: sacar las cuentas de
 // cada uno para contarlos eran 248 consultas con 60 ciclos, y la pantalla se
 // quedaba en blanco hasta terminar.
@@ -73,6 +104,8 @@ export interface LoteConMetrics {
   arranque?: Arranque
   /** El retiro de una medicina que todavía no se cumple: no se vende antes. */
   retiro?: Retiro
+  /** En un ciclo en curso, los galpones donde tiene aves hoy. */
+  galpones?: string[]
 }
 
 export function useLoteData(id: number | undefined) {
@@ -163,6 +196,10 @@ export function useResumen(
         precio,
         arranque: computeArranque(lote, registros, metrics.dias),
         retiro: lote.estado === 'activo' ? retiroEn(aplicaciones, hoy) : undefined,
+        galpones:
+          lote.estado === 'activo'
+            ? avesPorGalpon(lote, galponInicial(lote, settings), registros, ingresos, hoy).map((c) => c.galponId)
+            : undefined,
       })
     }
     return out

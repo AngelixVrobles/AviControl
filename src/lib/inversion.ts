@@ -46,8 +46,11 @@ export function invertidoAlDia(
 
   const porCategoria = new Map<CategoriaGasto, number>()
   if (lote.costoInicial > 0) porCategoria.set('aves', lote.costoInicial)
+  // El alimento que se pasó a otro ciclo resta: sin él, el ciclo que lo dio
+  // decía RD$144,000 invertidos con RD$134,000 de costos.
+  const cuenta = (g: Gasto) => g.monto > 0 || (!!g.traspaso && g.monto < 0)
   for (const g of incluidos) {
-    if (!(g.monto > 0)) continue
+    if (!cuenta(g)) continue
     porCategoria.set(g.categoria, (porCategoria.get(g.categoria) ?? 0) + g.monto)
   }
   const partes = [...porCategoria.entries()]
@@ -79,7 +82,7 @@ export function curvaInversion(
   const diaFinal = diaDelCiclo(lote, hoy)
   const aves = Math.max(1, lote.cantidadInicial)
   const ordenados = gastos
-    .filter((g) => g.monto > 0)
+    .filter((g) => g.monto > 0 || (!!g.traspaso && g.monto < 0))
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
 
   const out: (number | undefined)[] = []

@@ -210,7 +210,7 @@ export function GraficaLineas({
             {tramos.map((t, i) => (
               <path
                 key={i}
-                className="animate-aparecer"
+                className="animate-aparecer-lento"
                 d={rutaCerrada(
                   t.puntos.map((p) => ({ x: ex(p.x), y: ey(p.a) })),
                   t.puntos.map((p) => ({ x: ex(p.x), y: ey(p.b) })),
@@ -355,7 +355,7 @@ function NotaAlMargen({
   const fin = x + (aLaIzquierda ? -12 : 12)
 
   return (
-    <g className="animate-aparecer">
+    <g className="animate-aparecer-lento">
       <line x1={x} y1={y} x2={fin} y2={y} stroke={TINTA.texto} strokeOpacity={0.45} />
       <Rotulo
         x={fin + (aLaIzquierda ? -3 : 3)}
@@ -400,7 +400,7 @@ function Trazos({
         .map((t, i) => (
           <path
             key={i}
-            className={serie.punteada ? 'animate-aparecer' : 'animate-trazo'}
+            className={serie.punteada ? 'animate-aparecer-lento' : 'animate-trazo'}
             d={ruta(t)}
             fill="none"
             stroke={tono}

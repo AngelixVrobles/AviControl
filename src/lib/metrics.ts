@@ -2,7 +2,7 @@ import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
 import { consumoAlimento, type ConsumoAlimento } from './consumo'
 import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
 import { pendienteDe } from './cobros'
-import { pesoObjetivoDe } from './lote'
+import { diaVentaDe, pesoObjetivoDe } from './lote'
 import { KG_POR_LB, diaParaPeso, fcaEstandar, pesoEstandarLb } from './standards'
 import { lbEnPieDe } from './venta'
 
@@ -52,7 +52,10 @@ export interface LoteMetrics {
   iep?: number
   factorCurva: number
 
+  /** El día de venta: el que se fijó, o el día en que llegan al peso de venta. */
   diaObjetivo: number
+  /** El día de venta que se fijó, en el ciclo o en Ajustes. */
+  diaVentaFijo?: number
   diaVentaEstimado?: number
   fechaVentaEstimada?: string
 
@@ -147,7 +150,10 @@ export function computeMetrics(
     pesoPromedioLb != null && ultimoPeso
       ? pesoPromedioLb / pesoEstandarLb(diasEntre(lote.fechaInicio, ultimoPeso.fecha))
       : 1
-  const diaObjetivo = diaParaPeso(pesoObjetivo, factorCurva)
+  // Con un día de venta fijo, el ciclo termina ese día: el pago de los
+  // empleados, el alimento y los avisos van hasta ahí.
+  const diaVentaFijo = diaVentaDe(lote)
+  const diaObjetivo = diaVentaFijo ?? diaParaPeso(pesoObjetivo, factorCurva)
 
   // Un peso medido envejece: a los tres días ya no es el del galpón. Se proyecta
   // a hoy con la misma curva escalada, porque si no el alimento de esos días se
@@ -227,7 +233,10 @@ export function computeMetrics(
 
   let diaVentaEstimado: number | undefined
   let fechaVentaEstimada: string | undefined
-  if (pesoEstimadoLb != null && avesVivas > 0) {
+  if (diaVentaFijo != null && avesVivas > 0) {
+    diaVentaEstimado = Math.max(dias, diaVentaFijo)
+    fechaVentaEstimada = diaVentaFijo <= dias ? hoyISO() : sumarDias(lote.fechaInicio, diaVentaFijo)
+  } else if (pesoEstimadoLb != null && avesVivas > 0) {
     if (pesoEstimadoLb >= pesoObjetivo) {
       diaVentaEstimado = dias
       fechaVentaEstimada = hoyISO()
@@ -257,6 +266,7 @@ export function computeMetrics(
     iep,
     factorCurva,
     diaObjetivo,
+    diaVentaFijo,
     diaVentaEstimado,
     fechaVentaEstimada,
   }

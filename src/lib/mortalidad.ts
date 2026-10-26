@@ -1,5 +1,6 @@
 import type { CausaBaja, Ingreso, Lote, Registro } from '../db/schema'
 import { diasEntre } from './format'
+import { CAUSAS_BAJA } from './labels'
 import { mortalidadEsperadaPct } from './standards'
 
 export interface DiaMortalidad {
@@ -128,7 +129,12 @@ export function causasDelCiclo(registros: Pick<Registro, 'mortalidad' | 'causa'>
   for (const r of registros) {
     const n = r.mortalidad ?? 0
     if (n <= 0) continue
-    if (r.causa) por.set(r.causa, (por.get(r.causa) ?? 0) + n)
+    // Una causa que la app no conoce —de un respaldo de otra versión, o escrita a
+    // mano— cuenta como «Otra»: antes trababa la ficha Aves.
+    if (r.causa) {
+      const causa = CAUSAS_BAJA.some((c) => c.id === r.causa) ? r.causa : 'otra'
+      por.set(causa, (por.get(causa) ?? 0) + n)
+    }
     else sinCausa += n
   }
   const conCausa = [...por.values()].reduce((a, n) => a + n, 0)

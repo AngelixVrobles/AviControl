@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { diasSinRespaldo, nombreRespaldo, tocaRecordarRespaldo, validarRespaldo } from './respaldo'
+import {
+  diasSinRespaldo,
+  fechaDelRespaldo,
+  nombreRespaldo,
+  tocaRecordarRespaldo,
+  validarRespaldo,
+  type Respaldo,
+} from './respaldo'
 import { haceCuanto } from './format'
 import { gasto, ingreso, lote, registro } from '../test/fixtures'
 
@@ -91,6 +98,40 @@ describe('validarRespaldo', () => {
   it('una fila que no es una fila no rompe la migración', () => {
     const r = validarRespaldo({ ...base(), registros: [null] }, 4)
     expect(r.ok).toBe(false)
+  })
+})
+
+// Restaurar reemplaza todo: antes de hacerlo se dice de cuándo es el archivo,
+// para no volver sin querer a uno de hace un mes.
+describe('fechaDelRespaldo', () => {
+  const vacio: Respaldo = { lotes: [], registros: [], gastos: [], ingresos: [], pesajes: [], aplicaciones: [], deudas: [], abonos: [], entregas: [] }
+
+  it('uno nuevo dice el día en que se hizo, en la hora de aquí', () => {
+    // Las 9 de la noche en Santo Domingo ya son mañana en Londres.
+    const r = { ...vacio, exportado: new Date(2026, 9, 12, 21, 0).toISOString() }
+    expect(fechaDelRespaldo(r)).toEqual({ fecha: '2026-10-12', exacta: true })
+  })
+
+  it('uno de antes de la 1.13 dice el último día que trae anotado', () => {
+    const r = {
+      ...vacio,
+      lotes: [lote({ fechaInicio: '2026-09-01' })],
+      registros: [registro(1, { fecha: '2026-09-02' }), registro(2, { fecha: '2026-09-20' })],
+      gastos: [gasto({ fecha: '2026-09-25' })],
+    }
+    expect(fechaDelRespaldo(r)).toEqual({ fecha: '2026-09-25', exacta: false })
+  })
+
+  it('sin nada anotado no dice nada', () => {
+    expect(fechaDelRespaldo(vacio)).toBeUndefined()
+  })
+
+  it('una fecha de respaldo que no es fecha se ignora', () => {
+    const r = validarRespaldo(
+      { version: 4, exportado: 'ayer', lotes: [], registros: [], gastos: [], ingresos: [] },
+      4,
+    )
+    expect(r.ok && r.respaldo.exportado).toBe(undefined)
   })
 })
 

@@ -246,16 +246,9 @@
   animation: crecer 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes aparecer {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.animate-aparecer {
+/* Lo que aparece despacio en las gráficas. Tenía el mismo nombre que el fondo
+   de las hojas y lo pisaba: con «both» el fondo se quedaba oscuro al cerrar. */
+.animate-aparecer-lento {
   animation: aparecer 0.6s ease-out both;
 }
 

@@ -8,6 +8,7 @@ import { pagoEmpleados, totalPorVenir } from './porPagar'
 import { EN_PIE, type ModoVenta } from './venta'
 import {
   alimentoAcumEstandarLb,
+  diaParaPeso,
   mortalidadEsperadaPct,
   pesoEstandarLb,
 } from './standards'
@@ -118,7 +119,7 @@ export function analizarPuntoOptimo(
   // El óptimo puro puede caer en un pollo de 8 lb que ningún pollero paga a
   // precio de mercado, así que también se devuelve el mejor día sin pasarse del
   // peso que compra el cliente.
-  const tope = puntos.find((p) => p.dia >= m.diaObjetivo) ?? hoy
+  const tope = puntos.find((p) => p.dia >= diaParaPeso(objetivoLb, m.factorCurva)) ?? hoy
 
   return {
     puntos,

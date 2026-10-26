@@ -23,6 +23,7 @@ export function GananciaEstimada({
   onEmpleados,
   onPorVenir,
   onComoVendes,
+  onDiaVenta,
 }: {
   lote: Lote;
   metrics: LoteMetrics;
@@ -32,6 +33,7 @@ export function GananciaEstimada({
   onEmpleados?: () => void;
   onPorVenir?: (indice?: number) => void;
   onComoVendes?: () => void;
+  onDiaVenta?: () => void;
 }) {
   if (lote.estado !== "activo" || metrics.avesVivas <= 0) return null;
 
@@ -45,13 +47,28 @@ export function GananciaEstimada({
     ? "Con un pesaje se sabe cuántas libras vas a vender."
     : `${p.listo ? "Si vendes ya" : `Si vendes el ${fecha(p.fechaEstimada)}, día ${p.diaVenta}`}${
         precio
-          ? `, a ${precioCorto(precio)} la libra${modo.arreglado ? " arreglada" : " en pie"}.`
-          : "."
-      }`;
+          ? `, a ${precioCorto(precio)} la libra${modo.arreglado ? " arreglada" : " en pie"}`
+          : ""
+      }${metrics.diaVentaFijo != null ? "." : `, cuando lleguen a ${num(p.pesoVentaLb, 1)} lb.`}`;
 
   return (
     <>
-      <Seccion className="mb-3 mt-8" etiqueta="Ganancia estimada" nota={cuando} />
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Ganancia estimada"
+        nota={cuando}
+        accion={
+          onDiaVenta ? (
+            <button
+              type="button"
+              onClick={onDiaVenta}
+              className="-mx-2 -my-3 px-2 py-3 text-sm font-semibold text-forest-600"
+            >
+              Cambiar el día
+            </button>
+          ) : undefined
+        }
+      />
       <Banda className="overflow-hidden">
         <div className="px-5 py-4">
           {ganancia != null ? (

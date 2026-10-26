@@ -9,7 +9,7 @@ import { useCompradores, useModoVenta, usePreciosDeVenta, useSettings } from '..
 import type { LoteMetrics } from '../../lib/metrics'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { construirContrastes, librasVendidas, snapshotCierre, type RealCiclo } from '../../lib/cierre'
-import { errorFechaDelCiclo, pesoObjetivoDe, topeDelCiclo } from '../../lib/lote'
+import { errorFechaDelCiclo, errorNegativo, pesoObjetivoDe, topeDelCiclo } from '../../lib/lote'
 import { retiroEn } from '../../lib/retiro'
 import { RINDE_ARREGLADO_PCT } from '../../lib/standards'
 import { precioCorto, precioSugerido, rindeValido } from '../../lib/venta'
@@ -76,9 +76,18 @@ export function CierreSheet({
     setAdelanto('')
   }, [open, metrics.avesVivas, lote.precioVentaLb, modo.arreglado])
 
-  const nAves = Number(aves) || 0
+  // Aves enteras y nada negativo: con −2,650 lb a −55 salía un total de
+  // +145,750 y el ciclo se cerraba con ese peso.
+  const nAves = Math.round(Number(aves) || 0)
   const lbTotal = Number(pesoTotal) || 0
   const precioLb = Number(precio) || 0
+  const negativos = {
+    aves: errorNegativo(aves),
+    peso: errorNegativo(pesoTotal),
+    precio: errorNegativo(precio),
+    monto: montoTocado ? errorNegativo(monto) : undefined,
+  }
+  const hayNegativos = Object.values(negativos).some(Boolean)
   const montoFinal = montoTocado ? Number(monto) || 0 : Math.round(lbTotal * precioLb)
   const dio = Math.min(Number(adelanto) || 0, montoFinal)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
@@ -162,14 +171,16 @@ export function CierreSheet({
   }
   const contrastes = construirContrastes(snap, real)
   const sobranAves = nAves > metrics.avesVivas
-  const listo = nAves > 0 && !sobranAves && montoFinal > 0 && !errorFechaDelCiclo(fecha, lote)
-  const motivoCierre = !(nAves > 0)
-    ? 'Falta cuántas aves vendiste.'
-    : sobranAves
-      ? `Solo hay ${num(metrics.avesVivas)} aves en el galpón.`
-      : !(montoFinal > 0)
-        ? 'Falta el peso y el precio, o el total de la venta.'
-        : undefined
+  const listo = nAves > 0 && !sobranAves && montoFinal > 0 && !hayNegativos && !errorFechaDelCiclo(fecha, lote)
+  const motivoCierre = hayNegativos
+    ? 'Hay un número negativo.'
+    : !(nAves > 0)
+      ? 'Falta cuántas aves vendiste.'
+      : sobranAves
+        ? `Solo hay ${num(metrics.avesVivas)} aves en el galpón.`
+        : !(montoFinal > 0)
+          ? 'Falta el peso y el precio, o el total de la venta.'
+          : undefined
   const reparto = gananciaPorSocio([{ socios: lote.socios, ganancia }])
 
   async function guardar() {
@@ -214,7 +225,7 @@ export function CierreSheet({
           <ComoSalioElPollo arreglado={arreglado} onCambio={cambiarComoSalio} />
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Aves vendidas" hint={`Tienes ${num(metrics.avesVivas)} vivas`}>
+            <Field label="Aves vendidas" hint={`Tienes ${num(metrics.avesVivas)} vivas`} error={negativos.aves}>
               <Input
                 type="number"
                 inputMode="numeric"
@@ -226,6 +237,7 @@ export function CierreSheet({
             <Field
               label={arreglado ? 'Libras arregladas' : 'Peso total (lb)'}
               hint={arreglado ? 'Lo que pesaron limpios' : 'El del camión'}
+              error={negativos.peso}
             >
               <Input
                 type="number"
@@ -259,7 +271,7 @@ export function CierreSheet({
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Precio por libra">
+            <Field label="Precio por libra" error={negativos.precio}>
               <Input
                 type="number"
                 inputMode="decimal"
@@ -294,6 +306,7 @@ export function CierreSheet({
           <Field
             label="Total de la venta"
             hint={montoTocado ? 'Lo escribiste a mano' : 'Sale del peso por el precio; puedes corregirlo'}
+            error={negativos.monto}
           >
             <Input
               type="number"
