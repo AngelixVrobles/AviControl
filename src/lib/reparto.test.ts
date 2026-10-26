@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avesPorGalpon, ciclosPorGalpon, fraseMovimiento } from './reparto'
+import { avesPorGalpon, ciclosPorGalpon, fraseMovimiento, movimientosSinAves } from './reparto'
 import { galponesOcupados, galponLibre, nombreGalpon } from './galpones'
 import { hace, ingreso, lote, registro } from '../test/fixtures'
 
@@ -96,11 +96,13 @@ describe('los galpones del ciclo', () => {
   it('si se pasaron todas, el primero queda libre', () => {
     const todas = lote({ galponId: 'g1', cantidadInicial: 500, movimientos: [{ fecha: hace(3), de: 'g1', a: 'g3', aves: 500 }] })
     expect(nombreGalpon(todas, granja)).toBe('Galpón 3')
-    expect(galponLibre(granja.galpones, [todas])?.id).toBe('g1')
+    const ocupados = new Set(avesPorGalpon(todas, 'g1', [], [], hoy).map((c) => c.galponId))
+    expect(galponLibre(granja.galpones, ocupados)?.id).toBe('g1')
   })
 
   it('un galpón con parte de una pollada no está libre para otro ciclo', () => {
-    expect(galponLibre(granja.galpones, [pollada])?.id).toBe('g3')
+    const ocupados = new Set(avesPorGalpon(pollada, 'g1', [], [], hoy).map((c) => c.galponId))
+    expect(galponLibre(granja.galpones, ocupados)?.id).toBe('g3')
   })
 
   it('el movimiento en palabras', () => {
@@ -129,5 +131,46 @@ describe('ciclosPorGalpon', () => {
       ['Galpón 2', 1, 3, 50],
       ['Varios galpones', 1, 5, 0],
     ])
+  })
+})
+
+describe('el mismo día: bajas, movimientos y ventas', () => {
+  // Se pasaron 350 al galpón 2 y ese mismo día se vendieron de ahí: el galpón
+  // 2 queda vacío. Antes la venta iba antes del movimiento y quedaba con 350
+  // aves que ya no estaban, con un aviso de espacio falso.
+  it('las que se pasan y se venden el mismo día salen del galpón al que llegaron', () => {
+    const hoyMismo = lote({ galponId: 'g1', cantidadInicial: 1000, movimientos: [{ fecha: hoy, de: 'g1', a: 'g2', aves: 350 }] })
+    const venta = ingreso({ cantidad: 350, galponId: 'g2', fecha: hoy })
+    expect(avesPorGalpon(hoyMismo, 'g1', [], [venta], hoy)).toEqual([{ galponId: 'g1', aves: 650 }])
+  })
+
+  // Un galpón que se vació con una venta ya no está ocupado.
+  it('el galpón que se vació con una venta queda libre', () => {
+    const venta = ingreso({ cantidad: 350, galponId: 'g2', fecha: hoy })
+    const ocupados = new Set(avesPorGalpon(pollada, 'g1', [], [venta], hoy).map((c) => c.galponId))
+    expect(ocupados.has('g2')).toBe(false)
+    expect(nombreGalpon(pollada, granja, [...ocupados])).toBe('Galpón 1')
+  })
+})
+
+describe('movimientosSinAves', () => {
+  // 350 pasaron del 1 al 2, y después 300 del 2 al 3. Al borrar el primero, el
+  // segundo se quedaba sin aves que pasar y la lista seguía diciendo 300.
+  const cadena = [
+    { fecha: hace(9), de: 'g1', a: 'g2', aves: 350 },
+    { fecha: hace(5), de: 'g2', a: 'g3', aves: 300 },
+  ]
+
+  it('con todos los movimientos, a ninguno le faltan aves', () => {
+    expect(movimientosSinAves(pollada, 'g1', [], [], cadena)).toEqual([])
+  })
+
+  it('sin el primero, el segundo no tiene de dónde sacar', () => {
+    expect(movimientosSinAves(pollada, 'g1', [], [], [cadena[1]])).toEqual([{ movimiento: cadena[1], habia: 0 }])
+  })
+
+  it('las bajas repartidas no cuentan como falta', () => {
+    const bajas = [registro(25, { mortalidad: 1, fecha: hace(7) })]
+    expect(movimientosSinAves(pollada, 'g1', bajas, [], [{ ...cadena[0] }, { ...cadena[1], aves: 350 }])).toEqual([])
   })
 })

@@ -101,3 +101,17 @@ describe('compararConOtros', () => {
     expect(c[0].difPct).toBeUndefined()
   })
 })
+
+describe('alimento pasado a otro ciclo', () => {
+  // El ciclo que pasó 10,000 de alimento al siguiente decía RD$144,000
+  // invertidos con RD$134,000 de costos.
+  it('lo que se pasó resta, como en los costos', () => {
+    const l = lote({ estado: 'cerrado', fechaCierre: hace(0), costoInicial: 24000 })
+    const gastos = [
+      enDia(0, 120000),
+      gasto({ id: 7, categoria: 'alimento', monto: -10000, cantidadQq: -5, fecha: hace(0), traspaso: { loteId: 2, gastoId: 8 } }),
+    ]
+    expect(invertidoAlDia(l, gastos, 30).total).toBe(134000)
+    expect(curvaInversion(l, gastos, 30).at(-1)).toBeCloseTo(134000 / l.cantidadInicial, 5)
+  })
+})

@@ -53,6 +53,7 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
     listaDe(l.conteosAlimento, esConteo) &&
     listaDe(l.movimientos, esMovimiento) &&
     esEmpleados(l.empleados) &&
+    esNumOpc(l.diaVenta) &&
     listaDe(l.gastosPorVenir, esPorVenir) &&
     (l.cierre == null || esObjeto(l.cierre)),
   registros: (r) =>

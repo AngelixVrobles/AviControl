@@ -105,3 +105,14 @@ describe('de qué se murieron', () => {
     expect(causasDelCiclo([registro(3, { mortalidad: 4 })])).toBeNull()
   })
 })
+
+describe('una causa que la app no conoce', () => {
+  // «coccidiosis», venida de un respaldo: antes trababa la ficha Aves.
+  it('cuenta como «Otra»', () => {
+    const c = causasDelCiclo([
+      registro(3, { mortalidad: 4, causa: 'coccidiosis' as never }),
+      registro(4, { mortalidad: 2, causa: 'otra' }),
+    ])!
+    expect(c.causas).toEqual([{ causa: 'otra', muertes: 6, pct: 100 }])
+  })
+})

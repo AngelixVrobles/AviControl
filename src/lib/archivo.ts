@@ -3,15 +3,23 @@
 
 export type ComoSeGuardo = 'compartido' | 'descargado' | 'cancelado'
 
+export const esTactil = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+
 // En el teléfono el archivo sale por el menú de compartir —Guardar en Archivos,
 // WhatsApp, Drive—: con la app instalada en el iPhone, una descarga podía no
 // guardar nada. En la computadora, o si el teléfono no deja compartir ese tipo
-// de archivo (Android no comparte .json), se descarga.
-export async function entregarArchivo(archivo: File): Promise<ComoSeGuardo> {
-  const tactil = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
-  if (tactil && navigator.canShare?.({ files: [archivo] })) {
+// de archivo, se descarga. Android no comparte .json: con `comoTexto`, lo que es
+// texto (el respaldo, el ciclo para el socio) sale como .txt, que sí comparte,
+// y Ajustes lo abre igual.
+export async function entregarArchivo(
+  archivo: File,
+  { comoTexto = false }: { comoTexto?: boolean } = {},
+): Promise<ComoSeGuardo> {
+  const opciones = [archivo, ...(comoTexto ? [new File([archivo], `${archivo.name}.txt`, { type: 'text/plain' })] : [])]
+  const compartible = esTactil() ? opciones.find((f) => navigator.canShare?.({ files: [f] })) : undefined
+  if (compartible) {
     try {
-      await navigator.share({ files: [archivo], title: archivo.name })
+      await navigator.share({ files: [compartible], title: archivo.name })
       return 'compartido'
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return 'cancelado'
@@ -30,14 +38,14 @@ export async function entregarArchivo(archivo: File): Promise<ComoSeGuardo> {
   return 'descargado'
 }
 
-// En el iPhone, una descarga desde la app instalada puede no llegar a ninguna
-// parte; en Android y en la computadora queda en Descargas.
-export function descargaSegura(): boolean {
-  if (typeof navigator === 'undefined') return true
-  const ios =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  return !ios
-}
+export const esIos = () =>
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
+// Una descarga es un respaldo solo en la computadora. En el teléfono se queda
+// en el teléfono —en el iPhone, a veces en ninguna parte—: si se pierde el
+// teléfono, se pierde con él.
+export const descargaSegura = (): boolean => !esIos() && !esTactil()
 
 // Elegir un archivo del teléfono. En el iPhone, un selector que no está en la
 // página puede no entregar el archivo elegido: se pone en la página, sin

@@ -70,10 +70,13 @@ export function proyectarVenta(
   // hoy van por 6.3. Antes decía «vender el 14-oct», que ya pasó, y ponía el
   // precio con un peso que ya no tienen.
   const pesoActual = m.pesoEstimadoLb ?? ultimo.pesoPromedio!
-  const listo = pesoActual >= objetivoLb
+  // Con un día de venta fijo se vende ese día, al peso que lleven; si no, cuando
+  // lleguen al peso de venta.
+  const fijo = m.diaVentaFijo
+  const listo = fijo != null ? m.dias >= fijo : pesoActual >= objetivoLb
 
-  const diaVenta = listo ? m.dias : diaParaPeso(objetivoLb, m.factorCurva)
-  if (!listo && pesoEstandarLb(diaVenta) * m.factorCurva < objetivoLb) return null
+  const diaVenta = listo ? m.dias : (fijo ?? diaParaPeso(objetivoLb, m.factorCurva))
+  if (!listo && fijo == null && pesoEstandarLb(diaVenta) * m.factorCurva < objetivoLb) return null
 
   const fechaEstimada = listo ? hoyISO() : sumarDias(lote.fechaInicio, diaVenta)
   const diasRestantes = diasEntre(hoyISO(), fechaEstimada)
@@ -102,7 +105,11 @@ export function proyectarVenta(
     alimentoRestanteLb = Math.round(avesPromedio * consumoStd * factorEf)
   }
 
-  const pesoVentaLb = listo ? pesoActual : objetivoLb
+  const pesoVentaLb = listo
+    ? pesoActual
+    : fijo != null
+      ? Math.max(pesoActual, pesoEstandarLb(fijo) * m.factorCurva)
+      : objetivoLb
   const lbEnPie = Math.round(avesAlVender * pesoVentaLb)
   const lbVenta = Math.round(lbEnPie * modo.rinde)
 

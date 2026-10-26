@@ -8,7 +8,7 @@ import { saveSettings, type Galpon } from '../lib/settings'
 import { diasEntre, fecha as fechaCorta, hoyISO, num, plural } from '../lib/format'
 import { deMedida } from '../lib/equipo'
 import { galponInicial, nombreDeGalpon, nuevoGalpon } from '../lib/galpones'
-import { avesPorGalpon, caben } from '../lib/reparto'
+import { avesPorGalpon, caben, fraseMovimiento, movimientosSinAves } from '../lib/reparto'
 import { errorFechaDelCiclo, topeDelCiclo } from '../lib/lote'
 
 const NUEVO = 'nuevo'
@@ -46,7 +46,7 @@ export function MoverAvesSheet({
   const corrigiendo = editar != null ? lote.movimientos?.[editar] : undefined
   // Las aves de cada galpón ese día, sin el movimiento que se corrige.
   const enCasas = avesPorGalpon(lote, inicial, registros, ingresos, fecha, { sin: editar })
-  const sugerido = nuevoGalpon(settings.galpones)
+  const sugerido = nuevoGalpon([...settings.galpones, ...settings.galponesQuitados])
 
   // Por referencia: la base cambia mientras la hoja está abierta, y eso no
   // debe volver a llenar lo que se está escribiendo.
@@ -103,34 +103,58 @@ export function MoverAvesSheet({
         : n > hay
           ? `En ${nombreDeGalpon(de, settings)} había ${num(hay)} ${plural(hay, 'ave', 'aves')} ese día.`
           : undefined
+  // La lista como quedaría: los movimientos que vienen después tienen que
+  // seguir teniendo sus aves. Al corregir uno de antes, el de después se
+  // quedaba sin aves que pasar y nadie lo decía.
+  const mov = { fecha, de, a: nuevo?.id ?? a, aves: n }
+  const listaNueva = [...(lote.movimientos ?? [])]
+  if (editar != null) listaNueva[editar] = mov
+  else listaNueva.push(mov)
+  listaNueva.sort((x, y) => x.fecha.localeCompare(y.fecha))
+  const roto =
+    de && a && n > 0
+      ? movimientosSinAves(lote, inicial, registros, ingresos, listaNueva).find((x) => x.movimiento !== mov)
+      : undefined
   const motivo = !de
     ? 'Falta de qué galpón salen.'
     : !a || a === de
       ? 'Elige a qué galpón van.'
       : !(n > 0)
         ? 'Falta cuántas aves pasaste.'
-        : errorAves ?? errorFecha
+        : (errorAves ??
+          errorFecha ??
+          (roto
+            ? `Así, el del ${fechaCorta(roto.movimiento.fecha)} (${fraseMovimiento(roto.movimiento, settings)}) se queda sin aves: allí habría ${num(roto.habia)}. Corrígelo primero.`
+            : undefined))
 
   async function guardar() {
-    let destino = a
-    if (nuevo) {
-      saveSettings({ galpones: [...settings.galpones, nuevo] })
-      destino = nuevo.id
-    }
-    const mov = { fecha, de, a: destino, aves: n }
-    const lista = [...(lote.movimientos ?? [])]
-    if (editar != null) lista[editar] = mov
-    else lista.push(mov)
-    lista.sort((x, y) => x.fecha.localeCompare(y.fecha))
+    if (nuevo) saveSettings({ galpones: [...settings.galpones, nuevo] })
     // El galpón donde llegaron queda fijo: si no, al cambiar el orden de los
     // galpones en Ajustes, la pollada «llegaría» a otro.
-    await db.lotes.update(lote.id, { movimientos: lista, galponId: lote.galponId ?? inicial })
-    toast(`${num(n)} ${plural(n, 'ave pasó', 'aves pasaron')} a ${nuevo?.nombre ?? nombreDeGalpon(destino, settings)}`)
+    await db.lotes.update(lote.id, { movimientos: listaNueva, galponId: lote.galponId ?? inicial })
+    toast(`${num(n)} ${plural(n, 'ave pasó', 'aves pasaron')} a ${nuevo?.nombre ?? nombreDeGalpon(mov.a, settings)}`)
     onClose()
   }
 
   async function eliminar() {
     const m = corrigiendo!
+    // Uno del que dependen otros no se borra solo: los de después se quedaban
+    // sin aves que pasar.
+    const depende = movimientosSinAves(
+      lote,
+      inicial,
+      registros,
+      ingresos,
+      (lote.movimientos ?? []).filter((_, i) => i !== editar),
+    )[0]
+    if (depende) {
+      await confirmar({
+        titulo: 'Primero el de después',
+        mensaje: `El movimiento del ${fechaCorta(depende.movimiento.fecha)} (${fraseMovimiento(depende.movimiento, settings)}) pasa aves que llegaron con este. Corrígelo o bórralo primero.`,
+        confirmar: 'Entendido',
+      })
+      return
+    }
     const ok = await confirmar({
       titulo: 'Borrar el movimiento',
       mensaje: `Las ${num(m.aves)} aves vuelven a contar en ${nombreDeGalpon(m.de, settings)}.`,

@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from 'react'
 import { useRouteError } from 'react-router-dom'
 import { leerRespaldo } from '../db/respaldo'
-import { entregarArchivo } from '../lib/archivo'
+import { descargaSegura, entregarArchivo } from '../lib/archivo'
 import { nombreRespaldo } from '../lib/respaldo'
 import { hoyISO } from '../lib/format'
 import { getSettings, saveSettings } from '../lib/settings'
@@ -13,10 +13,12 @@ import { Button } from './ui'
 async function respaldar() {
   try {
     const texto = await leerRespaldo(getSettings())
-    const como = await entregarArchivo(
-      new File([texto], nombreRespaldo(), { type: 'application/json' }),
-    )
-    if (como !== 'cancelado') saveSettings({ ultimoRespaldo: hoyISO() })
+    const como = await entregarArchivo(new File([texto], nombreRespaldo(), { type: 'application/json' }), {
+      comoTexto: true,
+    })
+    // Como en Ajustes: una descarga que se quedó en el teléfono no cuenta.
+    if (como === 'compartido' || (como === 'descargado' && descargaSegura()))
+      saveSettings({ ultimoRespaldo: hoyISO() })
   } catch {
     // Sin base que leer no hay respaldo posible.
   }

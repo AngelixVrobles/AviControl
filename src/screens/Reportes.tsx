@@ -3,7 +3,7 @@ import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
 import { useDeudas, useModoVenta, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { precioMinimoConjunto } from '../lib/precios'
-import { desdeHace, diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
+import { desdeHace, diasEntre, fecha, hoyISO, mes, money, num, pct, plural, porLb } from '../lib/format'
 import { Banda, Pestanas, Seccion } from '../components/ui'
 import { gananciaPorSocio } from '../lib/sociedad'
 import { GraficaBarras } from '../components/chart'
@@ -662,12 +662,6 @@ function enDias(r: LoteConMetrics): string {
   return `${d} ${d === 1 ? 'día' : 'días'}`
 }
 
-function mesCorto(iso: string): string {
-  return new Intl.DateTimeFormat('es-DO', { month: 'long' }).format(new Date(iso + 'T00:00:00'))
-}
+const mesCorto = (iso: string) => mes(iso)
 
-function mesAnio(iso: string): string {
-  return new Intl.DateTimeFormat('es-DO', { month: 'short', year: 'numeric' }).format(
-    new Date(iso + 'T00:00:00'),
-  )
-}
+const mesAnio = (iso: string) => mes(iso, { anio: true })

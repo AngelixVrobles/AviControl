@@ -7,7 +7,8 @@ import { agruparGastos } from "../lib/metrics";
 import { proyectarVenta } from "../lib/proyeccion";
 import { analizarPrecio } from "../lib/precios";
 import { pesoObjetivoDe, sinAves } from "../lib/lote";
-import { nombreGalpon } from "../lib/galpones";
+import { galponInicial, nombreGalpon } from "../lib/galpones";
+import { avesPorGalpon } from "../lib/reparto";
 import { retiroEn } from "../lib/retiro";
 import { armarCiclo } from "../lib/compartido";
 import { computeArranque, tituloArranque } from "../lib/arranque";
@@ -22,7 +23,7 @@ import { conCalor, juicioDe } from "../lib/calor";
 import { pendienteDe } from "../lib/cobros";
 import { valorHoy } from "../lib/venta";
 import { compartirReporte } from "../lib/reporte";
-import { alimentoEn, fecha, hoyISO, money, num, numCorto, pct, porLb } from "../lib/format";
+import { alimentoEn, diaLocal, fecha, hoyISO, money, num, numCorto, pct, porLb } from "../lib/format";
 import { categoriaLabel, RAZA, tipoIngresoLabel } from "../lib/labels";
 import { LB_POR_QUINTAL } from "../lib/standards";
 import { AlertaChip } from "../components/AlertaChip";
@@ -38,6 +39,7 @@ import {
   CierreSheet,
   CobroSheet,
   ComoVendesSheet,
+  DiaVentaSheet,
   EmpleadosSheet,
   GastoSheet,
   IngresoSheet,
@@ -62,6 +64,7 @@ type SheetKind =
   | "empleados"
   | "porVenir"
   | "comoVendes"
+  | "diaVenta"
   | null;
 
 type Tab = "hoy" | "crecimiento" | "dinero";
@@ -173,6 +176,13 @@ export function LoteDetail() {
     modo,
   );
   const valeArreglado = modo.arreglado && !!lote.precioVentaLb;
+  // Los galpones donde tiene aves hoy: el que se vació con una venta ya no.
+  const galponesHoy =
+    lote.estado === "activo"
+      ? avesPorGalpon(lote, galponInicial(lote, settings), registros, ingresos, hoyISO()).map(
+          (c) => c.galponId,
+        )
+      : undefined;
 
   async function reabrir() {
     const ok = await confirmar({
@@ -261,7 +271,9 @@ export function LoteDetail() {
               Día {metrics.dias}
             </span>
             <span className="truncate text-sm text-ink-soft">
-              · {lote.compartido ? `de ${lote.compartido.de}` : (nombreGalpon(lote, settings) ?? RAZA)}
+              · {lote.compartido
+                ? `de ${lote.compartido.de}`
+                : (nombreGalpon(lote, settings, galponesHoy) ?? RAZA)}
             </span>
             {lote.estado === "cerrado" && <Pill tone="neutral">Cerrado</Pill>}
           </div>
@@ -288,7 +300,7 @@ export function LoteDetail() {
       {lote.compartido && (
         <div className="mb-4 rounded-xl2 border border-line bg-sunken px-4 py-3 text-sm leading-relaxed text-ink-soft">
           <span className="font-semibold text-ink">Te lo mandó {lote.compartido.de}</span>{" "}
-          el {fecha(lote.compartido.exportado.slice(0, 10))}. Es una copia para mirar: no se
+          el {fecha(diaLocal(lote.compartido.exportado))}. Es una copia para mirar: no se
           puede cambiar y no entra en tus cuentas. Para verlo al día, pídele que te lo mande otra
           vez.
         </div>
@@ -574,6 +586,7 @@ export function LoteDetail() {
                   }
             }
             onComoVendes={soloVer ? undefined : () => setSheet("comoVendes")}
+            onDiaVenta={soloVer ? undefined : () => setSheet("diaVenta")}
           />
           <PrecioMinimo
             lote={lote}
@@ -782,6 +795,7 @@ export function LoteDetail() {
           <RegistroSheet
             lote={lote}
             registros={registros}
+            ingresos={ingresos}
             open={sheet === "registro"}
             onClose={() => setSheet(null)}
             editar={editRegistro}
@@ -836,6 +850,12 @@ export function LoteDetail() {
             lote={lote}
             indice={porVenir}
             open={sheet === "porVenir"}
+            onClose={() => setSheet(null)}
+          />
+          <DiaVentaSheet
+            lote={lote}
+            diaHoy={metrics.dias}
+            open={sheet === "diaVenta"}
             onClose={() => setSheet(null)}
           />
           <ComoVendesSheet

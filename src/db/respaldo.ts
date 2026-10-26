@@ -20,6 +20,9 @@ export async function leerRespaldo(settings: Settings): Promise<string> {
   return JSON.stringify(
     {
       version: VERSION_RESPALDO,
+      // Cuándo se hizo: al restaurar se dice esta fecha, con su año. Antes se
+      // mostraba la del ciclo más viejo, de 2017, como si fuera la del respaldo.
+      exportado: new Date().toISOString(),
       settings,
       lotes,
       registros,

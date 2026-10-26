@@ -28,6 +28,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // La app registra el service worker ella misma, para avisar cuando hay
+      // una versión nueva en vez de recargar de golpe.
+      injectRegister: false,
       includeAssets: ['icon.svg', 'favicon.svg', 'apple-touch-icon.png'],
       workbox: {
         // Las letras van en el paquete y se guardan con la app: abre igual sin

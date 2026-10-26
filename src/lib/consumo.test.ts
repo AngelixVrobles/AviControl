@@ -133,3 +133,33 @@ describe('consumoAlimento', () => {
     expect(c.totalLb).toBe(10)
   })
 })
+
+describe('alimento pasado a otro ciclo', () => {
+  // Compró 115 qq, contó 5 al cerrar y esos 5 se pasaron al ciclo que sigue
+  // ese mismo día: se comieron 110. Restar el traspaso hacía que «comiera» 105
+  // y la conversión mejorara sola.
+  const pasado = (dia: number) =>
+    gasto({
+      id: 99,
+      categoria: 'alimento',
+      monto: -10000,
+      cantidadQq: -5,
+      fecha: hace(30 - dia),
+      traspaso: { loteId: 2, gastoId: 98 },
+    })
+
+  it('lo que se pasa el día del conteo no cambia lo que se comió', () => {
+    const l = lote({ conteosAlimento: [conteo(30, 5)] })
+    const sin = consumoAlimento(l, [], [compra(115)])
+    const con = consumoAlimento(l, [], [compra(115), pasado(30)])
+    expect(sin.totalLb).toBeCloseTo(11000, 5)
+    expect(con.totalLb).toBeCloseTo(11000, 5)
+  })
+
+  // Lo que se pasó antes de contar ya no estaba en el almacén al contar.
+  it('lo que se pasó antes del conteo sí sale de lo comprado', () => {
+    const l = lote({ conteosAlimento: [conteo(30, 5)] })
+    const c = consumoAlimento(l, [], [compra(115), pasado(20)])
+    expect(c.totalLb).toBeCloseTo(10500, 5)
+  })
+})
