@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { errorFechaDelCiclo, errorFechaFutura, errorNegativo, erroresLote, pesoObjetivoDe, topeDelCiclo } from './lote'
+import {
+  diaVentaDe,
+  errorDiaVenta,
+  errorFechaDelCiclo,
+  errorFechaFutura,
+  errorNegativo,
+  erroresLote,
+  pesoObjetivoDe,
+  topeDelCiclo,
+} from './lote'
 import { lote } from '../test/fixtures'
 import { memoriaStorage } from '../test/storage'
 
@@ -22,6 +31,36 @@ describe('pesoObjetivoDe', () => {
   it('sin Ajustes guardados queda el de siempre', () => {
     vi.stubGlobal('localStorage', memoriaStorage())
     expect(pesoObjetivoDe(lote({ pesoObjetivoLb: undefined }))).toBe(5.5)
+  })
+})
+
+// Antes el ciclo se acababa a los 35 días para todos: el alimento que falta y
+// el pago de los empleados se contaban hasta ahí aunque se vendiera a los 42.
+describe('diaVentaDe', () => {
+  it('el día del ciclo gana al de Ajustes', () => {
+    vi.stubGlobal('localStorage', memoriaStorage({ 'avicontrol.settings': '{"diaVenta":35}' }))
+    expect(diaVentaDe(lote({ diaVenta: 42 }))).toBe(42)
+  })
+
+  it('sin día propio toma el de Ajustes', () => {
+    vi.stubGlobal('localStorage', memoriaStorage({ 'avicontrol.settings': '{"diaVenta":38}' }))
+    expect(diaVentaDe(lote({ diaVenta: undefined }))).toBe(38)
+  })
+
+  it('con 0 el ciclo se vende por peso aunque Ajustes tenga un día', () => {
+    vi.stubGlobal('localStorage', memoriaStorage({ 'avicontrol.settings': '{"diaVenta":35}' }))
+    expect(diaVentaDe(lote({ diaVenta: 0 }))).toBeUndefined()
+  })
+
+  it('sin ninguno, por peso', () => {
+    vi.stubGlobal('localStorage', memoriaStorage())
+    expect(diaVentaDe(lote({ diaVenta: undefined }))).toBeUndefined()
+  })
+
+  it('el día va del 1 al 90 y entero', () => {
+    expect(errorDiaVenta(1)).toBeUndefined()
+    expect(errorDiaVenta(90)).toBeUndefined()
+    for (const malo of [0, 91, -3, 35.5, Number.NaN]) expect(errorDiaVenta(malo)).toMatch(/entre 1 y 90/)
   })
 })
 

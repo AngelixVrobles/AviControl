@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
-import { db, type CausaBaja, type Lote, type Registro } from '../../db/schema'
+import { db, type CausaBaja, type Ingreso, type Lote, type Registro } from '../../db/schema'
 import { Button, DangerButton, Field, Input, Segmentado, Sheet } from '../ui'
 import { confirmar, toast } from '../confirm'
 import { CAUSAS_BAJA } from '../../lib/labels'
@@ -19,12 +19,14 @@ export function RegistroSheet({
   onClose,
   editar,
   registros = [],
+  ingresos = [],
 }: {
   lote: Lote
   open: boolean
   onClose: () => void
   editar?: Registro
   registros?: Registro[]
+  ingresos?: Ingreso[]
 }) {
   const { ocupado, enviar } = useEnvio(open)
   const { unidadAlimento: unidad } = useSettings()
@@ -137,11 +139,13 @@ export function RegistroSheet({
   const litros = Number(aguaL.replace(',', '.')) || 0
   const desvioAgua = litros > 0 && esperadaL > 0 ? ((litros - esperadaL) / esperadaL) * 100 : undefined
   // Las bajas del día no pueden ser más que las aves que hay (al corregir, las
-  // de este día ya están descontadas y vuelven a contar).
+  // de este día ya están descontadas y vuelven a contar). Las vendidas antes de
+  // ese día ya no estaban: con 950 de 1,000 vendidas se aceptaban 200 muertes.
   const avesDisponibles =
     lote.cantidadInicial -
     (lote.muertosLlegada ?? 0) -
-    registros.reduce((a, r) => a + (r.id === existente?.id ? 0 : (r.mortalidad ?? 0) + (r.descarte ?? 0)), 0)
+    registros.reduce((a, r) => a + (r.id === existente?.id ? 0 : (r.mortalidad ?? 0) + (r.descarte ?? 0)), 0) -
+    ingresos.filter((i) => i.tipo === 'aves' && i.fecha < fecha).reduce((a, i) => a + i.cantidad, 0)
   const errorBajas =
     mortalidad + descarte > Math.max(0, avesDisponibles)
       ? `Son más de las ${num(Math.max(0, avesDisponibles))} aves que hay.`

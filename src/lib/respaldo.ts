@@ -9,7 +9,7 @@ import type {
   Pesaje,
   Registro,
 } from '../db/schema'
-import { diasEntre, hoyISO } from './format'
+import { diaLocal, diasEntre, hoyISO } from './format'
 import type { Settings } from './settings'
 import { esObjeto, primerProblema } from './validar'
 
@@ -31,6 +31,8 @@ export function tocaRecordarRespaldo(ultimo: string | null, hayDatos: boolean, h
 
 export interface Respaldo {
   version?: number
+  /** Cuándo se hizo el respaldo; los de antes de la 1.13 no lo traen. */
+  exportado?: string
   settings?: Partial<Settings>
   lotes: Lote[]
   registros: Registro[]
@@ -88,6 +90,7 @@ export function validarRespaldo(data: unknown, versionActual: number): LecturaRe
   const lista = (k: string) => (data[k] == null ? [] : data[k])
   const respaldo = {
     version,
+    exportado: typeof data.exportado === 'string' && !Number.isNaN(Date.parse(data.exportado)) ? data.exportado : undefined,
     settings: esObjeto(data.settings) ? (data.settings as Partial<Settings>) : undefined,
     lotes: data.lotes,
     registros: data.registros,
@@ -115,4 +118,15 @@ export function validarRespaldo(data: unknown, versionActual: number): LecturaRe
   const dias = primerProblema([['registros', respaldo.registros]])
   if (dias) return { ok: false, error: `El respaldo está dañado: ${dias}. No se cambió nada.` }
   return { ok: true, respaldo: respaldo as Respaldo }
+}
+
+// De cuándo es un respaldo: el día en que se hizo, o, en uno de antes de la
+// 1.13 que no lo dice, el último día que trae anotado.
+export function fechaDelRespaldo(r: Respaldo): { fecha: string; exacta: boolean } | undefined {
+  if (r.exportado) return { fecha: diaLocal(r.exportado), exacta: true }
+  const fechas = [...r.registros, ...r.gastos, ...r.ingresos, ...r.lotes.map((l) => ({ fecha: l.fechaInicio }))]
+    .map((x) => x.fecha)
+    .filter((f): f is string => typeof f === 'string')
+    .sort()
+  return fechas.length ? { fecha: fechas[fechas.length - 1], exacta: false } : undefined
 }

@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Lote } from '../db/schema'
-import { reemplazarSettings, saveSettings, type Galpon, type Settings } from '../lib/settings'
-import { useLotes, useSettings } from '../lib/hooks'
-import { enumerar, fecha, haceCuanto, num } from '../lib/format'
-import { galponDe, galponesOcupados, galponInicial, nuevoGalpon } from '../lib/galpones'
+import { db } from '../db/schema'
+import { getSettings, reemplazarSettings, saveSettings, type Galpon, type Settings } from '../lib/settings'
+import { useLotes, useOcupacion, useSettings } from '../lib/hooks'
+import { diaLocal, enumerar, fecha, fechaCompleta, haceCuanto, num, plural } from '../lib/format'
+import { galponDe, galponInicial, nuevoGalpon } from '../lib/galpones'
 import { repartido } from '../lib/reparto'
 import { borrarTodo as borrarTodoDeLaBase } from '../db/ciclo'
 import { borrarBorradoresDe } from '../lib/borrador'
-import { diasSinRespaldo, validarRespaldo } from '../lib/respaldo'
-import { VERSION_RESPALDO } from '../db/respaldo'
+import { diasSinRespaldo, fechaDelRespaldo, validarRespaldo, type Respaldo } from '../lib/respaldo'
+import { leerRespaldo, VERSION_RESPALDO } from '../db/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 import { useAbrirCiclo } from '../components/useCicloCompartido'
 import { esArchivoDeCiclo } from '../lib/compartido'
@@ -17,12 +17,17 @@ import { elegirArchivo } from '../lib/archivo'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
 import { rindeValido } from '../lib/venta'
+import { errorDiaVenta } from '../lib/lote'
 import { Banda, Button, DangerButton, Field, Input, Segmentado, Seccion, Sheet } from '../components/ui'
 import { ListaNovedades } from '../components/Novedades'
 import { NOVEDADES } from '../lib/novedades'
+import { buscarActualizacion } from '../lib/actualizacion'
 import { MedidasGalpon } from './fichas/Galpon'
 import { IconClose } from '../components/icons'
 import { confirmar, toast } from '../components/confirm'
+
+// El respaldo y el ciclo del socio son texto: en Android salen como .txt.
+const TIPOS_RESPALDO = 'application/json,.json,text/plain,.txt'
 
 export function Ajustes() {
   const s = useSettings()
@@ -30,6 +35,8 @@ export function Ajustes() {
   const [novedades, setNovedades] = useState(false)
   const { respaldar } = useRespaldo()
   const abrirCiclo = useAbrirCiclo()
+  // Lo que había antes de la última restauración, si se quiere volver a eso.
+  const copia = useLiveQuery(() => db.copias.orderBy('creado').last(), [])
   const conteos = useLiveQuery(async () => {
     const [ciclos, registros, gastos, ventas, pesajes, aplicaciones, entregas, deudas, abonos] =
       await Promise.all([
@@ -67,21 +74,29 @@ export function Ajustes() {
     }
     const data = lectura.respaldo
 
-    const fechas = data.lotes.map((l) => l.fechaInicio).sort()
-    const trae = `${resumen(data.lotes)}, ${num(data.registros.length)} registros${
-      fechas.length ? ` · ${fecha(fechas[0])}` : ''
-    }`
-    const hay = `${num(conteos?.ciclos ?? 0)} ciclos y ${num(conteos?.registros ?? 0)} registros`
+    // La fecha del respaldo con su año, lo que trae y lo que se reemplaza. Antes
+    // decía la fecha del ciclo más viejo, sin el año, como si fuera la del
+    // respaldo, y no había vuelta atrás.
+    const de = fechaDelRespaldo(data)
+    const cuando = de ? (de.exacta ? `del ${fechaCompleta(de.fecha)}` : `con datos hasta el ${fechaCompleta(de.fecha)}`) : ''
+    const trae = cuantos(data.lotes.length, data.registros.length)
+    const hay = cuantos(conteos?.ciclos, conteos?.registros)
     if (
       !(await confirmar({
         titulo: 'Restaurar respaldo',
-        mensaje: `El archivo trae ${trae}. Reemplazará lo que hay ahora (${hay}). No se puede deshacer.`,
+        mensaje: `El respaldo ${cuando} trae ${trae}. Reemplaza lo que hay ahora (${hay}); lo de ahora se guarda en el teléfono y puedes volver a ello desde Ajustes.`,
         confirmar: 'Restaurar',
+        peligro: true,
       }))
     )
       return
+    if (await restaurar(data, hay)) toast('Respaldo restaurado. Si no era ese, vuelve a lo de antes aquí en Ajustes.')
+  }
 
+  // Reemplaza todo con lo del respaldo y guarda lo que había, para poder volver.
+  async function restaurar(data: Respaldo, hay: string): Promise<boolean> {
     try {
+      const antes = await leerRespaldo(getSettings())
       await db.transaction(
         'rw',
         [
@@ -94,8 +109,11 @@ export function Ajustes() {
           db.deudas,
           db.abonos,
           db.entregas,
+          db.copias,
         ],
         async () => {
+          await db.copias.clear()
+          await db.copias.add({ creado: Date.now(), json: antes, resumen: hay })
           await Promise.all([
             db.lotes.clear(),
             db.registros.clear(),
@@ -120,7 +138,7 @@ export function Ajustes() {
       )
     } catch {
       toast('No se pudo restaurar. Tus datos actuales no cambiaron.')
-      return
+      return false
     }
     // Los pesajes a medias eran de los ciclos de antes: con los del respaldo
     // aparecerían como si fueran suyos.
@@ -131,10 +149,29 @@ export function Ajustes() {
     // Las casillas de Ajustes se vuelven a llenar con lo restaurado: antes
     // seguían mostrando lo de antes y, al tocarlas, lo volvían a guardar.
     setRestauraciones((n) => n + 1)
-    toast('Respaldo restaurado.')
+    return true
   }
 
-  const pickFile = () => elegirArchivo('application/json,.json', importar)
+  // Volver a lo que había antes de la última restauración. Lo que hay ahora
+  // pasa a ser la copia: si era el bueno, se vuelve otra vez.
+  async function volverALoDeAntes() {
+    if (!copia) return
+    const lectura = validarRespaldo(JSON.parse(copia.json), VERSION_RESPALDO)
+    if (!lectura.ok) {
+      toast(lectura.error)
+      return
+    }
+    const hay = cuantos(conteos?.ciclos, conteos?.registros)
+    const ok = await confirmar({
+      titulo: 'Volver a lo de antes',
+      mensaje: `Vuelve lo que había antes de restaurar (${copia.resumen}). Lo de ahora (${hay}) se guarda en su lugar.`,
+      confirmar: 'Volver',
+      peligro: true,
+    })
+    if (ok && (await restaurar(lectura.respaldo, hay))) toast('Volvió lo de antes.')
+  }
+
+  const pickFile = () => elegirArchivo(TIPOS_RESPALDO, importar)
 
   async function abrirArchivoDeCiclo(file: File) {
     let data: unknown
@@ -171,6 +208,18 @@ export function Ajustes() {
       <h1 className="font-display text-2xl font-semibold">Ajustes</h1>
 
       <AvisoRespaldo ultimo={s.ultimoRespaldo} onRespaldar={respaldar} onRestaurar={pickFile} />
+      {copia && (
+        <button
+          type="button"
+          onClick={volverALoDeAntes}
+          className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised px-4 py-3 text-left text-sm"
+        >
+          <span className="text-ink-soft">
+            Antes de restaurar había {copia.resumen} ({fecha(diaLocal(new Date(copia.creado)))}).
+          </span>
+          <span className="shrink-0 font-semibold text-forest-600">Volver a eso</span>
+        </button>
+      )}
 
       <Seccion className="mb-3 mt-8" etiqueta="Producción" />
       <Banda className="divide-y divide-line">
@@ -181,6 +230,17 @@ export function Ajustes() {
           unidad="lb"
           value={s.pesoObjetivoLb}
           onSave={(v) => saveSettings({ pesoObjetivoLb: v || 5.5 })}
+        />
+        <FilaNumero
+          label="Día de venta"
+          sub="Vacío: cuando lleguen al peso de venta. Cada ciclo lo puede cambiar"
+          unidad="días"
+          value={s.diaVenta}
+          onSave={(v) => {
+            if (!v) saveSettings({ diaVenta: undefined })
+            else if (errorDiaVenta(Math.round(v))) toast('El día de venta va del 1 al 90.')
+            else saveSettings({ diaVenta: Math.round(v) })
+          }}
         />
         <FilaNumero
           label="Precio en pie"
@@ -273,7 +333,7 @@ export function Ajustes() {
         nota="Si tu socio lleva el ciclo en su teléfono, que te lo mande desde la pestaña Dinero del ciclo. Aquí lo abres: lo ves todo, sin poder cambiarlo, y no se mezcla con tus ciclos."
       />
       <Banda className="px-5 py-4">
-        <Button variant="soft" block onClick={() => elegirArchivo('application/json,.json', abrirArchivoDeCiclo)}>
+        <Button variant="soft" block onClick={() => elegirArchivo(TIPOS_RESPALDO, abrirArchivoDeCiclo)}>
           Abrir un ciclo que te mandaron
         </Button>
       </Banda>
@@ -290,6 +350,24 @@ export function Ajustes() {
           Qué hay de nuevo
         </button>
       </p>
+      <div className="mt-1 flex justify-center">
+        <button
+          type="button"
+          onClick={async () => {
+            const r = await buscarActualizacion()
+            toast(
+              r === 'nueva'
+                ? 'Hay una versión nueva: en un momento sale el botón para ponerla.'
+                : r === 'sin-conexion'
+                  ? 'Sin internet no se puede buscar. Inténtalo con señal.'
+                  : `Ya tienes la última versión, la ${__APP_VERSION__}.`,
+            )
+          }}
+          className="h-11 px-3 text-sm font-medium text-forest-600"
+        >
+          Buscar actualización
+        </button>
+      </div>
       <Sheet open={novedades} onClose={() => setNovedades(false)} title={`Lo nuevo de la ${NOVEDADES.version}`}>
         <ListaNovedades />
       </Sheet>
@@ -321,9 +399,10 @@ function queSeBorra(c?: Record<
   return lista ? `Borra ${lista}. ${aviso}` : 'Todavía no hay nada anotado.'
 }
 
-function resumen(lotes?: Lote[]) {
-  const n = lotes?.length ?? 0
-  return `${num(n)} ${n === 1 ? 'ciclo' : 'ciclos'}`
+// «2 ciclos y 40 registros», «1 ciclo y 0 registros»: lo que trae un respaldo
+// o lo que hay en el teléfono.
+function cuantos(ciclos = 0, registros = 0) {
+  return `${num(ciclos)} ${plural(ciclos, 'ciclo', 'ciclos')} y ${num(registros)} ${plural(registros, 'registro', 'registros')}`
 }
 
 function AvisoRespaldo({
@@ -372,7 +451,9 @@ function AvisoRespaldo({
 // nombrarlo y se ve como antes; con varios, cada uno con su nombre, que es el
 // que aparece en el ciclo.
 function Galpones({ settings: s }: { settings: Settings }) {
-  const activos = useLotes('activo')
+  const todos = useLotes()
+  const ocupacion = useOcupacion()
+  const activos = todos?.filter((l) => l.estado === 'activo')
   const varios = s.galpones.length > 1
 
   function renombrar(g: Galpon, nombre: string) {
@@ -382,10 +463,12 @@ function Galpones({ settings: s }: { settings: Settings }) {
   }
 
   async function quitar(g: Galpon) {
-    // Una pollada repartida que tiene aves ahí, o que llegó ahí, no se puede
-    // pasar a otro galpón de un golpe: sus movimientos quedarían sin sentido.
+    // Una pollada repartida que tiene aves ahí hoy, o que llegó ahí, no se
+    // puede pasar a otro galpón de un golpe: sus movimientos quedarían sin
+    // sentido. Un galpón que se vació con una venta sí se puede quitar.
+    const conAves = new Set((ocupacion?.porGalpon.get(g.id) ?? []).map((c) => c.lote.id))
     const repartidos = (activos ?? [])
-      .filter((l) => repartido(l) && (galponInicial(l, s) === g.id || galponesOcupados(l, s).includes(g.id)))
+      .filter((l) => repartido(l) && (galponInicial(l, s) === g.id || conAves.has(l.id)))
       .map((l) => `«${l.nombre}»`)
     if (repartidos.length) {
       await confirmar({
@@ -396,7 +479,8 @@ function Galpones({ settings: s }: { settings: Settings }) {
       return
     }
     const resto = s.galpones.filter((x) => x.id !== g.id)
-    const enEl = (activos ?? []).filter((l) => galponDe(l, s)?.id === g.id).map((l) => l.nombre)
+    const ciclosEnEl = (activos ?? []).filter((l) => !repartido(l) && galponDe(l, s)?.id === g.id)
+    const enEl = ciclosEnEl.map((l) => l.nombre)
     const lista = enEl.length > 1 ? `${enEl.slice(0, -1).join(', ')} y ${enEl[enEl.length - 1]}` : enEl[0]
     const ok = await confirmar({
       titulo: `Quitar ${g.nombre}`,
@@ -409,7 +493,26 @@ function Galpones({ settings: s }: { settings: Settings }) {
       confirmar: 'Quitar',
       peligro: true,
     })
-    if (ok) saveSettings({ galpones: resto })
+    if (!ok) return
+    // Los ciclos en curso que estaban ahí pasan al primero que queda. Los
+    // cerrados se quedan donde estuvieron: el galpón se guarda como quitado, y
+    // Reportes por galpón no los junta con los de otro.
+    const cerrados = (todos ?? []).filter(
+      (l) => l.estado === 'cerrado' && !l.compartido && galponDe(l, s)?.id === g.id,
+    )
+    await db.transaction('rw', db.lotes, async () => {
+      for (const l of ciclosEnEl) await db.lotes.update(l.id, { galponId: resto[0].id })
+      for (const l of cerrados) if (!l.galponId) await db.lotes.update(l.id, { galponId: g.id })
+    })
+    const loNombran = (todos ?? []).some(
+      (l) =>
+        !ciclosEnEl.includes(l) &&
+        (galponDe(l, s)?.id === g.id || l.movimientos?.some((m) => m.de === g.id || m.a === g.id)),
+    )
+    saveSettings({
+      galpones: resto,
+      galponesQuitados: loNombran ? [...s.galponesQuitados, g] : s.galponesQuitados,
+    })
   }
 
   return (
@@ -438,7 +541,9 @@ function Galpones({ settings: s }: { settings: Settings }) {
         </div>
       ))}
       <button
-        onClick={() => saveSettings({ galpones: [...s.galpones, nuevoGalpon(s.galpones)] })}
+        onClick={() =>
+          saveSettings({ galpones: [...s.galpones, nuevoGalpon([...s.galpones, ...s.galponesQuitados])] })
+        }
         className="-mx-2 -my-3 block px-2 py-3 text-sm font-medium text-forest-600"
       >
         + Agregar galpón

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { db, type Aplicacion, type Gasto, type Ingreso, type Lote, type Registro } from '../../db/schema'
 import { Button, DangerButton, Field, Input, Select, Sheet } from '../ui'
 import { confirmar, toast } from '../confirm'
-import { diasEntre, hoyISO, money, num, plural } from '../../lib/format'
+import { diasEntre, fecha as fechaCorta, hoyISO, money, num, plural } from '../../lib/format'
 import { useCompradores, useModoVenta, usePreciosDeVenta, useSettings } from '../../lib/hooks'
 import { cobradoDe, pendienteDe } from '../../lib/cobros'
 import type { LoteMetrics } from '../../lib/metrics'
@@ -209,16 +209,35 @@ export function IngresoSheet({
       // puede quedar cerrado con aves vivas en el galpón.
       const quedan = metrics.avesVivas + (editar.tipo === 'aves' ? editar.cantidad : 0) - nAves
       const reabre = lote.estado === 'cerrado' && quedan > 0
+      // La venta que cerró el ciclo manda en la fecha de cierre: al corregirle
+      // la fecha, el cierre se mueve con ella. Antes se quedaba atrás, y los
+      // días del ciclo y el IEP salían mal.
+      const nuevoCierre = [...otrasVentas.filter((i) => i.tipo === 'aves').map((i) => i.fecha), fecha]
+        .sort()
+        .at(-1)!
+      const mueveCierre =
+        lote.estado === 'cerrado' &&
+        !reabre &&
+        !!lote.fechaCierre &&
+        (editar.fecha === lote.fechaCierre || fecha > lote.fechaCierre) &&
+        nuevoCierre !== lote.fechaCierre
       await db.transaction('rw', db.ingresos, db.lotes, async () => {
         await db.ingresos.update(editar.id, datos)
         if (reabre) await db.lotes.update(lote.id, { estado: 'activo', fechaCierre: undefined })
+        else if (mueveCierre)
+          await db.lotes.update(lote.id, {
+            fechaCierre: nuevoCierre,
+            cierre: lote.cierre ? { ...lote.cierre, diaVenta: diasEntre(lote.fechaInicio, nuevoCierre) } : undefined,
+          })
       })
       toast(
         reabre
           ? `Venta corregida · el ciclo se reabrió con ${num(quedan)} aves`
-          : aCredito
-            ? `Venta corregida · ${faltaAhora >= 1 ? `faltan ${money(faltaAhora)}` : 'ya pagó todo'}`
-            : `Venta corregida · ${money(datos.monto)}`,
+          : mueveCierre
+            ? `Venta corregida · el ciclo cerró el ${fechaCorta(nuevoCierre)}`
+            : aCredito
+              ? `Venta corregida · ${faltaAhora >= 1 ? `faltan ${money(faltaAhora)}` : 'ya pagó todo'}`
+              : `Venta corregida · ${money(datos.monto)}`,
       )
     } else if (vendeTodo && cerrar) {
       // Lo que la app proyectaba se guarda antes de que la venta deje el galpón

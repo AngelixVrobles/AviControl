@@ -190,6 +190,21 @@ function liquidar(balances: SocioBalance[]): Traspaso[] {
 
 export const esYo = (nombre: string) => nombre.trim().toLowerCase() === 'yo'
 
+// Dos ciclos con los mismos socios y las mismas partes —o los dos sin socios—:
+// lo que pasa de uno a otro queda repartido igual y no hay que decir de quién
+// es. Si no, el alimento que pasa le tiene que volver a quien lo pagó.
+export function mismosSocios(a?: Socio[], b?: Socio[]): boolean {
+  const lista = (s?: Socio[]) =>
+    s && s.length >= 2
+      ? norm(s)
+          .map((f, i) => `${nombreSocio(s[i], i).toLowerCase()}|${Math.round(f * 1000)}`)
+          .sort()
+      : []
+  const x = lista(a)
+  const y = lista(b)
+  return x.length === y.length && x.every((v, i) => v === y[i])
+}
+
 /**
  * La frase de una entrega, partida alrededor del monto para poder resaltarlo.
  * «Yo» es quien usa la app: la app le habla de tú («Le entregas…», «… te

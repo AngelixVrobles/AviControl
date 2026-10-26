@@ -1,5 +1,5 @@
 import { borrarBorradoresDe } from '../lib/borrador'
-import { db } from './schema'
+import { db, type Gasto } from './schema'
 
 // Borra el ciclo con todo lo que se anotó en él, en una sola transacción: o se
 // va todo o no se va nada. Las deudas y sus abonos se quedan, que son de la
@@ -10,12 +10,20 @@ export async function borrarCiclo(loteId: number) {
     'rw',
     [db.lotes, db.registros, db.gastos, db.ingresos, db.pesajes, db.aplicaciones, db.entregas],
     async () => {
-      // El alimento que se pasó a otro ciclo, o que vino de otro, también se
-      // va del otro lado: si no, ese ciclo seguiría con el traspaso a medias.
-      const pares = (await db.gastos.where('loteId').equals(loteId).toArray())
-        .map((g) => g.traspaso?.gastoId)
-        .filter((id): id is number => id != null)
-      if (pares.length) await db.gastos.bulkDelete(pares)
+      // El alimento que vino de otro ciclo vuelve a ese: su mitad se borra y
+      // allá sigue en el almacén. El que este ciclo pasó a otro se queda allá
+      // como una compra, sin el traspaso: los sacos están en ese galpón, y
+      // borrarlo le bajaba la existencia y los costos al ciclo en curso.
+      const conTraspaso = (await db.gastos.where('loteId').equals(loteId).toArray()).filter(
+        (g) => g.traspaso?.gastoId != null,
+      )
+      // La mitad que sale lleva los quintales en negativo; el monto no basta:
+      // un alimento sin costo anotado sale con −0, que no es menor que 0.
+      const salio = (g: Gasto) => (g.cantidadQq ?? 0) < 0 || g.monto < 0
+      const vinieron = conTraspaso.filter((g) => !salio(g)).map((g) => g.traspaso!.gastoId!)
+      const pasaron = conTraspaso.filter(salio).map((g) => g.traspaso!.gastoId!)
+      if (vinieron.length) await db.gastos.bulkDelete(vinieron)
+      for (const id of pasaron) await db.gastos.update(id, { traspaso: undefined })
       await Promise.all([
         db.registros.where('loteId').equals(loteId).delete(),
         db.gastos.where('loteId').equals(loteId).delete(),

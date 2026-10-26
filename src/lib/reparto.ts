@@ -40,9 +40,11 @@ function mover(aves: Map<string, number>, m: MovimientoAves) {
 
 /**
  * Las aves de cada galpón al final del día `hasta`. En un mismo día van
- * primero las bajas y las ventas, y después lo que se pasó: así las 350 que se
- * pasaron llegan 350, y las que «había ese día» son las que se podían pasar.
- * Con `sin`, se deja fuera ese movimiento: el que se está corrigiendo.
+ * primero las bajas, después lo que se pasó y al final las ventas: así las 350
+ * que se pasaron llegan 350, y las que se pasaron a un galpón y se vendieron
+ * ese mismo día salen de ahí. Antes la venta iba antes del movimiento y el
+ * galpón quedaba con 350 aves que ya no estaban. Con `sin`, se deja fuera ese
+ * movimiento: el que se está corrigiendo.
  */
 export function avesPorGalpon(
   lote: LoteReparto,
@@ -52,24 +54,63 @@ export function avesPorGalpon(
   hasta: string,
   { sin }: { sin?: number } = {},
 ): AvesEnGalpon[] {
-  const movimientos = (lote.movimientos ?? [])
-    .map((m, i) => ({ m, i }))
-    .filter(({ m, i }) => i !== sin && m.fecha <= hasta)
+  const movimientos = (lote.movimientos ?? []).filter((_, i) => i !== sin)
+  return redondear(simular(lote, inicial, registros, ingresos, movimientos, hasta).aves)
+}
+
+export interface MovimientoSinAves {
+  movimiento: MovimientoAves
+  /** Las aves que había en el galpón de donde salen ese día. */
+  habia: number
+}
+
+/**
+ * Los movimientos que ya no se pueden hacer como se anotaron: al borrar o
+ * corregir uno de antes, el galpón de donde salen se queda sin esas aves. Antes
+ * se movían las que hubiera —a veces ninguna— y la lista seguía diciendo 300.
+ */
+export function movimientosSinAves(
+  lote: LoteReparto,
+  inicial: string,
+  registros: RegistroReparto[],
+  ingresos: VentaReparto[],
+  movimientos: MovimientoAves[],
+): MovimientoSinAves[] {
+  return simular(lote, inicial, registros, ingresos, movimientos, '9999-12-31').sinAves
+}
+
+function simular(
+  lote: LoteReparto,
+  inicial: string,
+  registros: RegistroReparto[],
+  ingresos: VentaReparto[],
+  todos: MovimientoAves[],
+  hasta: string,
+) {
+  const movimientos = todos.filter((m) => m.fecha <= hasta)
   const ventas = ingresos.filter((v) => v.tipo === 'aves' && v.fecha <= hasta)
   const dias = [
     ...new Set([
-      ...movimientos.map(({ m }) => m.fecha),
+      ...movimientos.map((m) => m.fecha),
       ...registros.filter((r) => r.fecha <= hasta).map((r) => r.fecha),
       ...ventas.map((v) => v.fecha),
     ]),
   ].sort()
 
   const aves = new Map<string, number>([[inicial, Math.max(0, lote.cantidadInicial - (lote.muertosLlegada ?? 0))]])
+  const sinAves: MovimientoSinAves[] = []
   for (const dia of dias) {
     const bajas = registros
       .filter((r) => r.fecha === dia)
       .reduce((a, r) => a + (r.mortalidad ?? 0) + (r.descarte ?? 0), 0)
     sacarParejo(aves, bajas)
+    for (const m of movimientos) {
+      if (m.fecha !== dia) continue
+      // Media ave de diferencia es el reparto de las bajas, no falta de aves.
+      const habia = aves.get(m.de) ?? 0
+      if (m.aves > habia + 0.5) sinAves.push({ movimiento: m, habia: Math.round(habia) })
+      mover(aves, m)
+    }
     for (const v of ventas) {
       if (v.fecha !== dia) continue
       let resto = v.cantidad
@@ -81,9 +122,8 @@ export function avesPorGalpon(
       }
       sacarParejo(aves, resto)
     }
-    for (const { m } of movimientos) if (m.fecha === dia) mover(aves, m)
   }
-  return redondear(aves)
+  return { aves, sinAves }
 }
 
 // Aves enteras que suman lo mismo que el total redondeado: con 649.6 y 349.4

@@ -11,7 +11,7 @@ import { useEnvio } from '../components/useEnvio'
 import { useVolver } from '../components/useVolver'
 import { fecha as fechaCorta, hoyISO, num } from '../lib/format'
 import { errorFechaFutura, errorNegativo } from '../lib/lote'
-import { useLotes, useSettings } from '../lib/hooks'
+import { useLotes, useOcupacion, useSettings } from '../lib/hooks'
 import { galponDe, galponLibre } from '../lib/galpones'
 import type { Galpon } from '../lib/settings'
 import { RAZA } from '../lib/labels'
@@ -44,16 +44,16 @@ export function NuevoLote() {
   const [incubadora, setIncubadora] = useState('')
   const [pesoLlegada, setPesoLlegada] = useState('')
   const [muertosLlegada, setMuertosLlegada] = useState('')
-  // Con varios galpones, el primero que no tiene un ciclo en curso; se elige
-  // otro si los pollitos van a otro lado.
-  const activos = useLotes('activo')
   // Al empleado se le suele pagar igual de un ciclo a otro: el nuevo empieza con
   // el pago del último, y se cambia en «Ganancia estimada».
   const ultimo = useLotes()?.[0]
+  // Con varios galpones, el primero sin aves de un ciclo en curso; se elige
+  // otro si los pollitos van a otro lado.
+  const ocupacion = useOcupacion()
   const [galponElegido, setGalponElegido] = useState<string>()
   const galpon =
     settings.galpones.find((g) => g.id === galponElegido) ??
-    (activos ? galponLibre(settings.galpones, activos) : galponDe(undefined, settings))
+    (ocupacion ? galponLibre(settings.galpones, ocupacion.ocupados) : galponDe(undefined, settings))
   const varios = settings.galpones.length > 1
   // Desde que llegan, parte de los pollitos puede ir a otro galpón: queda como
   // un movimiento del primer día, igual que si se pasaran después.
@@ -63,7 +63,7 @@ export function NuevoLote() {
   const otrosGalpones = settings.galpones.filter((g) => g.id !== galpon?.id)
   const otro =
     otrosGalpones.find((g) => g.id === otroElegido) ??
-    (activos ? galponLibre(otrosGalpones, activos) : otrosGalpones[0])
+    (ocupacion ? galponLibre(otrosGalpones, ocupacion.ocupados) : otrosGalpones[0])
 
   const cantidadNum = Math.max(0, Math.round(Number(cantidad) || 0))
   const colocados = Math.max(0, cantidadNum - Math.max(0, Math.round(Number(muertosLlegada) || 0)))

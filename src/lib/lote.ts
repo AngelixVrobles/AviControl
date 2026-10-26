@@ -11,6 +11,18 @@ export const pesoObjetivoDe = (lote: Pick<Lote, 'pesoObjetivoLb'>): number => {
   return propio != null && propio > 0 ? propio : getSettings().pesoObjetivoLb
 }
 
+// El día en que se piensa vender: el del ciclo, o el de Ajustes. Sin ninguno,
+// nada: se vende cuando lleguen al peso de venta. Un ciclo con 0 se vende por
+// peso aunque Ajustes tenga un día.
+export const diaVentaDe = (lote: Pick<Lote, 'diaVenta'>): number | undefined => {
+  const dia = lote.diaVenta ?? getSettings().diaVenta
+  return dia != null && dia > 0 ? Math.round(dia) : undefined
+}
+
+/** Un día de venta que se puede creer. */
+export const errorDiaVenta = (dia: number) =>
+  Number.isInteger(dia) && dia >= 1 && dia <= 90 ? undefined : 'Pon un día entre 1 y 90.'
+
 // Un ciclo activo que se quedó sin aves —se vendieron todas con «Venta» o no
 // sobrevivió ninguna— ya no pide registro del día ni pesaje: lo que falta es
 // cerrarlo.

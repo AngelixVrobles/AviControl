@@ -23,6 +23,10 @@ export interface Settings {
   moneda: string
   granja: string
   galpones: Galpon[]
+  // Los que se quitaron y tenían ciclos: se guardan para que esos ciclos sigan
+  // diciendo dónde estuvieron. Antes pasaban al primer galpón, y Reportes por
+  // galpón juntaba ciclos de dos galpones distintos.
+  galponesQuitados: Galpon[]
   // Las medidas se guardan en metros; esto es solo cómo se escriben y se leen.
   unidadMedida: 'm' | 'pies'
   // El equipo de la granja: con qué se da agua y comida, y para cuántas aves
@@ -32,6 +36,9 @@ export interface Settings {
   avesPorEquipo: Partial<Record<TipoEquipo, number>>
   // Defaults de producción (aplican a cada ciclo nuevo).
   pesoObjetivoLb: number
+  // El día en que se vende si el ciclo no tiene el suyo. Sin él, cuando las
+  // aves llegan al peso de venta.
+  diaVenta?: number
   // Lo que paga el pollero o la granja por la libra en pie.
   precioMercadoLb?: number
   // Cómo se vende el pollo. En pie, al pollero, por libra viva; o arreglado
@@ -56,6 +63,7 @@ const defaults: Settings = {
   comedero: 'tolva',
   avesPorEquipo: {},
   galpones: [{ id: 'g1', nombre: 'Galpón 1' }],
+  galponesQuitados: [],
   pesoObjetivoLb: PESO_OBJETIVO_DEFAULT,
   venta: 'pie',
   rindePct: RINDE_ARREGLADO_PCT,
@@ -89,6 +97,11 @@ function completar(guardado: Record<string, unknown>): Settings {
       ? (guardado.planSanitario as HitoSanitario[])
       : defaults.planSanitario,
     galpones: leerGalpones(guardado),
+    galponesQuitados: Array.isArray(guardado.galponesQuitados)
+      ? (guardado.galponesQuitados as Galpon[]).filter(
+          (g) => g && typeof g.id === 'string' && typeof g.nombre === 'string',
+        )
+      : [],
   }
 }
 

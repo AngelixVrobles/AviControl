@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db, type Lote, type Socio } from '../db/schema'
 import { borrarCiclo } from '../db/ciclo'
-import { enumerar, money, num } from '../lib/format'
+import { enumerar, fecha, money, num, sumarDias } from '../lib/format'
 import { useSettings } from '../lib/hooks'
 import { galponDe, galponesOcupados, galponInicial, nombreDeGalpon, nombresGalpones } from '../lib/galpones'
 import { repartido } from '../lib/reparto'
-import { errorNegativo, erroresLote, type LimitesLote } from '../lib/lote'
+import { errorDiaVenta, errorNegativo, erroresLote, type LimitesLote } from '../lib/lote'
 import { sociosParaGuardar } from '../lib/sociedad'
 import { diaParaPeso } from '../lib/standards'
 import { confirmar, toast } from './confirm'
@@ -41,11 +41,20 @@ export function EditarLoteSheet({
   open: boolean
   onClose: () => void
 }) {
+  // Cada vez que se abre es un formulario nuevo, aunque se abra mientras la
+  // hoja todavía se está cerrando: antes volvía lo que se había descartado, y
+  // después de guardar el botón se quedaba apagado.
+  const [vez, setVez] = useState(0)
+  const [abierta, setAbierta] = useState(open)
+  if (open !== abierta) {
+    setAbierta(open)
+    if (open) setVez((v) => v + 1)
+  }
   return (
     <Sheet open={open} onClose={onClose} title="Corregir el ciclo">
       {/* El formulario nace al abrir la hoja: así toma el ciclo tal como está y
           no se reinicia si algo cambia en la base mientras se escribe. */}
-      <FormLote lote={lote} limites={limites} contenido={contenido} onClose={onClose} />
+      <FormLote key={vez} lote={lote} limites={limites} contenido={contenido} onClose={onClose} />
     </Sheet>
   )
 }
@@ -75,6 +84,8 @@ function FormLote({
   const [precioQuintal, setPrecioQuintal] = useState(aTexto(lote.precioQuintal))
   const [precioLb, setPrecioLb] = useState(aTexto(lote.precioVentaLb))
   const [pesoVenta, setPesoVenta] = useState(aTexto(lote.pesoObjetivoLb))
+  // El día de venta propio; vacío, el de Ajustes o cuando lleguen al peso.
+  const [diaVenta, setDiaVenta] = useState(lote.diaVenta ? String(lote.diaVenta) : '')
   const [enSociedad, setEnSociedad] = useState(sociosAntes >= 2)
   const [socios, setSocios] = useState<Socio[]>(
     sociosAntes >= 2
@@ -109,6 +120,7 @@ function FormLote({
     quintal: errorNegativo(precioQuintal),
     precio: errorNegativo(precioLb),
     peso: errorNegativo(pesoVenta),
+    dia: diaVenta !== '' ? errorDiaVenta(Number(diaVenta)) : undefined,
   }
   const valido =
     !errores.fechaInicio &&
@@ -181,6 +193,8 @@ function FormLote({
         precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
         precioVentaLb: Number(precioLb) > 0 ? Number(precioLb) : undefined,
         pesoObjetivoLb: pesoNum > 0 ? pesoNum : undefined,
+        // Vacío se queda como estaba si era «por peso» a propósito (0).
+        diaVenta: diaVenta !== '' ? Number(diaVenta) : lote.diaVenta === 0 ? 0 : undefined,
         socios: reparto?.socios,
         costoInicialPagadoPor: reparto && costoNum > 0 ? reparto.pagador : undefined,
         galponId: varios && !enVarios ? galponId || undefined : lote.galponId,
@@ -314,6 +328,28 @@ function FormLote({
           Vacío, el ciclo usa el peso de Ajustes ({num(settings.pesoObjetivoLb, 1)} lb).
         </p>
       )}
+      <Field
+        label="Día de venta"
+        error={negativos.dia}
+        hint={
+          Number(diaVenta) > 0 && !negativos.dia
+            ? `El ${fecha(sumarDias(fechaInicio, Number(diaVenta)))}: hasta ese día se cuentan el alimento y el pago de los empleados.`
+            : settings.diaVenta && lote.diaVenta !== 0
+              ? `Vacío, el de Ajustes: el día ${num(settings.diaVenta)}.`
+              : `Vacío, cuando lleguen a ${num(pesoQueRige, 1)} lb.`
+        }
+      >
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={90}
+          value={diaVenta}
+          onChange={(e) => setDiaVenta(e.target.value)}
+          placeholder="Opcional"
+          aria-invalid={!!negativos.dia}
+        />
+      </Field>
 
       <DatosRecibo
         incubadora={incubadora}
@@ -333,6 +369,14 @@ function FormLote({
                 {g.nombre}
               </option>
             ))}
+            {/* Un ciclo cerrado en un galpón que ya se quitó sigue diciendo dónde estuvo. */}
+            {settings.galponesQuitados
+              .filter((g) => g.id === galponId)
+              .map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nombre} (quitado)
+                </option>
+              ))}
           </Select>
         </Field>
       )}

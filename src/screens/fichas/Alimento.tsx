@@ -439,7 +439,13 @@ export function FichaAlimento({
       {!soloVer && (
         <>
           <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
-          <RegistroSheet lote={lote} registros={registros} open={anotando} onClose={() => setAnotando(false)} />
+          <RegistroSheet
+            lote={lote}
+            registros={registros}
+            ingresos={ingresos}
+            open={anotando}
+            onClose={() => setAnotando(false)}
+          />
           {!activo && (
             <TraspasoAlimentoSheet
               lote={lote}

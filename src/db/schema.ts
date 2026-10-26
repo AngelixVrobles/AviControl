@@ -69,6 +69,10 @@ export interface Lote {
   costoInicial: number
   estado: EstadoLote
   pesoObjetivoLb?: number
+  // El día en que se piensa vender. Sin él, se vende cuando lleguen al peso de
+  // venta; con él, la proyección, el alimento que falta y el pago de los
+  // empleados van hasta ese día.
+  diaVenta?: number
   precioVentaLb?: number
   precioQuintal?: number
   socios?: Socio[]
@@ -258,6 +262,16 @@ export interface Abono {
   creado: number
 }
 
+// Lo que había en el teléfono antes de restaurar un respaldo. Si era el
+// respaldo equivocado, se vuelve a esto desde Ajustes: antes restaurar no tenía
+// vuelta atrás.
+export interface CopiaAntes {
+  id: number
+  creado: number
+  json: string
+  resumen: string
+}
+
 export const db = new Dexie('avicontrol') as Dexie & {
   lotes: EntityTable<Lote, 'id'>
   registros: EntityTable<Registro, 'id'>
@@ -268,6 +282,7 @@ export const db = new Dexie('avicontrol') as Dexie & {
   deudas: EntityTable<Deuda, 'id'>
   abonos: EntityTable<Abono, 'id'>
   entregas: EntityTable<EntregaSocio, 'id'>
+  copias: EntityTable<CopiaAntes, 'id'>
 }
 
 db.version(1).stores({
@@ -292,4 +307,8 @@ db.version(4).stores({
 
 db.version(5).stores({
   entregas: '++id, loteId, fecha',
+})
+
+db.version(6).stores({
+  copias: '++id, creado',
 })

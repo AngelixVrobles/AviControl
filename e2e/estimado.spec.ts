@@ -161,3 +161,29 @@ test('«Cómo vendes» dice si conviene arreglarlo o venderlo en pie', async ({ 
   await expect(hoja).toBeHidden()
   await expect(page.getByRole('main')).toContainText('Precio mínimo por libra arreglada')
 })
+
+// Antes el ciclo se acababa a los 35 días para todos, y el alimento que falta y
+// el pago de los empleados se contaban hasta ahí aunque se vendiera a los 42.
+test('el día de venta se cambia y la ganancia estimada va hasta ese día', async ({ page }) => {
+  const id = await cicloConPeso(page)
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText('cuando lleguen a 5.5 lb')
+
+  await page.getByRole('button', { name: 'Cambiar el día' }).click()
+  const hoja = page.getByRole('dialog', { name: '¿Qué día vendes?' })
+  await hoja.getByRole('button', { name: 'Un día fijo' }).click()
+  await hoja.getByLabel('Día de venta').fill('95')
+  await expect(hoja).toContainText('Pon un día entre 1 y 90.')
+  await hoja.getByLabel('Día de venta').fill('42')
+  await expect(hoja).toContainText('Hoy es el día 30.')
+  await hoja.getByRole('button', { name: /Hacerlo igual en los ciclos nuevos/ }).click()
+  await hoja.getByRole('button', { name: 'Guardar' }).click()
+  await expect(hoja).toBeHidden()
+  await expect(main).toContainText('día 42')
+  await expect(main).not.toContainText('cuando lleguen a')
+
+  // Queda en Ajustes para los ciclos que vienen.
+  await page.goto('/ajustes')
+  await expect(page.getByLabel('Día de venta, en días')).toHaveValue('42')
+})

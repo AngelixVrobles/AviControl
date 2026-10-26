@@ -71,9 +71,16 @@ export function consumoAlimento(lote: Lote, registros: Registro[], gastos: Gasto
   let acumulado = 0
   let desde = 0
 
+  // Lo que se pasó a otro ciclo el mismo día de un conteo salió después de
+  // contar: se cuentan los sacos que quedan y esos se pasan. Restarlo hacía
+  // que el ciclo «comiera» 105 qq en vez de 110, y la conversión mejoraba sola.
+  const antesDelConteo = (g: Gasto, fecha: string) =>
+    g.traspaso && (g.cantidadQq ?? 0) < 0 ? g.fecha < fecha : g.fecha <= fecha
+
   for (const c of conteos) {
     const compradoLb =
-      compras.filter((g) => g.fecha <= c.fecha).reduce((a, g) => a + g.cantidadQq!, 0) * LB_POR_QUINTAL
+      compras.filter((g) => antesDelConteo(g, c.fecha)).reduce((a, g) => a + g.cantidadQq!, 0) *
+      LB_POR_QUINTAL
     const objetivo = compradoLb - c.qq * LB_POR_QUINTAL - acumulado
 
     const ventana: number[] = []

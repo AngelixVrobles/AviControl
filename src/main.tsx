@@ -6,6 +6,8 @@ import { ErrorBoundary, ErrorDeRuta, PantallaCargando } from './components/Error
 import { Shell } from './components/Shell'
 import { Dashboard } from './screens/Dashboard'
 import { Lotes } from './screens/Lotes'
+import { iniciarActualizaciones } from './lib/actualizacion'
+import { iniciarInstalacion } from './lib/instalar'
 
 // Inicio y Ciclos van en el paquete de entrada; las demás pantallas se bajan
 // cuando se abren. Antes la app entera —765 kB— tenía que llegar antes de
@@ -92,6 +94,9 @@ navigator.storage
   ?.persisted?.()
   .then((ya) => ya || navigator.storage.persist())
   .catch(() => {})
+
+iniciarActualizaciones()
+iniciarInstalacion()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

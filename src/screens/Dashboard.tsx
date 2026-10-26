@@ -15,6 +15,7 @@ import { valorHoy } from '../lib/venta'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 import { ListaNovedades } from '../components/Novedades'
+import { AvisoInstalar } from '../components/Instalar'
 import { leerNovedadesVistas, marcarNovedadesVistas, NOVEDADES, tocaNovedades } from '../lib/novedades'
 
 export function Dashboard() {
@@ -33,6 +34,25 @@ export function Dashboard() {
   if (!activos || cerrados == null) return <SkeletonHeader />
 
   const hoy = capitalizar(fechaLarga(hoyISO()))
+  const novedades = tocaNovedades(novedadesVistas, activos.length + cerrados > 0) && (
+    <section className="mt-6 rounded-xl2 border border-forest-200 bg-forest-50 p-4">
+      <h2 className="mb-2 font-display text-base font-semibold text-forest-800">
+        Lo nuevo de la versión {NOVEDADES.version}
+      </h2>
+      <ListaNovedades corta />
+      <button
+        type="button"
+        onClick={() => {
+          marcarNovedadesVistas()
+          setNovedadesVistas(NOVEDADES.version)
+        }}
+        className="mt-2 block h-11 rounded-full bg-forest-500 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
+      >
+        Entendido
+      </button>
+    </section>
+  )
+
   const recordar = tocaRecordarRespaldo(settings.ultimoRespaldo, activos.length + cerrados > 0)
 
   return (
@@ -45,27 +65,10 @@ export function Dashboard() {
         <LogoAviControl size={40} tile className="shrink-0 rounded-[9px] shadow-card" />
       </header>
 
-      {tocaNovedades(novedadesVistas, activos.length + cerrados > 0) && (
-        <section className="mt-6 rounded-xl2 border border-forest-200 bg-forest-50 p-4">
-          <h2 className="mb-2 font-display text-base font-semibold text-forest-800">
-            Lo nuevo de la versión {NOVEDADES.version}
-          </h2>
-          <ListaNovedades corta />
-          <button
-            type="button"
-            onClick={() => {
-              marcarNovedadesVistas()
-              setNovedadesVistas(NOVEDADES.version)
-            }}
-            className="mt-2 block h-11 rounded-full bg-forest-500 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
-          >
-            Entendido
-          </button>
-        </section>
-      )}
-
       {activos.length === 0 ? (
         <div className="mt-6">
+          {novedades}
+          <AvisoInstalar hayDatos={cerrados > 0} />
           <Compartidos lista={compartidos} />
           <EmptyState
             icon={<IconScale width={28} height={28} />}
@@ -97,9 +100,14 @@ export function Dashboard() {
 
           <Alertas activos={activos} />
 
+          {/* Lo nuevo va después del día: arriba, a 320 px tapaba el registro de hoy. */}
+          {novedades}
+
           <TeDeben />
 
           {recordar && <RecordarRespaldo ultimo={settings.ultimoRespaldo} />}
+
+          <AvisoInstalar hayDatos />
 
           <Seccion
             className="mt-8"
@@ -230,7 +238,7 @@ function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
   const { unidadAlimento } = settings
   // Con varios galpones, el nombre del ciclo no siempre dice dónde está.
   const donde = (r: LoteConMetrics) => {
-    const g = nombreGalpon(r.lote, settings)
+    const g = nombreGalpon(r.lote, settings, r.galpones)
     return g ? `${g} · ` : ''
   }
   // El ciclo que ya no tiene aves no tiene día que anotar: su aviso es cerrarlo.

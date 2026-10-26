@@ -19,7 +19,7 @@ export function useRespaldo() {
     const archivo = new File([texto], nombreRespaldo(), { type: 'application/json' })
     let como: ComoSeGuardo
     try {
-      como = await entregarArchivo(archivo)
+      como = await entregarArchivo(archivo, { comoTexto: true })
     } catch {
       toast('No se pudo guardar el respaldo. Inténtalo de nuevo.')
       return
@@ -27,10 +27,10 @@ export function useRespaldo() {
     // Solo cuenta como respaldo lo que se guardó: antes se marcaba «hoy» aunque
     // el archivo no hubiera llegado a ninguna parte.
     if (como === 'cancelado') return
-    // En el iPhone, si no se pudo compartir y se descargó, puede que no haya
-    // quedado en ninguna parte: no se da por hecho, y el aviso sigue.
+    // En el teléfono, si no se pudo compartir y se descargó, el respaldo se
+    // quedó en el mismo teléfono: no se da por hecho, y el aviso sigue.
     if (como === 'descargado' && !descargaSegura()) {
-      toast('No se abrió el menú de compartir. Toca Respaldar otra vez y elige Guardar en Archivos o WhatsApp.')
+      toast('Se quedó en el teléfono. Toca Respaldar otra vez y mándalo por WhatsApp, el correo o Drive.')
       return
     }
     saveSettings({ ultimoRespaldo: hoyISO() })

@@ -1,9 +1,10 @@
 import { clsx } from 'clsx'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { ButtonHTMLAttributes, ComponentProps, ReactNode, SelectHTMLAttributes } from 'react'
 import { IconChevron, IconClose } from './icons'
 import { useArrastreHoja, usePresencia } from './usePresencia'
+import { registrarHoja } from './hojasAbiertas'
 
 // El papel es la superficie, no la tarjeta: una banda a sangre con filete
 // arriba y abajo, como el renglón de una hoja de control impresa. Ya no hay
@@ -222,6 +223,13 @@ export function Sheet({
 }) {
   const { montado, saliendo } = usePresencia(open, SALIDA_HOJA_MS)
   const { dy, arrastrando, manejadores } = useArrastreHoja(open, onClose)
+
+  // Mientras está abierta, el botón Atrás del teléfono la cierra.
+  const cerrar = useRef(onClose)
+  useEffect(() => {
+    cerrar.current = onClose
+  })
+  useEffect(() => (open ? registrarHoja(cerrar) : undefined), [open])
 
   useEffect(() => {
     if (!open) return
