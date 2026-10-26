@@ -152,3 +152,81 @@ describe('proyección con el peso de hoy', () => {
     expect(p.pesoVentaLb).toBeCloseTo(m.pesoEstimadoLb!, 5)
   })
 })
+
+describe('lo que falta por pagar además del alimento', () => {
+  const l = lote({ precioVentaLb: 60 })
+  const registros = [registro(30, { pesoPromedio: 4, alimentoLb: 4000 })]
+  const base = (patch: Parameters<typeof lote>[0] = {}, compras = gastos) => {
+    const ciclo = lote({ ...l, ...patch })
+    const m = computeMetrics(ciclo, registros, compras, [])
+    return { p: proyectarVenta(ciclo, registros, compras, m, 5.5)!, m }
+  }
+
+  // A la semana, hasta el día de la venta, menos lo ya anotado como mano de obra.
+  it('suma lo que queda del pago de los empleados', () => {
+    const compras = [...gastos, gasto({ id: 9, categoria: 'mano_obra', monto: 6000 })]
+    const { p, m } = base({ empleados: { monto: 3500, cada: 'semana' } }, compras)
+    expect(p.faltaEmpleados).toBeCloseTo((3500 / 7) * p.diaVenta - 6000, 5)
+    expect(p.costoProyectado).toBeCloseTo(m.costos + p.faltaAlimento + p.faltaEmpleados, 5)
+  })
+
+  it('suma los gastos que ya se sabe que vienen', () => {
+    const sin = base().p
+    const { p } = base({
+      gastosPorVenir: [
+        { concepto: 'Luz', monto: 2500, categoria: 'energia' },
+        { concepto: 'Camión', monto: 1500, categoria: 'transporte' },
+      ],
+    })
+    expect(p.faltaPorVenir).toBe(4000)
+    expect(p.costoProyectado).toBeCloseTo(sin.costoProyectado + 4000, 5)
+    expect(p.gananciaProyectada!).toBeCloseTo(sin.gananciaProyectada! - 4000, 5)
+  })
+
+  it('el costo que falta es la suma de sus partes', () => {
+    const { p } = base({
+      empleados: { monto: 20000, cada: 'ciclo' },
+      gastosPorVenir: [{ concepto: 'Luz', monto: 2500, categoria: 'energia' }],
+    })
+    expect(p.costoRestante).toBeCloseTo(p.faltaAlimento + p.faltaEmpleados + p.faltaPorVenir + p.faltaArreglo, 5)
+  })
+
+  // Sin precio del alimento, lo que falta se estima con el gasto por día: si
+  // ahí entraba también el sueldo, se contaba dos veces.
+  it('sin precio del alimento, el sueldo no entra también en el gasto por día', () => {
+    const compras = [
+      gasto({ id: 1, categoria: 'alimento', monto: 60000 }),
+      gasto({ id: 2, categoria: 'mano_obra', monto: 9000 }),
+    ]
+    const regs = [registro(30, { pesoPromedio: 4 })]
+    const ciclo = lote({ precioVentaLb: 60, empleados: { monto: 3000, cada: 'semana' } })
+    const m = computeMetrics(ciclo, regs, compras, [])
+    const p = proyectarVenta(ciclo, regs, compras, m, 5.5)!
+    expect(p.faltaAlimento).toBeCloseTo((60000 / m.dias) * p.diasRestantes, 5)
+  })
+})
+
+describe('proyección vendiendo el pollo arreglado', () => {
+  const l = lote({ precioVentaLb: 60 })
+  const registros = [registro(30, { pesoPromedio: 4, alimentoLb: 4000 })]
+  const m = computeMetrics(l, registros, gastos, [])
+  const enPie = proyectarVenta(l, registros, gastos, m, 5.5)!
+  const arreglado = proyectarVenta(l, registros, gastos, m, 5.5, { arreglado: true, rinde: 0.75, costoAve: 12 })!
+
+  // Se cobran menos libras, las arregladas, y el galpón es el mismo.
+  it('cobra las libras arregladas, no las de en pie', () => {
+    expect(arreglado.lbEnPie).toBe(enPie.lbEnPie)
+    expect(arreglado.lbVenta).toBe(Math.round(enPie.lbEnPie * 0.75))
+    expect(arreglado.ingresoProyectado).toBeCloseTo(arreglado.lbVenta * 60, 5)
+  })
+
+  it('arreglar las aves que faltan es un costo', () => {
+    expect(arreglado.faltaArreglo).toBe(arreglado.avesAlVender * 12)
+    expect(arreglado.costoProyectado).toBeCloseTo(enPie.costoProyectado + arreglado.faltaArreglo, 5)
+  })
+
+  it('el precio de equilibrio es por libra arreglada', () => {
+    expect(arreglado.precioEquilibrioLb * arreglado.lbVenta).toBeCloseTo(arreglado.costoProyectado, 5)
+    expect(arreglado.precioEquilibrioLb).toBeGreaterThan(enPie.precioEquilibrioLb)
+  })
+})

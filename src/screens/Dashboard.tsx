@@ -10,7 +10,8 @@ import { alimentoEn, desdeHace, fechaLarga, hoyISO, money, num, pct, plural, por
 import { precioMinimoConjunto } from '../lib/precios'
 import { sinAves } from '../lib/lote'
 import { nombreGalpon } from '../lib/galpones'
-import { useCuentaCerrados, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
+import { useCuentaCerrados, useModoVenta, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
+import { valorHoy } from '../lib/venta'
 import { diasSinRespaldo, tocaRecordarRespaldo } from '../lib/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 import { ListaNovedades } from '../components/Novedades'
@@ -319,6 +320,7 @@ function BloqueFinanciero({
   // el ciclo entero y las libras que saldrán. Antes era el costo por libra de
   // hoy: todo lo gastado entre aves todavía chiquitas, que al principio del
   // ciclo asustaba sin decir nada, y con varios ciclos un promedio simple.
+  const modo = useModoVenta()
   const conPrecio = activos.filter((r) => r.precio)
   const minimo = precioMinimoConjunto(conPrecio.map((r) => r.precio!))
   const avesVivas = activos.reduce((a, r) => a + r.metrics.avesVivas, 0)
@@ -326,19 +328,26 @@ function BloqueFinanciero({
 
   // Durante el ciclo no hay ganancia que mostrar: los costos entran desde el
   // día 1 y el ingreso llega al vender. Lo que sí se puede decir es cuánto se
-  // lleva puesto y cuánto vale hoy lo que está en el galpón.
-  const valorEnPie = activos.reduce((a, r) => {
-    const precio = r.lote.precioVentaLb ?? precioMercado
-    if (!precio || r.metrics.pesoEstimadoLb == null) return a
-    return a + r.metrics.avesVivas * r.metrics.pesoEstimadoLb * precio
-  }, 0)
+  // lleva puesto, cuánto vale hoy lo que está en el galpón y lo que quedaría
+  // al vender a tu precio, con lo que falta por pagar.
+  const valorEnPie = activos.reduce(
+    (a, r) => a + valorHoy(r.metrics.avesVivas, r.metrics.pesoEstimadoLb, r.lote.precioVentaLb, precioMercado, modo),
+    0,
+  )
+  const estimadas = activos.map((r) => r.precio?.actual?.ganancia)
+  const estimada = estimadas.every((g) => g != null) ? estimadas.reduce((a, g) => a! + g!, 0) : undefined
+  // Arreglado, el mínimo es por libra arreglada y el mercado paga la libra en
+  // pie: se compara lo que tendría que pagar el pollero, sin lo de arreglarlo.
+  const minimoPie = modo.arreglado
+    ? precioMinimoConjunto(conPrecio.map((r) => r.precio!), { enPie: true })
+    : minimo
   const sobreMercado =
-    minimo != null && minimo > 0 && precioMercado ? ((precioMercado - minimo) / minimo) * 100 : undefined
+    minimoPie != null && minimoPie > 0 && precioMercado ? ((precioMercado - minimoPie) / minimoPie) * 100 : undefined
 
   return (
     <section className="mt-8 overflow-hidden rounded-xl2 bg-forest-700 p-5 text-paper-raised">
       <div className="text-sm font-medium text-forest-200">
-        Precio mínimo para no perder
+        {modo.arreglado ? 'Precio mínimo por libra arreglada' : 'Precio mínimo para no perder'}
         {activos.length > 1 &&
           (conPrecio.length === activos.length
             ? ` · tus ${num(activos.length)} ciclos juntos`
@@ -351,19 +360,31 @@ function BloqueFinanciero({
       <p className="mt-2 text-sm leading-relaxed text-forest-100">
         {minimo == null
           ? 'Pesa una muestra de aves y te digo a cómo vender.'
-          : sobreMercado != null
-            ? sobreMercado >= 0
-              ? `El mercado paga ${porLb(precioMercado!)}, ${pct(sobreMercado, 0)} por encima.`
-              : `El mercado paga ${porLb(precioMercado!)}, ${pct(-sobreMercado, 0)} por debajo: a ese precio perderías.`
-            : 'Con lo que costará el ciclo entero y las libras que vas a sacar.'}
+          : modo.arreglado
+            ? sobreMercado != null
+              ? sobreMercado >= 0
+                ? `En pie no perderías: el pollero paga ${porLb(precioMercado!)} y te bastan ${porLb(minimoPie!)}.`
+                : `En pie el pollero paga ${porLb(precioMercado!)} y necesitas ${porLb(minimoPie!)}: arreglado es como no pierdes.`
+              : 'Con lo que costará el ciclo entero y las libras arregladas que vas a sacar.'
+            : sobreMercado != null
+              ? sobreMercado >= 0
+                ? `El mercado paga ${porLb(precioMercado!)}, ${pct(sobreMercado, 0)} por encima.`
+                : `El mercado paga ${porLb(precioMercado!)}, ${pct(-sobreMercado, 0)} por debajo: a ese precio perderías.`
+              : 'Con lo que costará el ciclo entero y las libras que vas a sacar.'}
       </p>
       <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
         <HeroStat label="Invertido" value={money(invertido, { compact: true })} />
         <HeroStat
-          label={`Valor en pie · ${num(avesVivas)} aves`}
+          label={`${modo.arreglado ? 'Vale hoy' : 'Valor en pie'} · ${num(avesVivas)} aves`}
           value={valorEnPie > 0 ? money(valorEnPie, { compact: true }) : '—'}
         />
       </div>
+      {estimada != null && activos.length > 0 && (
+        <p className="mt-3 border-t border-white/10 pt-3 text-sm text-forest-100 tnum">
+          {estimada >= 0 ? 'Ganancia estimada' : 'Pérdida estimada'} al vender a tu precio:{' '}
+          <span className="font-display text-lg font-semibold text-paper-raised">{money(Math.abs(estimada))}</span>
+        </p>
+      )}
     </section>
   )
 }

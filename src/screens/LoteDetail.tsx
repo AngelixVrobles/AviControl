@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
 import { db, type Gasto, type Ingreso, type Pesaje, type Registro } from "../db/schema";
-import { useLoteData, useSettings } from "../lib/hooks";
+import { useLoteData, useModoVenta, useSettings } from "../lib/hooks";
 import { agruparGastos } from "../lib/metrics";
 import { proyectarVenta } from "../lib/proyeccion";
 import { analizarPrecio } from "../lib/precios";
@@ -20,8 +20,9 @@ import { mandarCiclo } from "../components/useCicloCompartido";
 import { borrarCiclo } from "../db/ciclo";
 import { conCalor, juicioDe } from "../lib/calor";
 import { pendienteDe } from "../lib/cobros";
+import { valorHoy } from "../lib/venta";
 import { compartirReporte } from "../lib/reporte";
-import { alimentoEn, fecha, hoyISO, money, num, pct, porLb } from "../lib/format";
+import { alimentoEn, fecha, hoyISO, money, num, numCorto, pct, porLb } from "../lib/format";
 import { categoriaLabel, RAZA, tipoIngresoLabel } from "../lib/labels";
 import { LB_POR_QUINTAL } from "../lib/standards";
 import { AlertaChip } from "../components/AlertaChip";
@@ -32,11 +33,23 @@ import { confirmar, toast } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Button, Banda, Pestanas, Pill, Seccion } from "../components/ui";
 import { IconBack, IconClose, IconLapiz, IconMoney, IconPesa, IconPlus, IconScale, IconTrend } from "../components/icons";
-import { ActionButton, CierreSheet, CobroSheet, GastoSheet, IngresoSheet, PesajeSheet, RegistroSheet } from "../components/sheets";
+import {
+  ActionButton,
+  CierreSheet,
+  CobroSheet,
+  ComoVendesSheet,
+  EmpleadosSheet,
+  GastoSheet,
+  IngresoSheet,
+  PesajeSheet,
+  PorVenirSheet,
+  RegistroSheet,
+} from "../components/sheets";
 import { CerrarSinAves, FaseActual, GuiaDelDia } from "./ciclo/Hoy";
 import { Desvio, Diagnostico, GridCrecimiento, Muestreo } from "./ciclo/Crecimiento";
 import { ComoSalio, PrecioMinimo, PuntoOptimo } from "./ciclo/Dinero";
 import { Sociedad } from "./ciclo/Sociedad";
+import { GananciaEstimada } from "./ciclo/Estimado";
 
 type SheetKind =
   | "registro"
@@ -46,6 +59,9 @@ type SheetKind =
   | "cierre"
   | "lote"
   | "cobro"
+  | "empleados"
+  | "porVenir"
+  | "comoVendes"
   | null;
 
 type Tab = "hoy" | "crecimiento" | "dinero";
@@ -62,12 +78,14 @@ export function LoteDetail() {
   const volver = useVolver("/lotes");
   const data = useLoteData(id ? Number(id) : undefined);
   const settings = useSettings();
+  const modo = useModoVenta();
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [editRegistro, setEditRegistro] = useState<Registro>();
   const [editGasto, setEditGasto] = useState<Gasto>();
   const [editIngreso, setEditIngreso] = useState<Ingreso>();
   const [editPesaje, setEditPesaje] = useState<Pesaje>();
   const [cobroDe, setCobroDe] = useState<number>();
+  const [porVenir, setPorVenir] = useState<number>();
   const [todoHistorial, setTodoHistorial] = useState(false);
 
   function abrir(kind: SheetKind) {
@@ -145,11 +163,16 @@ export function LoteDetail() {
   // venta. Con 300 de 4,660 aves vendidas decía «Pérdida −RD$1,302,850 ·
   // Margen −1,754.7 %».
   const sinVender = lote.estado === "activo" || metrics.ingresos === 0;
-  const precioReferencia = lote.precioVentaLb ?? settings.precioMercadoLb;
-  const valorEnPie =
-    precioReferencia && metrics.pesoEstimadoLb != null
-      ? metrics.avesVivas * metrics.pesoEstimadoLb * precioReferencia
-      : 0;
+  // Lo que vale hoy lo del galpón: arreglado, a tu precio y menos lo de
+  // arreglarlo; sin precio del ciclo, en pie al del mercado.
+  const valorEnPie = valorHoy(
+    metrics.avesVivas,
+    metrics.pesoEstimadoLb,
+    lote.precioVentaLb,
+    settings.precioMercadoLb,
+    modo,
+  );
+  const valeArreglado = modo.arreglado && !!lote.precioVentaLb;
 
   async function reabrir() {
     const ok = await confirmar({
@@ -169,13 +192,11 @@ export function LoteDetail() {
   // las aves vendidas (cero): van el precio mínimo y cuándo se vende.
   const enCurso = lote.estado === "activo";
   const enRetiro = enCurso ? retiroEn(aplicaciones, hoyISO()) : undefined;
+  const proyeccion = enCurso
+    ? proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote), modo)
+    : null;
   const analisisReporte = enCurso
-    ? analizarPrecio(
-        lote,
-        gastos,
-        metrics,
-        proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote)),
-      )
+    ? analizarPrecio(lote, gastos, metrics, proyeccion, modo)
     : null;
   const kpis = [
     {
@@ -197,7 +218,7 @@ export function LoteDetail() {
     },
     enCurso
       ? {
-          label: "Mínimo para no perder",
+          label: modo.arreglado ? "Mínimo por lb arreglada" : "Mínimo para no perder",
           value: analisisReporte ? `${porLb(analisisReporte.precioEquilibrioLb)}/lb` : "—",
         }
       : {
@@ -499,7 +520,7 @@ export function LoteDetail() {
             <div className="grid border-t border-line min-[360px]:grid-cols-2">
               <div className="border-line px-4 py-2.5 max-[359px]:border-b min-[360px]:border-r">
                 <div className="text-xs text-ink-faint">
-                  {sinVender ? "Valor en pie" : "Ingresos"}
+                  {sinVender ? (valeArreglado ? "Vale hoy, arreglado" : "Valor en pie") : "Ingresos"}
                 </div>
                 <div className="font-display text-lg font-semibold tnum leading-tight">
                   {sinVender && valorEnPie > 0
@@ -538,17 +559,35 @@ export function LoteDetail() {
             </Link>
           )}
 
+          <GananciaEstimada
+            lote={lote}
+            metrics={metrics}
+            proyeccion={proyeccion}
+            modo={modo}
+            onEmpleados={soloVer ? undefined : () => setSheet("empleados")}
+            onPorVenir={
+              soloVer
+                ? undefined
+                : (i) => {
+                    setPorVenir(i);
+                    setSheet("porVenir");
+                  }
+            }
+            onComoVendes={soloVer ? undefined : () => setSheet("comoVendes")}
+          />
           <PrecioMinimo
             lote={lote}
             registros={registros}
             gastos={gastos}
             metrics={metrics}
+            modo={modo}
           />
           <PuntoOptimo
             lote={lote}
             registros={registros}
             gastos={gastos}
             metrics={metrics}
+            modo={modo}
           />
 
           <Link
@@ -622,7 +661,7 @@ export function LoteDetail() {
                         <div className="text-xs text-ink-faint tnum">
                           {fecha(i.fecha)}
                           {i.cantidad > 0 ? ` · ${num(i.cantidad)} aves` : ""}
-                          {i.pesoLb ? ` · ${num(i.pesoLb)} lb` : ""}
+                          {i.pesoLb ? ` · ${numCorto(i.pesoLb, 1)} lb${i.arreglado ? " arregladas" : ""}` : ""}
                         </div>
                       </div>
                       <span className="shrink-0 text-right tnum">
@@ -656,6 +695,8 @@ export function LoteDetail() {
                       ? {
                           precioMinimoLb: analisisReporte?.precioEquilibrioLb,
                           valorEnPie,
+                          gananciaEstimada: proyeccion?.gananciaProyectada,
+                          arreglado: modo.arreglado,
                         }
                       : undefined,
                   );
@@ -783,11 +824,37 @@ export function LoteDetail() {
               setSheet("cobro");
             }}
           />
+          <EmpleadosSheet
+            lote={lote}
+            gastos={gastos}
+            diaVenta={proyeccion?.diaVenta ?? metrics.diaVentaEstimado ?? metrics.dias}
+            aves={metrics.vendidas + (proyeccion?.avesAlVender ?? metrics.avesVivas)}
+            open={sheet === "empleados"}
+            onClose={() => setSheet(null)}
+          />
+          <PorVenirSheet
+            lote={lote}
+            indice={porVenir}
+            open={sheet === "porVenir"}
+            onClose={() => setSheet(null)}
+          />
+          <ComoVendesSheet
+            lote={lote}
+            metrics={metrics}
+            ingresos={ingresos}
+            proyeccion={proyeccion}
+            open={sheet === "comoVendes"}
+            onClose={() => setSheet(null)}
+          />
           <CobroSheet
             ingreso={ingresos.find((i) => i.id === cobroDe)}
             lote={lote}
             open={sheet === "cobro"}
             onClose={() => setSheet(null)}
+            onCorregir={() => {
+              setEditIngreso(ingresos.find((i) => i.id === cobroDe));
+              setSheet("ingreso");
+            }}
           />
           <EditarLoteSheet
             lote={lote}

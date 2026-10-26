@@ -2,6 +2,7 @@ import type { CierreCiclo, Ingreso, Lote } from '../db/schema'
 import type { LoteMetrics } from './metrics'
 import type { Proyeccion } from './proyeccion'
 import { diasEntre } from './format'
+import { lbEnPieDe } from './venta'
 
 // Lo que la app proyectaba para todo el ciclo justo antes de la última venta.
 // Las ventas de antes ya salieron: se suman a las aves y libras proyectadas, y
@@ -16,20 +17,26 @@ export function snapshotCierre(m: LoteMetrics, p: Proyeccion | null, diaVenta: n
     avesProyectadas: (p?.avesAlVender ?? m.avesVivas) + m.vendidas,
     lbProyectadas: p ? p.lbEnPie + Math.round(m.lbVendidas) : undefined,
     precioEquilibrioLb:
-      p && p.lbEnPie > 0 ? Math.max(0, p.costoProyectado - m.ingresos) / p.lbEnPie : undefined,
+      p && p.lbVenta > 0 ? Math.max(0, p.costoProyectado - m.ingresos) / p.lbVenta : undefined,
     gananciaProyectada: p?.gananciaProyectada,
+    arreglado: p?.arreglado || undefined,
   }
 }
 
 // Las libras de las ventas: las pesadas, como salieron en la báscula; las que
 // se vendieron por cabeza, al peso promedio de las pesadas o, si ninguna se
 // pesó, al del lote. El peso por ave y el precio logrado salen solo de las
-// pesadas: mezclar aves sin peso daba un pollo de 2.8 lb que pesaba 5.5.
+// pesadas: mezclar aves sin peso daba un pollo de 2.8 lb que pesaba 5.5. Las
+// libras y el peso son en pie —las arregladas se llevan a lo que pesaban
+// vivas—; si todo se vendió arreglado, el precio es el de la libra arreglada,
+// como se cobró.
 export function librasVendidas(ventas: Ingreso[], pesoDelLote?: number) {
   const pesadas = ventas.filter((i) => (i.pesoLb ?? 0) > 0 && i.cantidad > 0)
   const avesPesadas = pesadas.reduce((a, i) => a + i.cantidad, 0)
-  const lbPesadas = pesadas.reduce((a, i) => a + i.pesoLb!, 0)
+  const lbPesadas = pesadas.reduce((a, i) => a + lbEnPieDe(i), 0)
+  const lbCobradas = pesadas.reduce((a, i) => a + i.pesoLb!, 0)
   const montoPesadas = pesadas.reduce((a, i) => a + i.monto, 0)
+  const arreglado = pesadas.length > 0 && pesadas.every((i) => !!i.arreglado)
   const pesoPromedioLb = avesPesadas > 0 ? lbPesadas / avesPesadas : undefined
   const avesSinPesar = ventas
     .filter((i) => !((i.pesoLb ?? 0) > 0) && i.cantidad > 0)
@@ -38,7 +45,9 @@ export function librasVendidas(ventas: Ingreso[], pesoDelLote?: number) {
   return {
     lbTotal: lbPesadas + avesSinPesar * pesoSinPesar,
     pesoPromedioLb,
-    precioLogradoLb: lbPesadas > 0 ? montoPesadas / lbPesadas : undefined,
+    arreglado,
+    pesoArregladoLb: arreglado && avesPesadas > 0 ? lbCobradas / avesPesadas : undefined,
+    precioLogradoLb: lbPesadas > 0 ? montoPesadas / (arreglado ? lbCobradas : lbPesadas) : undefined,
   }
 }
 
@@ -56,6 +65,9 @@ export interface RealCiclo {
   lbVendidas: number
   pesoPromedioLb?: number
   precioLogradoLb?: number
+  /** Todo se vendió arreglado: el precio logrado es por libra arreglada. */
+  arreglado?: boolean
+  pesoArregladoLb?: number
   ingreso: number
   ganancia: number
   margenPct: number
@@ -80,7 +92,15 @@ export function construirContrastes(c: CierreCiclo | undefined, r: RealCiclo): C
   agregar('Día de venta', c?.diaProyectado, r.diaVenta, 'entero')
   agregar('Aves vendidas', c?.avesProyectadas, r.avesVendidas, 'entero', 'mayor')
   agregar('Libras vendidas', c?.lbProyectadas, r.lbVendidas, 'entero', 'mayor')
-  agregar('Precio por libra', c?.precioEquilibrioLb, r.precioLogradoLb, 'precio', 'mayor')
+  // El mínimo por libra arreglada no se compara con lo cobrado por libra en
+  // pie, ni al revés.
+  agregar(
+    'Precio por libra',
+    !!c?.arreglado === !!r.arreglado ? c?.precioEquilibrioLb : undefined,
+    r.precioLogradoLb,
+    'precio',
+    'mayor',
+  )
   agregar('Ganancia', c?.gananciaProyectada, r.ganancia, 'dinero', 'mayor')
   return out
 }
@@ -103,6 +123,8 @@ export function resultadoCiclo(
     lbVendidas: Math.round(lb.lbTotal),
     pesoPromedioLb: lb.pesoPromedioLb,
     precioLogradoLb: lb.precioLogradoLb,
+    arreglado: lb.arreglado,
+    pesoArregladoLb: lb.pesoArregladoLb,
     ingreso,
     ganancia: m.ganancia,
     margenPct: m.margenPct,

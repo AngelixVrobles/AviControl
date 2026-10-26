@@ -10,6 +10,7 @@ import { avesPorGalpon, repartido } from './reparto'
 import type { Galpon } from './settings'
 import { nombreSocio } from './sociedad'
 import { LB_POR_QUINTAL } from './standards'
+import { precioDe } from './venta'
 import type { Celda, Hoja } from './xlsx'
 
 export interface DatosDelCiclo {
@@ -107,13 +108,27 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
   ]
 
   const ventas: Celda[][] = [
-    ['Fecha', 'Comprador', 'Tipo', 'Aves', 'Libras', 'Monto', 'Cobrado', 'Falta', ...(enVarios ? ['Galpón'] : [])],
+    [
+      'Fecha',
+      'Comprador',
+      'Tipo',
+      'Cómo salió',
+      'Aves',
+      'Libras',
+      'Precio por libra',
+      'Monto',
+      'Cobrado',
+      'Falta',
+      ...(enVarios ? ['Galpón'] : []),
+    ],
     ...porFecha(d.ingresos).map((i) => [
       fecha(i.fecha),
       i.comprador ?? i.descripcion,
       tipoIngresoLabel(i.tipo),
+      i.tipo === 'aves' ? (i.arreglado ? 'Arreglado' : 'En pie') : undefined,
       i.cantidad || undefined,
       i.pesoLb,
+      precioDe(i),
       i.monto,
       redondo(cobradoDe(i)),
       redondo(pendienteDe(i)) || undefined,

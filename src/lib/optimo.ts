@@ -4,6 +4,8 @@ import { diasEntre, sumarDias } from './format'
 import { pesoObjetivoDe } from './lote'
 import { precioAlimentoLb } from './precios'
 import { proyectarVenta } from './proyeccion'
+import { pagoEmpleados, totalPorVenir } from './porPagar'
+import { EN_PIE, type ModoVenta } from './venta'
 import {
   alimentoAcumEstandarLb,
   mortalidadEsperadaPct,
@@ -16,6 +18,8 @@ export interface PuntoVenta {
   pesoLb: number
   aves: number
   lbEnPie: number
+  /** Las libras que se cobran: en pie, o arregladas. */
+  lbVenta: number
   costo: number
   ganancia: number
   costoLbMarginal: number
@@ -38,12 +42,14 @@ const HORIZONTE_DIAS = 21
 // A partir de cierta edad el pollo convierte tan mal que la libra que gana
 // cuesta más de lo que se vende. Este cálculo recorre día por día lo que queda
 // del ciclo y busca el día en que la ganancia total es máxima: el costo marginal
-// de la última libra contra el precio de venta.
+// de la última libra contra el precio de venta. Cada día de más también es un
+// día más de sueldo, si a los empleados se les paga por tiempo.
 export function analizarPuntoOptimo(
   lote: Lote,
   registros: Registro[],
   gastos: Gasto[],
   m: LoteMetrics,
+  modo: ModoVenta = EN_PIE,
 ): AnalisisOptimo | null {
   const precioVentaLb = lote.precioVentaLb
   const precioAlim = precioAlimentoLb(lote, gastos, m)
@@ -60,8 +66,9 @@ export function analizarPuntoOptimo(
   // que cuesta la libra de más —comerlo hoy o guardarlo para el próximo ciclo
   // vale lo mismo—, pero la ganancia del día de venta queda igual que la de
   // «A cómo vender» en vez de cobrar dos veces esos sacos.
-  const p = proyectarVenta(lote, registros, gastos, m, objetivoLb)
+  const p = proyectarVenta(lote, registros, gastos, m, objetivoLb, modo)
   const usadoDelAlmacenLb = p ? Math.min(p.existenciaLb, p.alimentoRestanteLb) : 0
+  const porVenir = totalPorVenir(lote)
 
   const puntos: PuntoVenta[] = []
   let previo: PuntoVenta | undefined
@@ -76,17 +83,26 @@ export function analizarPuntoOptimo(
     const aves = Math.max(0, m.avesVivas - bajas)
     const avesPromedio = (m.avesVivas + aves) / 2
     const consumo = Math.max(0, alimentoAcumEstandarLb(dia) - alimentoAcumEstandarLb(desde))
-    const costo = m.costos + (consumo * avesPromedio * factorEf - usadoDelAlmacenLb) * precioAlim
+    const empleados =
+      pagoEmpleados(lote.empleados, gastos, { diaVenta: dia, aves: m.vendidas + aves })?.falta ?? 0
+    const costo =
+      m.costos +
+      (consumo * avesPromedio * factorEf - usadoDelAlmacenLb) * precioAlim +
+      empleados +
+      porVenir +
+      aves * modo.costoAve
     const lbEnPie = aves * pesoLb
-    const ganancia = m.ingresos + lbEnPie * precioVentaLb - costo
+    const lbVenta = lbEnPie * modo.rinde
+    const ganancia = m.ingresos + lbVenta * precioVentaLb - costo
 
-    const dLb = previo ? lbEnPie - previo.lbEnPie : 0
+    const dLb = previo ? lbVenta - previo.lbVenta : 0
     puntos.push({
       dia,
       fecha: sumarDias(lote.fechaInicio, dia),
       pesoLb,
       aves,
       lbEnPie,
+      lbVenta,
       costo,
       ganancia,
       costoLbMarginal: previo && dLb > 0 ? (costo - previo.costo) / dLb : 0,

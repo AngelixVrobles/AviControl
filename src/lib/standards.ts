@@ -100,6 +100,11 @@ export const FASES_ALIMENTO: FaseAlimento[] = [
 ]
 
 export const PESO_OBJETIVO_DEFAULT = 5.5
+
+// De cada 100 lb en pie salen unas 75 de pollo arreglado, con el menudo
+// adentro. Sin el pellejo o sin el menudo sale menos: cada quien pone el suyo,
+// y la app lo calcula con lo que pesaron las ventas.
+export const RINDE_ARREGLADO_PCT = 75
 export const DIAS_RETIRO = 5
 
 export interface Hito {

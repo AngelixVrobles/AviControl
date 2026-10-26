@@ -16,6 +16,7 @@ import { esArchivoDeCiclo } from '../lib/compartido'
 import { elegirArchivo } from '../lib/archivo'
 import type { HitoSanitario } from '../lib/standards'
 import { RAZA } from '../lib/labels'
+import { rindeValido } from '../lib/venta'
 import { Banda, Button, DangerButton, Field, Input, Segmentado, Seccion, Sheet } from '../components/ui'
 import { ListaNovedades } from '../components/Novedades'
 import { NOVEDADES } from '../lib/novedades'
@@ -182,8 +183,8 @@ export function Ajustes() {
           onSave={(v) => saveSettings({ pesoObjetivoLb: v || 5.5 })}
         />
         <FilaNumero
-          label="Precio de mercado"
-          sub="Para estimar la venta antes de vender"
+          label="Precio en pie"
+          sub="Lo que paga el pollero por la libra viva"
           unidad={`${s.moneda}/lb`}
           value={s.precioMercadoLb}
           onSave={(v) => saveSettings({ precioMercadoLb: v || undefined })}
@@ -195,6 +196,8 @@ export function Ajustes() {
           onSave={(v) => saveSettings({ avesPorM2: v || 11 })}
         />
       </Banda>
+
+      <ComoVendes settings={s} />
 
       <PlanSanitario key={restauraciones} plan={s.planSanitario} />
 
@@ -527,6 +530,60 @@ function PlanSanitario({ plan }: { plan: HitoSanitario[] }) {
 }
 
 const limpiarPlan = (plan: HitoSanitario[]) => plan.filter((h) => h.nombre.trim() && h.dia > 0)
+
+// Cómo se vende el pollo: en pie, al pollero, o arreglado, a cada quien su
+// precio por libra limpia. Con eso salen la ganancia estimada, el precio mínimo
+// y el mejor día para vender.
+function ComoVendes({ settings: s }: { settings: Settings }) {
+  const arreglado = s.venta === 'arreglado'
+  return (
+    <>
+      <Seccion
+        className="mb-3 mt-8"
+        etiqueta="Cómo vendes el pollo"
+        nota={
+          arreglado
+            ? 'Arreglado: se cobra la libra limpia, y de cada 100 lb en pie sale el rinde.'
+            : 'En pie: se cobra la libra viva.'
+        }
+      />
+      <Banda className="divide-y divide-line">
+        <div className="px-5 py-3">
+          <Segmentado
+            etiqueta="Cómo vendes el pollo"
+            valor={s.venta}
+            opciones={[
+              { id: 'pie', label: 'En pie' },
+              { id: 'arreglado', label: 'Arreglado' },
+            ]}
+            onCambio={(v) => saveSettings({ venta: v })}
+          />
+        </div>
+        {arreglado && (
+          <>
+            <FilaNumero
+              label="Rinde"
+              sub="De 100 lb en pie, las que quedan limpias"
+              unidad="%"
+              value={s.rindePct}
+              onSave={(v) => {
+                if (rindeValido(v)) saveSettings({ rindePct: v })
+                else toast('El rinde va de 50 a 95 %.')
+              }}
+            />
+            <FilaNumero
+              label="Arreglar cada pollo"
+              sub="Gas, fundas, hielo; sin tu trabajo"
+              unidad={s.moneda}
+              value={s.costoArregloAve || undefined}
+              onSave={(v) => saveSettings({ costoArregloAve: v })}
+            />
+          </>
+        )}
+      </Banda>
+    </>
+  )
+}
 
 function FilaEstatica({ label, valor, sub }: { label: string; valor: string; sub: string }) {
   return (

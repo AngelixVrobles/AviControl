@@ -55,3 +55,26 @@ describe('ciclos que se pasan del día 56', () => {
     expect(Number.isFinite(a!.hoy.ganancia)).toBe(true)
   })
 })
+
+describe('el mejor día con sueldos y pollo arreglado', () => {
+  // Cada día de más es un día más de sueldo: el mejor día llega antes, nunca
+  // después.
+  it('el sueldo por día adelanta o deja igual el mejor día', () => {
+    const conSueldo = lote({ precioVentaLb: 60, empleados: { monto: 3000, cada: 'dia' } })
+    const m = computeMetrics(conSueldo, registros, justo, [])
+    const sin = analizar(justo).a
+    const con = analizarPuntoOptimo(conSueldo, registros, justo, m)!
+    expect(con.optimo.dia).toBeLessThanOrEqual(sin.optimo.dia)
+    con.puntos.forEach((p, i) => expect(p.costoLbMarginal).toBeGreaterThanOrEqual(sin.puntos[i].costoLbMarginal))
+  })
+
+  it('arreglado, la ganancia es la de las libras arregladas', () => {
+    const modo = { arreglado: true, rinde: 0.75, costoAve: 10 }
+    const m = computeMetrics(l, registros, justo, [])
+    const a = analizarPuntoOptimo(l, registros, justo, m, modo)!
+    for (const p of a.puntos) {
+      expect(p.lbVenta).toBeCloseTo(p.lbEnPie * 0.75, 5)
+      expect(p.ganancia).toBeCloseTo(m.ingresos + p.lbVenta * 60 - p.costo, 5)
+    }
+  })
+})

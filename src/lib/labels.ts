@@ -11,6 +11,9 @@ export const CATEGORIAS: { id: CategoriaGasto; label: string }[] = [
   { id: 'cama', label: 'Cama (cascarilla, viruta)' },
   { id: 'energia', label: 'Gas y luz' },
   { id: 'mano_obra', label: 'Mano de obra' },
+  // Lo de arreglar el pollo que se vende limpio: el gas para pelarlo, las
+  // fundas, el hielo. Aparte de la mano de obra, que es la de los empleados.
+  { id: 'arreglo', label: 'Arreglo del pollo (gas, fundas, hielo)' },
   { id: 'transporte', label: 'Transporte' },
   { id: 'equipo', label: 'Equipo' },
   { id: 'otros', label: 'Otros' },
