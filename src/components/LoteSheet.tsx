@@ -295,7 +295,11 @@ function FormLote({
             </span>
           </div>
         </Field>
-        <Field label="Precio por libra" hint="Al que piensas vender." error={negativos.precio}>
+        <Field
+          label={settings.venta === 'arreglado' ? 'Precio por libra arreglada' : 'Precio por libra'}
+          hint="Al que piensas vender."
+          error={negativos.precio}
+        >
           <Input
             type="number"
             inputMode="decimal"

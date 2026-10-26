@@ -47,6 +47,9 @@ export function NuevoLote() {
   // Con varios galpones, el primero que no tiene un ciclo en curso; se elige
   // otro si los pollitos van a otro lado.
   const activos = useLotes('activo')
+  // Al empleado se le suele pagar igual de un ciclo a otro: el nuevo empieza con
+  // el pago del último, y se cambia en «Ganancia estimada».
+  const ultimo = useLotes()?.[0]
   const [galponElegido, setGalponElegido] = useState<string>()
   const galpon =
     settings.galpones.find((g) => g.id === galponElegido) ??
@@ -119,6 +122,7 @@ export function NuevoLote() {
           ? [{ fecha: fechaInicio, de: galpon.id, a: otro.id, aves: nOtro }]
           : undefined,
       ...reciboParaGuardar(incubadora, pesoLlegada, muertosLlegada),
+      empleados: ultimo?.empleados,
       notas: notas.trim() || undefined,
       creado: Date.now(),
     })
@@ -212,7 +216,11 @@ export function NuevoLote() {
               </span>
             </div>
           </Field>
-          <Field label="Precio por libra" hint="Opcional. Con esto se proyecta la ganancia." error={errores.precio}>
+          <Field
+            label={settings.venta === 'arreglado' ? 'Precio por libra arreglada' : 'Precio por libra'}
+            hint="Opcional. Con esto se proyecta la ganancia."
+            error={errores.precio}
+          >
             <Input
               type="number"
               inputMode="decimal"

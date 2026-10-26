@@ -10,6 +10,7 @@ import { pesoObjetivoDe } from "../../lib/lote";
 import { computeLiquidacion, esYo, fraseEntrega, nombreSocio, type SocioBalance, type Traspaso } from "../../lib/sociedad";
 import { fecha, money, num, pct, porLb } from "../../lib/format";
 import type { Settings } from "../../lib/settings";
+import { modoVenta } from "../../lib/venta";
 import { toast } from "../../components/confirm";
 import { Button, Banda, Seccion } from "../../components/ui";
 import { EntregaSheet } from "../../components/sheets";
@@ -52,6 +53,7 @@ export function Sociedad({
           gastos,
           metrics,
           pesoObjetivoDe(lote),
+          modoVenta(settings),
         )
       : null;
   const estimada = proyeccion?.gananciaProyectada;
@@ -215,7 +217,8 @@ export function Sociedad({
       {estimada != null && (
         <p className="mt-2 text-xs text-ink-faint">
           Lo estimado sale de vender al peso objetivo a{" "}
-          {porLb(lote.precioVentaLb ?? 0)} la libra.
+          {porLb(lote.precioVentaLb ?? 0)} la libra
+          {settings.venta === "arreglado" ? " arreglada" : ""}, con lo que falta por pagar.
         </p>
       )}
 

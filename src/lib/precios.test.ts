@@ -130,12 +130,51 @@ describe('precioMinimoConjunto', () => {
   // Un galpón chico caro y uno grande barato: el precio de los dos juntos pesa
   // más el grande. El promedio simple daba 60; lo que hay que cubrir, 53.33.
   it('pondera por las libras de cada ciclo', () => {
-    const chico = { costoNeto: 70 * 1000, lbEnPie: 1000 }
-    const grande = { costoNeto: 50 * 5000, lbEnPie: 5000 }
+    const chico = { costoNeto: 70 * 1000, costoNetoEnPie: 70 * 1000, lbVenta: 1000, lbEnPie: 1000 }
+    const grande = { costoNeto: 50 * 5000, costoNetoEnPie: 50 * 5000, lbVenta: 5000, lbEnPie: 5000 }
     expect(precioMinimoConjunto([chico, grande])).toBeCloseTo(320000 / 6000, 6)
+  })
+
+  // Vendido arreglado, el mínimo de los dos juntos es por libra arreglada; el
+  // de la libra en pie, sin lo de arreglarlos, es lo que tendría que pagar el
+  // pollero.
+  it('arreglado, por libra arreglada o por libra en pie', () => {
+    const uno = { costoNeto: 52000, costoNetoEnPie: 50000, lbVenta: 750, lbEnPie: 1000 }
+    const otro = { costoNeto: 104000, costoNetoEnPie: 100000, lbVenta: 1500, lbEnPie: 2000 }
+    expect(precioMinimoConjunto([uno, otro])).toBeCloseTo(156000 / 2250, 6)
+    expect(precioMinimoConjunto([uno, otro], { enPie: true })).toBeCloseTo(150000 / 3000, 6)
   })
 
   it('sin libras no hay precio', () => {
     expect(precioMinimoConjunto([])).toBeUndefined()
+  })
+})
+
+describe('analizarPrecio vendiendo el pollo arreglado', () => {
+  const l = lote({ costoInicial: 24000, precioVentaLb: 60 })
+  const gastos = [gasto({ categoria: 'alimento', monto: 76000, cantidadQq: 40 })]
+  const registros = [registro(30, { pesoPromedio: 4, alimentoLb: 4000 })]
+  const m = computeMetrics(l, registros, gastos, [])
+  const modo = { arreglado: true, rinde: 0.75, costoAve: 10 }
+  const p = proyectarVenta(l, registros, gastos, m, 5.5, modo)!
+  const a = analizarPrecio(l, gastos, m, p, modo)!
+
+  it('el mínimo es por libra arreglada y deja la ganancia en cero', () => {
+    expect(a.lbVenta).toBe(p.lbVenta)
+    expect(a.precioEquilibrioLb * a.lbVenta).toBeCloseTo(a.costoNeto, 5)
+    expect(a.actual!.ganancia).toBeCloseTo(60 * a.lbVenta - a.costoNeto, 5)
+  })
+
+  // Lo que tendría que pagar el pollero por la libra en pie: sin lo de arreglar.
+  it('dice también el mínimo de la libra en pie', () => {
+    expect(a.equilibrioEnPieLb! * a.lbEnPie).toBeCloseTo(a.costoNeto - p.faltaArreglo, 5)
+  })
+
+  it('el desglose del costo sigue sumando el total', () => {
+    expect(a.costoAlimento + a.costoAves + a.costoOtros).toBeCloseTo(a.costoTotal, 5)
+  })
+
+  it('en pie no hay mínimo aparte de la libra viva', () => {
+    expect(analizarPrecio(l, gastos, m, proyectarVenta(l, registros, gastos, m, 5.5))!.equilibrioEnPieLb).toBeUndefined()
   })
 })

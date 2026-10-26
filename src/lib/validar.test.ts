@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { primerProblema, revisarFilas } from './validar'
-import { gasto, lote, registro } from '../test/fixtures'
+import { gasto, ingreso, lote, registro } from '../test/fixtures'
 
 describe('revisarFilas', () => {
   it('deja pasar lo que tiene la forma', () => {
@@ -61,5 +61,32 @@ describe('lo que va dentro de cada fila', () => {
     const venta = { id: 1, loteId: 1, tipo: 'aves', cantidad: 10, monto: 9000, fecha: '2026-10-01', creado: 0 }
     expect(revisarFilas('ingresos', [{ ...venta, galponId: 'g2' }])).toBeUndefined()
     expect(revisarFilas('ingresos', [{ ...venta, galponId: 2 }])).toBeDefined()
+  })
+})
+
+describe('el pago de los empleados, lo que viene y la venta arreglada', () => {
+  it('pasan con la forma que guarda la app', () => {
+    expect(
+      revisarFilas('lotes', [
+        lote({
+          empleados: { monto: 3000, cada: 'semana' },
+          gastosPorVenir: [{ concepto: 'Luz', monto: 2500, categoria: 'energia' }],
+        }),
+      ]),
+    ).toBeUndefined()
+    expect(
+      revisarFilas('ingresos', [ingreso({ pesoLb: 300, precioLb: 60, monto: 18000, arreglado: { rindePct: 75 } })]),
+    ).toBeUndefined()
+  })
+
+  // Un pago «cada año» o un monto en letras rompían la ganancia estimada.
+  it('un pago o un gasto por venir mal escrito no pasa', () => {
+    expect(revisarFilas('lotes', [{ ...lote(), empleados: { monto: 3000, cada: 'año' } }])).toBeDefined()
+    expect(revisarFilas('lotes', [{ ...lote(), gastosPorVenir: [{ concepto: 'Luz', monto: 'mil' }] }])).toBeDefined()
+  })
+
+  it('una venta arreglada sin su rinde no pasa', () => {
+    expect(revisarFilas('ingresos', [{ ...ingreso(), arreglado: { rindePct: '75' } }])).toBeDefined()
+    expect(revisarFilas('ingresos', [{ ...ingreso(), precioLb: 'sesenta' }])).toBeDefined()
   })
 })

@@ -124,3 +124,39 @@ describe('ventas sin pesar y ventas antes del cierre', () => {
     expect(snap.avesProyectadas).toBe(m.avesVivas + 600)
   })
 })
+
+describe('ciclos vendidos arreglados', () => {
+  const arregladas = [
+    ingreso({ id: 1, cantidad: 100, pesoLb: 420, monto: 25200, arreglado: { rindePct: 75 } }),
+    ingreso({ id: 2, cantidad: 50, pesoLb: 210, monto: 13650, arreglado: { rindePct: 75 } }),
+  ]
+
+  // El peso por ave es el de en pie, el que se compara con los pesajes; el
+  // precio, el de la libra arreglada, como se cobró.
+  it('el peso va en pie y el precio por libra arreglada', () => {
+    const lb = librasVendidas(arregladas)
+    expect(lb.arreglado).toBe(true)
+    expect(lb.lbTotal).toBeCloseTo(840, 5)
+    expect(lb.pesoPromedioLb).toBeCloseTo(5.6, 5)
+    expect(lb.pesoArregladoLb).toBeCloseTo(4.2, 5)
+    expect(lb.precioLogradoLb).toBeCloseTo(38850 / 630, 5)
+  })
+
+  // Mezcladas, el precio de las arregladas no se puede sumar con el de en pie
+  // por libra: todo va por libra en pie.
+  it('si se mezcló en pie y arreglado, el precio va por libra en pie', () => {
+    const lb = librasVendidas([...arregladas, ingreso({ id: 3, cantidad: 100, pesoLb: 560, monto: 17920 })])
+    expect(lb.arreglado).toBe(false)
+    expect(lb.precioLogradoLb).toBeCloseTo((38850 + 17920) / (840 + 560), 5)
+  })
+
+  // El mínimo por libra arreglada contra lo cobrado por libra en pie decía
+  // que se vendió 40 % por debajo.
+  it('no compara precios de libras distintas', () => {
+    const enPie = { ...real, arreglado: false }
+    const c = construirContrastes({ diaVenta: 38, precioEquilibrioLb: 52, arreglado: true }, enPie)
+    expect(c.find((x) => x.etiqueta === 'Precio por libra')).toBeUndefined()
+    const igual = construirContrastes({ diaVenta: 38, precioEquilibrioLb: 52, arreglado: true }, { ...real, arreglado: true })
+    expect(igual.find((x) => x.etiqueta === 'Precio por libra')).toMatchObject({ proyectado: 52, real: 60 })
+  })
+})

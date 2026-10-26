@@ -5,14 +5,16 @@ import { Button, Field, Input, Select, Sheet } from '../ui'
 import { toast } from '../confirm'
 import { gananciaPorSocio } from '../../lib/sociedad'
 import { diasEntre, hoyISO, money, num, pct, porLb } from '../../lib/format'
-import { useCompradores } from '../../lib/hooks'
+import { useCompradores, useModoVenta, usePreciosDeVenta, useSettings } from '../../lib/hooks'
 import type { LoteMetrics } from '../../lib/metrics'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { construirContrastes, librasVendidas, snapshotCierre, type RealCiclo } from '../../lib/cierre'
 import { errorFechaDelCiclo, pesoObjetivoDe, topeDelCiclo } from '../../lib/lote'
 import { retiroEn } from '../../lib/retiro'
+import { RINDE_ARREGLADO_PCT } from '../../lib/standards'
+import { precioCorto, precioSugerido, rindeValido } from '../../lib/venta'
 import { useEnvio } from '../useEnvio'
-import { DatosDePago } from '../Venta'
+import { ComoSalioElPollo, DatosDePago, PreciosUsados } from '../Venta'
 import { AvisoRetiro } from './AvisoRetiro'
 import { DatoCierre, FilaContraste } from './Contraste'
 
@@ -48,10 +50,20 @@ export function CierreSheet({
   const [comprador, setComprador] = useState('')
   const [credito, setCredito] = useState(false)
   const [adelanto, setAdelanto] = useState('')
+  const [arreglado, setArreglado] = useState(false)
+  const [precioTocado, setPrecioTocado] = useState(false)
+  // El comprador cuyo precio se puso solo, como en «Venta».
+  const [deComprador, setDeComprador] = useState<string>()
+  const settings = useSettings()
+  const modo = useModoVenta()
+  const precios = usePreciosDeVenta()
 
   useEffect(() => {
     if (!open) return
     setPaso(1)
+    setArreglado(modo.arreglado)
+    setPrecioTocado(false)
+    setDeComprador(undefined)
     setAves(String(metrics.avesVivas))
     setPesoTotal('')
     setPrecio(lote.precioVentaLb ? String(lote.precioVentaLb) : '')
@@ -62,7 +74,7 @@ export function CierreSheet({
     setComprador('')
     setCredito(false)
     setAdelanto('')
-  }, [open, metrics.avesVivas, lote.precioVentaLb])
+  }, [open, metrics.avesVivas, lote.precioVentaLb, modo.arreglado])
 
   const nAves = Number(aves) || 0
   const lbTotal = Number(pesoTotal) || 0
@@ -71,7 +83,34 @@ export function CierreSheet({
   const dio = Math.min(Number(adelanto) || 0, montoFinal)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && dio < montoFinal
+  const rinde = rindeValido(settings.rindePct) ? settings.rindePct : RINDE_ARREGLADO_PCT
   const pesoPorAve = nAves > 0 && lbTotal > 0 ? lbTotal / nAves : undefined
+  // Arreglado, lo que pesaban vivas: es el que se compara con los pesajes.
+  const pesoEnPieAve = pesoPorAve != null && arreglado ? pesoPorAve / (rinde / 100) : pesoPorAve
+
+  const previo = comprador.trim() ? precios?.porComprador.get(comprador.trim().toLowerCase()) : undefined
+  function elegirComprador(nombre: string) {
+    setComprador(nombre)
+    if (precioTocado) return
+    const clave = nombre.trim().toLowerCase()
+    const suyo = precios?.porComprador.get(clave)
+    if (suyo) {
+      setDeComprador(clave)
+      setArreglado(suyo.arreglado)
+      setPrecio(String(suyo.precio))
+    } else if (deComprador) {
+      setDeComprador(undefined)
+      setArreglado(modo.arreglado)
+      const p = precioSugerido(modo.arreglado, { precios, lote, settings })
+      setPrecio(p ? String(p) : '')
+    }
+  }
+  function cambiarComoSalio(v: boolean) {
+    setArreglado(v)
+    if (precioTocado) return
+    const p = precioSugerido(v, { precios, lote, settings })
+    setPrecio(p ? String(p) : '')
+  }
   const parcial = nAves > 0 && nAves < metrics.avesVivas
   const dia = diasEntre(lote.fechaInicio, fecha)
 
@@ -81,6 +120,7 @@ export function CierreSheet({
     gastos,
     metrics,
     pesoObjetivoDe(lote),
+    modo,
   )
   // Si el ciclo ya se cerró una vez, lo que la app proyectaba entonces se queda.
   const snap = lote.cierre ?? snapshotCierre(metrics, proyeccion, dia)
@@ -92,7 +132,16 @@ export function CierreSheet({
   const todas = librasVendidas(
     [
       ...ingresos.filter((i) => i.tipo === 'aves'),
-      { id: 0, tipo: 'aves', cantidad: nAves, pesoLb: lbTotal || undefined, monto: montoFinal, fecha, creado: 0 },
+      {
+        id: 0,
+        tipo: 'aves',
+        cantidad: nAves,
+        pesoLb: lbTotal || undefined,
+        monto: montoFinal,
+        fecha,
+        arreglado: arreglado ? { rindePct: rinde } : undefined,
+        creado: 0,
+      },
     ],
     metrics.pesoEstimadoLb,
   )
@@ -101,8 +150,10 @@ export function CierreSheet({
     diaVenta: dia,
     avesVendidas: avesDelCiclo,
     lbVendidas: Math.round(todas.lbTotal),
-    pesoPromedioLb: todas.pesoPromedioLb ?? pesoPorAve,
+    pesoPromedioLb: todas.pesoPromedioLb ?? pesoEnPieAve,
     precioLogradoLb: todas.precioLogradoLb,
+    arreglado: todas.arreglado,
+    pesoArregladoLb: todas.pesoArregladoLb,
     ingreso: montoFinal,
     ganancia,
     margenPct: ingresoTotal > 0 ? (ganancia / ingresoTotal) * 100 : 0,
@@ -129,6 +180,8 @@ export function CierreSheet({
         tipo: 'aves',
         cantidad: nAves,
         pesoLb: lbTotal || undefined,
+        precioLb: precioLb > 0 ? precioLb : undefined,
+        arreglado: arreglado ? { rindePct: rinde } : undefined,
         monto: montoFinal,
         fecha,
         comprador: comprador.trim() || undefined,
@@ -158,6 +211,8 @@ export function CierreSheet({
             solo.
           </p>
 
+          <ComoSalioElPollo arreglado={arreglado} onCambio={cambiarComoSalio} />
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Aves vendidas" hint={`Tienes ${num(metrics.avesVivas)} vivas`}>
               <Input
@@ -168,7 +223,10 @@ export function CierreSheet({
                 className="h-14 text-lg"
               />
             </Field>
-            <Field label="Peso total (lb)" hint="El del camión">
+            <Field
+              label={arreglado ? 'Libras arregladas' : 'Peso total (lb)'}
+              hint={arreglado ? 'Lo que pesaron limpios' : 'El del camión'}
+            >
               <Input
                 type="number"
                 inputMode="decimal"
@@ -180,15 +238,20 @@ export function CierreSheet({
             </Field>
           </div>
 
-          {pesoPorAve != null && (
-            <div className="flex items-center justify-between rounded-xl bg-forest-50 px-4 py-3 text-sm text-forest-800">
-              <span>Peso por ave</span>
-              <span className="tnum">
+          {pesoPorAve != null && pesoEnPieAve != null && (
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-forest-50 px-4 py-3 text-sm text-forest-800">
+              <span>{arreglado ? 'Arreglado, por ave' : 'Peso por ave'}</span>
+              <span className="text-right tnum">
                 <span className="font-display text-base font-semibold">{num(pesoPorAve, 2)} lb</span>
+                {arreglado && (
+                  <span className="block text-xs text-forest-700">
+                    en pie {num(pesoEnPieAve, 2)} lb, al {num(rinde)} % de rinde
+                  </span>
+                )}
                 {snap.pesoProyectadoLb != null && (
-                  <span className="text-forest-700">
-                    {' '}
-                    · la app estimaba {num(snap.pesoProyectadoLb, 2)}
+                  <span className={clsx('text-forest-700', arreglado && 'block text-xs')}>
+                    {arreglado ? '' : ' · '}la app estimaba {num(snap.pesoProyectadoLb, 2)}
+                    {arreglado ? ' en pie' : ''}
                   </span>
                 )}
               </span>
@@ -201,7 +264,10 @@ export function CierreSheet({
                 type="number"
                 inputMode="decimal"
                 value={precio}
-                onChange={(e) => setPrecio(e.target.value)}
+                onChange={(e) => {
+                  setPrecio(e.target.value)
+                  setPrecioTocado(true)
+                }}
                 placeholder="0"
               />
             </Field>
@@ -215,6 +281,15 @@ export function CierreSheet({
               />
             </Field>
           </div>
+
+          <PreciosUsados
+            precios={precios?.recientes[arreglado ? 'arreglado' : 'pie'] ?? []}
+            actual={precioLb}
+            onElegir={(p) => {
+              setPrecioTocado(true)
+              setPrecio(String(p))
+            }}
+          />
 
           <Field
             label="Total de la venta"
@@ -235,13 +310,18 @@ export function CierreSheet({
 
           <DatosDePago
             comprador={comprador}
-            onComprador={setComprador}
+            onComprador={elegirComprador}
             credito={credito}
             onCredito={setCredito}
             adelanto={adelanto}
             onAdelanto={setAdelanto}
             total={montoFinal}
             conocidos={conocidos}
+            pistaComprador={
+              previo
+                ? `La última vez le vendiste a ${precioCorto(previo.precio)} la libra${previo.arreglado ? ' arreglada' : ' en pie'}.`
+                : undefined
+            }
           />
 
           {lote.socios && lote.socios.length >= 2 && (!aCredito || dio > 0) && (
@@ -306,7 +386,7 @@ export function CierreSheet({
             )}
             <div className="mt-3 grid grid-cols-3 gap-3 border-t border-line pt-3">
               <DatoCierre label="Vendiste" valor={`${num(nAves)} aves`} />
-              <DatoCierre label="En pie" valor={`${num(lbTotal)} lb`} />
+              <DatoCierre label={arreglado ? 'Arreglado' : 'En pie'} valor={`${num(lbTotal)} lb`} />
               <DatoCierre
                 label="Costo / lb"
                 valor={real.costoPorLb != null ? porLb(real.costoPorLb) : '—'}

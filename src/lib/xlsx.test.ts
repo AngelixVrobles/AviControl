@@ -90,7 +90,27 @@ describe('hojasDelCiclo', () => {
     // Los pollitos van como el primer gasto, con quien los pagó.
     expect(hojas[2].filas[1]).toEqual([{ fecha: l.fechaInicio }, 'Pollitos', '500 pollitos', undefined, 24000, 'Pedro'])
     expect(hojas[2].filas[2]).toContain('Yo')
-    expect(hojas[3].filas[1].slice(5)).toEqual([9000, 4000, 5000])
+    expect(hojas[3].filas[1].slice(7)).toEqual([9000, 4000, 5000])
+  })
+
+  // Cada venta dice si salió en pie o arreglada, y a cómo la libra: el precio
+  // que se puso, no el total entre las libras.
+  it('las ventas dicen cómo salió el pollo y a cómo la libra', () => {
+    const l = lote()
+    const ingresos = [
+      ingreso({ id: 1, cantidad: 3, pesoLb: 12.3, monto: 800, precioLb: 65, arreglado: { rindePct: 75 } }),
+      ingreso({ id: 2, cantidad: 100, pesoLb: 560, monto: 17920 }),
+    ]
+    const m = computeMetrics(l, [], [], ingresos)
+    const hojas = hojasDelCiclo(
+      { lote: l, registros: [], pesajes: [], gastos: [], ingresos, aplicaciones: [], entregas: [], metrics: m },
+      'Granja',
+    )
+    const filas = hojas[3].filas.slice(1)
+    expect(filas.map((f) => f.slice(3, 7))).toEqual([
+      ['Arreglado', 3, 12.3, 65],
+      ['En pie', 100, 560, 32],
+    ])
   })
 })
 

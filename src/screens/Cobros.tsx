@@ -1,24 +1,31 @@
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { usePorCobrar } from '../lib/hooks'
+import type { Ingreso } from '../db/schema'
+import { useLoteData, usePorCobrar } from '../lib/hooks'
 import { desdeHace, fecha, money, num, plural } from '../lib/format'
 import type { VentaPorCobrar } from '../lib/cobros'
 import { Banda, EmptyState, Seccion } from '../components/ui'
 import { IconBack, IconMoney } from '../components/icons'
-import { CobroSheet } from '../components/sheets'
+import { CobroSheet, IngresoSheet } from '../components/sheets'
 import { useVolver } from '../components/useVolver'
 
 // Lo que te deben de las ventas a crédito: por comprador, el que más debe
 // primero, y en cada uno la venta más vieja primero, que es la que hay que ir
-// a cobrar. Tocar una venta abre el cobro.
+// a cobrar. Tocar una venta abre el cobro, y desde ahí se corrige la venta.
 export function Cobros() {
   const volver = useVolver('/')
   const resumen = usePorCobrar()
   // La venta queda elegida mientras la hoja se cierra, para que no se vacíe.
   const [venta, setVenta] = useState<VentaPorCobrar>()
-  const [abierta, setAbierta] = useState(false)
+  const [hoja, setHoja] = useState<'cobro' | 'venta' | null>(null)
 
   if (!resumen) return <div className="pt-10 text-center text-ink-faint">Cargando…</div>
+
+  // La venta como está ahora: al corregirle el precio cambia lo que falta, y
+  // la hoja del cobro tiene que decir lo nuevo. Si con la corrección quedó
+  // pagada, ya no está en la lista y se queda la de antes.
+  const actual =
+    resumen.compradores.flatMap((c) => c.ventas).find((v) => v.ingreso.id === venta?.ingreso.id) ?? venta
 
   return (
     <div className="animate-rise">
@@ -61,7 +68,7 @@ export function Cobros() {
                   key={v.ingreso.id}
                   onClick={() => {
                     setVenta(v)
-                    setAbierta(true)
+                    setHoja('cobro')
                   }}
                   className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken"
                 >
@@ -90,11 +97,51 @@ export function Cobros() {
       )}
 
       <CobroSheet
-        ingreso={venta?.ingreso}
-        lote={venta?.lote}
-        open={abierta}
-        onClose={() => setAbierta(false)}
+        ingreso={actual?.ingreso}
+        lote={actual?.lote}
+        open={hoja === 'cobro'}
+        onClose={() => setHoja(null)}
+        onCorregir={
+          actual?.ingreso.tipo === 'aves' && actual.lote ? () => setHoja('venta') : undefined
+        }
+      />
+      <CorregirVenta
+        venta={actual?.ingreso}
+        open={hoja === 'venta'}
+        onClose={() => setHoja(null)}
+        onCobrar={() => setHoja('cobro')}
       />
     </div>
+  )
+}
+
+// La venta se corrige aquí mismo, con las cuentas de su ciclo: las aves que
+// hay, el retiro, los cobros que ya se hicieron.
+function CorregirVenta({
+  venta,
+  open,
+  onClose,
+  onCobrar,
+}: {
+  venta?: Ingreso
+  open: boolean
+  onClose: () => void
+  onCobrar: () => void
+}) {
+  const data = useLoteData(venta?.loteId)
+  if (!data || !venta) return null
+  return (
+    <IngresoSheet
+      lote={data.lote}
+      metrics={data.metrics}
+      registros={data.registros}
+      gastos={data.gastos}
+      ingresos={data.ingresos}
+      aplicaciones={data.aplicaciones}
+      open={open}
+      onClose={onClose}
+      editar={venta}
+      onCobrar={onCobrar}
+    />
   )
 }
