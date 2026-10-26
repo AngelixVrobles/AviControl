@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { db, type Gasto, type Ingreso, type Lote } from '../db/schema'
 import { computeAlertas, type Alerta } from './alerts'
 import { computeMetrics, type LoteMetrics } from './metrics'
@@ -12,6 +12,7 @@ import { hoyISO } from './format'
 import { compradoresConocidos, cuentasPorCobrar } from './cobros'
 import { computeArranque, type Arranque } from './arranque'
 import { retiroEn, type Retiro } from './retiro'
+import { modoVenta, preciosDeVenta, type ModoVenta } from './venta'
 
 // La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
 // cuentas del ciclo dependen del día: con la app abierta de un día para otro,
@@ -139,13 +140,15 @@ export function useResumen(
       registros.sort((a, b) => a.fecha.localeCompare(b.fecha))
       aplicaciones.sort((a, b) => a.fecha.localeCompare(b.fecha))
       const metrics = computeMetrics(lote, registros, gastos, ingresos)
+      const modo = modoVenta(settings)
       const precio =
         lote.estado === 'activo'
           ? analizarPrecio(
               lote,
               gastos,
               metrics,
-              proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote)),
+              proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote), modo),
+              modo,
             )
           : undefined
       out.push({
@@ -174,6 +177,12 @@ export function useSettings(): Settings {
     return () => window.removeEventListener('settings-changed', h)
   }, [])
   return s
+}
+
+// Cómo se vende el pollo en esta granja: en pie o arreglado.
+export function useModoVenta(): ModoVenta {
+  const s = useSettings()
+  return useMemo(() => modoVenta(s), [s])
 }
 
 export function useDeudas() {
@@ -229,6 +238,15 @@ export function useCompradores(): string[] {
       return compradoresConocidos(deLaGranja(ingresos, lotes))
     }, []) ?? []
   )
+}
+
+// Los precios de las ventas: los últimos que se usaron y el de cada comprador,
+// que cada quien paga el suyo.
+export function usePreciosDeVenta() {
+  return useLiveQuery(async () => {
+    const [ingresos, lotes] = await Promise.all([db.ingresos.toArray(), db.lotes.toArray()])
+    return preciosDeVenta(deLaGranja(ingresos, lotes))
+  }, [])
 }
 
 // Las ventas de los ciclos de la granja: las de un ciclo compartido son del socio

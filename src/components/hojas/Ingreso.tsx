@@ -3,7 +3,7 @@ import { db, type Aplicacion, type Gasto, type Ingreso, type Lote, type Registro
 import { Button, DangerButton, Field, Input, Select, Sheet } from '../ui'
 import { confirmar, toast } from '../confirm'
 import { diasEntre, hoyISO, money, num, plural } from '../../lib/format'
-import { useCompradores, useSettings } from '../../lib/hooks'
+import { useCompradores, useModoVenta, usePreciosDeVenta, useSettings } from '../../lib/hooks'
 import { cobradoDe, pendienteDe } from '../../lib/cobros'
 import type { LoteMetrics } from '../../lib/metrics'
 import { proyectarVenta } from '../../lib/proyeccion'
@@ -12,9 +12,11 @@ import { errorFechaDelCiclo, errorNegativo, pesoObjetivoDe } from '../../lib/lot
 import { retiroEn } from '../../lib/retiro'
 import { galponInicial, nombreDeGalpon } from '../../lib/galpones'
 import { avesPorGalpon, repartido } from '../../lib/reparto'
+import { precioCorto, precioDe, precioSugerido, rindeValido } from '../../lib/venta'
+import { RINDE_ARREGLADO_PCT } from '../../lib/standards'
 import { Interruptor } from '../Socios'
 import { useEnvio } from '../useEnvio'
-import { DatosDePago } from '../Venta'
+import { ComoSalioElPollo, DatosDePago, PreciosUsados } from '../Venta'
 import { AvisoRetiro } from './AvisoRetiro'
 
 export function IngresoSheet({
@@ -57,21 +59,26 @@ export function IngresoSheet({
   const [recibidoPor, setRecibidoPor] = useState('')
   const [cerrar, setCerrar] = useState(true)
   const [galponVenta, setGalponVenta] = useState('')
+  // Arreglado, las libras son las del pollo limpio y el precio el de esa libra.
+  const [arreglado, setArreglado] = useState(false)
+  // Un precio escrito o tocado no lo cambia el comprador que se elija después.
+  const [precioTocado, setPrecioTocado] = useState(false)
+  // El comprador cuyo precio se puso solo: si se sigue escribiendo y ya no es
+  // él («Ana» → «Ana María»), vuelve el precio de siempre.
+  const [deComprador, setDeComprador] = useState<string>()
   const settings = useSettings()
+  const modo = useModoVenta()
+  const precios = usePreciosDeVenta()
 
   useEffect(() => {
     if (!open) return
+    setArreglado(editar ? !!editar.arreglado : modo.arreglado)
+    setPrecioTocado(false)
+    setDeComprador(undefined)
     setCantidad(editar ? String(editar.cantidad) : '')
     setPesoLb(editar?.pesoLb != null ? String(editar.pesoLb) : '')
-    setPrecio(
-      editar
-        ? editar.pesoLb
-          ? String(Math.round((editar.monto / editar.pesoLb) * 100) / 100)
-          : ''
-        : lote.precioVentaLb
-          ? String(lote.precioVentaLb)
-          : '',
-    )
+    const inicial = editar ? precioDe(editar) : lote.precioVentaLb
+    setPrecio(inicial ? String(inicial) : '')
     setMonto(editar ? String(editar.monto) : '')
     setModoTotal(editar ? 'guardado' : 'auto')
     setFecha(editar?.fecha ?? hoyISO())
@@ -81,7 +88,7 @@ export function IngresoSheet({
     setCredito(!!editar?.credito)
     setAdelanto('')
     setGalponVenta(editar?.galponId ?? '')
-  }, [open, editar, lote.precioVentaLb])
+  }, [open, editar, lote.precioVentaLb, modo.arreglado])
 
   // Con la pollada repartida, de qué galpón salen: vendidas las 350 del galpón
   // 2, ese galpón queda vacío y el espacio del otro sigue igual. Sin decirlo,
@@ -119,6 +126,43 @@ export function IngresoSheet({
   // si hay con qué: en una venta sin precio, poner el peso no borra el total.
   const recalcular = (nuevoLb: number, nuevoPrecio: number) =>
     setModoTotal((m) => (m === 'guardado' && nuevoLb > 0 && nuevoPrecio > 0 ? 'auto' : m))
+  const ponerPrecio = (p: number) => {
+    setPrecio(String(p))
+    recalcular(lb, p)
+  }
+
+  // Los precios que ya se usaron vendiendo así, para tocarlos.
+  const usados = precios?.recientes[arreglado ? 'arreglado' : 'pie'] ?? []
+
+  // Cada quien paga su precio: al elegir un comprador de antes, en una venta
+  // nueva, sale el precio que se le puso la última vez.
+  const previo = comprador.trim() ? precios?.porComprador.get(comprador.trim().toLowerCase()) : undefined
+  function elegirComprador(nombre: string) {
+    setComprador(nombre)
+    if (editar || precioTocado) return
+    const clave = nombre.trim().toLowerCase()
+    const suyo = precios?.porComprador.get(clave)
+    if (suyo) {
+      setDeComprador(clave)
+      setArreglado(suyo.arreglado)
+      ponerPrecio(suyo.precio)
+    } else if (deComprador) {
+      setDeComprador(undefined)
+      setArreglado(modo.arreglado)
+      const p = precioSugerido(modo.arreglado, { precios, lote, settings })
+      setPrecio(p ? String(p) : '')
+    }
+  }
+  function cambiarComoSalio(v: boolean) {
+    setArreglado(v)
+    if (editar || precioTocado) return
+    const p = precioSugerido(v, { precios, lote, settings })
+    setPrecio(p ? String(p) : '')
+  }
+  // El rinde con que se guarda: el de la venta, si ya era arreglada; si no, el
+  // de la granja.
+  const rinde =
+    editar?.arreglado?.rindePct ?? (rindeValido(settings.rindePct) ? settings.rindePct : RINDE_ARREGLADO_PCT)
   const dio = Math.min(Number(adelanto) || 0, total)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && (!!editar || dio < total)
@@ -129,6 +173,9 @@ export function IngresoSheet({
     aCredito && yaCobrado > total + 0.5
       ? `Ya te pagó ${money(yaCobrado)}: el total no puede ser menos. Quita el cobro de más.`
       : undefined
+  // Lo que queda debiendo con el total de ahora: al subirle el precio de 60 a
+  // 65, sube lo que falta.
+  const faltaAhora = Math.max(0, total - yaCobrado)
 
   async function guardar() {
     const quien = recibidoPor !== '' ? Number(recibidoPor) : undefined
@@ -137,6 +184,8 @@ export function IngresoSheet({
       tipo: 'aves' as const,
       cantidad: nAves,
       pesoLb: pesoLb ? Number(pesoLb) : undefined,
+      precioLb: precioLb > 0 ? precioLb : undefined,
+      arreglado: arreglado ? { rindePct: rinde } : undefined,
       monto: total,
       fecha,
       comprador: comprador.trim() || undefined,
@@ -164,13 +213,19 @@ export function IngresoSheet({
         await db.ingresos.update(editar.id, datos)
         if (reabre) await db.lotes.update(lote.id, { estado: 'activo', fechaCierre: undefined })
       })
-      toast(reabre ? `Venta corregida · el ciclo se reabrió con ${num(quedan)} aves` : `Venta anotada · ${money(datos.monto)}`)
+      toast(
+        reabre
+          ? `Venta corregida · el ciclo se reabrió con ${num(quedan)} aves`
+          : aCredito
+            ? `Venta corregida · ${faltaAhora >= 1 ? `faltan ${money(faltaAhora)}` : 'ya pagó todo'}`
+            : `Venta corregida · ${money(datos.monto)}`,
+      )
     } else if (vendeTodo && cerrar) {
       // Lo que la app proyectaba se guarda antes de que la venta deje el galpón
       // vacío: después ya no hay forma de reconstruirlo. Si el ciclo ya se había
       // cerrado una vez, se queda lo de entonces: tomado con 50 aves, decía que
       // el pollo costaba RD$690 la libra.
-      const proyeccion = proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote))
+      const proyeccion = proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote), modo)
       const cierre = lote.cierre ?? snapshotCierre(metrics, proyeccion, diasEntre(lote.fechaInicio, fecha))
       await db.transaction('rw', db.ingresos, db.lotes, async () => {
         await db.ingresos.add({ ...datos, creado: Date.now() })
@@ -215,6 +270,7 @@ export function IngresoSheet({
   return (
     <Sheet open={open} onClose={onClose} title={editar ? 'Editar venta' : 'Registrar venta de aves'}>
       <div className="space-y-4">
+        <ComoSalioElPollo arreglado={arreglado} onCambio={cambiarComoSalio} />
         <div className="grid grid-cols-2 gap-3">
           <Field
             label="Nº de aves"
@@ -231,7 +287,7 @@ export function IngresoSheet({
               aria-invalid={!!errorAves}
             />
           </Field>
-          <Field label="Peso total (lb)" error={errorPeso}>
+          <Field label={arreglado ? 'Libras arregladas' : 'Peso total (lb)'} error={errorPeso}>
             <Input
               type="number"
               inputMode="decimal"
@@ -252,6 +308,7 @@ export function IngresoSheet({
               value={precio}
               onChange={(e) => {
                 setPrecio(e.target.value)
+                setPrecioTocado(true)
                 recalcular(lb, Number(e.target.value) || 0)
               }}
               placeholder="0"
@@ -281,6 +338,18 @@ export function IngresoSheet({
               aria-invalid={!!errorTotal}
             />
           </Field>
+          {usados.length > 0 && (
+            <div className="col-span-2 -mt-1">
+              <PreciosUsados
+                precios={usados}
+                actual={precioLb}
+                onElegir={(p) => {
+                  setPrecioTocado(true)
+                  ponerPrecio(p)
+                }}
+              />
+            </div>
+          )}
           <Field
             label="Fecha"
             className="col-span-2"
@@ -309,7 +378,6 @@ export function IngresoSheet({
         )}
         <DatosDePago
           comprador={comprador}
-          onComprador={setComprador}
           credito={credito}
           onCredito={setCredito}
           adelanto={adelanto}
@@ -317,12 +385,23 @@ export function IngresoSheet({
           total={total}
           conocidos={conocidos}
           conAdelanto={!editar}
+          onComprador={elegirComprador}
+          pistaComprador={
+            previo && !editar
+              ? `La última vez le vendiste a ${precioCorto(previo.precio)} la libra${previo.arreglado ? ' arreglada' : ' en pie'}.`
+              : undefined
+          }
         />
         {editar?.credito && credito && (
           <div className="flex items-center justify-between gap-3 rounded-xl bg-paper-sunken px-4 py-3 text-sm tnum">
             <span className="text-ink-soft">
               Cobrado {money(cobradoDe(editar))}
-              {pendienteDe(editar) > 0 ? ` · faltan ${money(pendienteDe(editar))}` : ' · ya pagó todo'}
+              {faltaAhora >= 1 ? ` · faltan ${money(faltaAhora)}` : ' · ya pagó todo'}
+              {Math.abs(total - editar.monto) >= 1 && total > 0 && (
+                <span className="block text-xs text-ink-faint">
+                  Antes faltaban {money(pendienteDe(editar))}
+                </span>
+              )}
             </span>
             {onCobrar && (
               <button

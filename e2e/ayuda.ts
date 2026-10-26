@@ -26,7 +26,7 @@ export async function sembrar<T>(
       // Con el respaldo al día y lo nuevo ya visto, Inicio no muestra avisos que
       // no son de la prueba.
       localStorage.setItem('avicontrol.settings', JSON.stringify({ ultimoRespaldo: hoyISO(), ...ajustes }))
-      localStorage.setItem('avicontrol.novedades', '1.11')
+      localStorage.setItem('avicontrol.novedades', '1.12')
       const f = new Function(`return ${src}`)()
       return f({ db, hoy: hoyISO(), sumarDias }, arg)
     },

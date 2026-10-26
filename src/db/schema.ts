@@ -19,6 +19,9 @@ export interface CierreCiclo {
   lbProyectadas?: number
   precioEquilibrioLb?: number
   gananciaProyectada?: number
+  // El precio de equilibrio era por libra arreglada: solo se compara con lo que
+  // se cobró por libra arreglada.
+  arreglado?: boolean
 }
 
 // Sacos contados en el almacén en una fecha. Con las compras anotadas en
@@ -38,6 +41,23 @@ export interface MovimientoAves {
   de: string
   a: string
   aves: number
+}
+
+// Lo que se les paga a los empleados del ciclo, para estimar lo que falta: por
+// día, semana, quincena o mes; una suma por toda la pollada; o tanto por pollo.
+export type CadaPago = 'dia' | 'semana' | 'quincena' | 'mes' | 'ciclo' | 'ave'
+
+export interface PagoEmpleados {
+  monto: number
+  cada: CadaPago
+}
+
+// Un gasto que ya se sabe que viene antes de vender —la luz, el camión, las
+// fundas—: entra en la ganancia estimada hasta que se paga y pasa a los gastos.
+export interface GastoPorVenir {
+  concepto: string
+  monto: number
+  categoria: CategoriaGasto
 }
 
 export interface Lote {
@@ -60,6 +80,9 @@ export interface Lote {
   // reparte, es donde llegaron los pollitos, y `movimientos` dice el resto.
   galponId?: string
   movimientos?: MovimientoAves[]
+  // Lo que falta por pagar además del alimento, para la ganancia estimada.
+  empleados?: PagoEmpleados
+  gastosPorVenir?: GastoPorVenir[]
   // El recibo: de qué incubadora vinieron, lo que pesaban al llegar (en gramos,
   // como se pesa el pollito) y cuántos llegaron muertos en las cajas. Los que
   // llegaron muertos están en `cantidadInicial` pero nunca entraron al galpón.
@@ -132,6 +155,7 @@ export type CategoriaGasto =
   | 'cama'
   | 'energia'
   | 'mano_obra'
+  | 'arreglo'
   | 'transporte'
   | 'equipo'
   | 'otros'
@@ -168,6 +192,9 @@ export interface Ingreso {
   tipo: TipoIngreso
   cantidad: number
   pesoLb?: number
+  // El precio por libra que se le puso. El total se redondea a pesos, y de él
+  // no siempre sale el precio exacto: a 65, se volvía 65.04 al corregirla.
+  precioLb?: number
   // Lo que vale la venta. Si es a crédito, lo que el comprador debe en total.
   monto: number
   fecha: string
@@ -181,6 +208,11 @@ export interface Ingreso {
   // Con la pollada en varios galpones, de cuál salieron las aves vendidas.
   // Sin él, la venta se reparte entre los galpones según las aves de cada uno.
   galponId?: string
+  // Pollo vendido arreglado —matado y limpio—: `pesoLb` son libras arregladas,
+  // y `rindePct` lo que quedó arreglado de cada 100 lb en pie. Con eso se saca
+  // el peso en pie que salió del galpón, que es el que cuentan la conversión y
+  // el peso por ave.
+  arreglado?: { rindePct: number }
   creado: number
 }
 

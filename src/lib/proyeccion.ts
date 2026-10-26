@@ -3,6 +3,8 @@ import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, hoyISO, sumarDias } from './format'
 import { computeInventarioAlimento } from './plan'
 import { precioAlimentoLb } from './precios'
+import { pagoEmpleados, totalPorVenir } from './porPagar'
+import { EN_PIE, type ModoVenta } from './venta'
 import {
   LB_POR_QUINTAL,
   alimentoAcumEstandarLb,
@@ -27,6 +29,17 @@ export interface Proyeccion {
   avesAlVender: number
   pesoVentaLb: number
   lbEnPie: number
+  // Las libras que se cobran: las mismas en pie, o las arregladas si el pollo
+  // se vende limpio, que son menos.
+  lbVenta: number
+  arreglado: boolean
+  // Lo que falta por pagar hasta la venta: el alimento por comprar, lo que
+  // queda del pago de los empleados, los gastos que ya se sabe que vienen y
+  // arreglar las aves que faltan por vender. `costoRestante` es la suma.
+  faltaAlimento: number
+  faltaEmpleados: number
+  faltaPorVenir: number
+  faltaArreglo: number
   costoRestante: number
   /** No hay precio del alimento: lo que falta se estimó con el gasto por día del ciclo. */
   sinPrecioAlimento: boolean
@@ -38,13 +51,15 @@ export interface Proyeccion {
 }
 
 // Proyecta escalando la curva Cobb al rendimiento real del lote y descontando la
-// mortalidad que todavía falta por ocurrir hasta el día de venta.
+// mortalidad que todavía falta por ocurrir hasta el día de venta. Con `modo`,
+// el pollo se cobra como se vende: arreglado, por libra limpia.
 export function proyectarVenta(
   lote: Lote,
   registros: Registro[],
   gastos: Gasto[],
   m: LoteMetrics,
   objetivoLb: number,
+  modo: ModoVenta = EN_PIE,
 ): Proyeccion | null {
   const conPeso = registros.filter((r) => r.pesoPromedio != null)
   if (!conPeso.length || m.avesVivas <= 0) return null
@@ -89,6 +104,7 @@ export function proyectarVenta(
 
   const pesoVentaLb = listo ? pesoActual : objetivoLb
   const lbEnPie = Math.round(avesAlVender * pesoVentaLb)
+  const lbVenta = Math.round(lbEnPie * modo.rinde)
 
   // El alimento del almacén ya está pagado y dentro de `m.costos`: cobrarlo
   // otra vez como consumo futuro subía el precio de equilibrio en todo lo que
@@ -104,22 +120,35 @@ export function proyectarVenta(
   const alimentoPorComprarLb = Math.max(0, alimentoRestanteLb - existenciaLb)
   const sobranteLb = Math.max(0, existenciaLb - alimentoRestanteLb)
 
+  // Lo de los empleados: lo que les toca hasta el día de venta, menos lo ya
+  // anotado como mano de obra.
+  const pago = pagoEmpleados(lote.empleados, gastos, { diaVenta, aves: m.vendidas + avesAlVender })
+
   // Sin precio del alimento, lo que falta se estima con lo que el ciclo lleva
   // gastando por día, sin los pollitos: se pagan una sola vez, y repartirlos
-  // como si se pagaran a diario inflaba lo que falta y el precio mínimo.
+  // como si se pagaran a diario inflaba lo que falta y el precio mínimo. Lo de
+  // arreglar el pollo ya vendido tampoco es de cada día, y la mano de obra, si
+  // se dijo cuánto se paga, va en su renglón.
   const precioLb = precioAlimentoLb(lote, gastos, m)
   const pollitos =
     lote.costoInicial +
     gastos.filter((g) => g.categoria === 'aves').reduce((a, g) => a + g.monto, 0)
-  const costoRestante = precioLb
+  const aparte = gastos
+    .filter((g) => g.categoria === 'arreglo' || (pago && g.categoria === 'mano_obra'))
+    .reduce((a, g) => a + g.monto, 0)
+  const faltaAlimento = precioLb
     ? alimentoPorComprarLb * precioLb
     : m.dias > 0
-      ? (Math.max(0, m.costos - pollitos) / m.dias) * diasRestantes
+      ? (Math.max(0, m.costos - pollitos - aparte) / m.dias) * diasRestantes
       : 0
+  const faltaEmpleados = pago?.falta ?? 0
+  const faltaPorVenir = totalPorVenir(lote)
+  const faltaArreglo = avesAlVender * modo.costoAve
+  const costoRestante = faltaAlimento + faltaEmpleados + faltaPorVenir + faltaArreglo
   const costoProyectado = m.costos + costoRestante
 
   const precio = lote.precioVentaLb
-  const ingresoProyectado = precio ? m.ingresos + lbEnPie * precio : undefined
+  const ingresoProyectado = precio ? m.ingresos + lbVenta * precio : undefined
   const gananciaProyectada = ingresoProyectado != null ? ingresoProyectado - costoProyectado : undefined
   const margenProyectadoPct =
     ingresoProyectado && ingresoProyectado > 0
@@ -140,12 +169,18 @@ export function proyectarVenta(
     avesAlVender,
     pesoVentaLb,
     lbEnPie,
+    lbVenta,
+    arreglado: modo.arreglado,
+    faltaAlimento,
+    faltaEmpleados,
+    faltaPorVenir,
+    faltaArreglo,
     costoRestante,
     sinPrecioAlimento: !precioLb,
     costoProyectado,
     ingresoProyectado,
     gananciaProyectada,
     margenProyectadoPct,
-    precioEquilibrioLb: lbEnPie > 0 ? costoProyectado / lbEnPie : 0,
+    precioEquilibrioLb: lbVenta > 0 ? costoProyectado / lbVenta : 0,
   }
 }

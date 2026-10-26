@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import type { LoteConMetrics } from '../lib/hooks'
-import { useDeudas, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
+import { useDeudas, useModoVenta, usePorCobrar, useResumen, useSettings } from '../lib/hooks'
 import { precioMinimoConjunto } from '../lib/precios'
 import { desdeHace, diasEntre, fecha, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { Banda, Pestanas, Seccion } from '../components/ui'
@@ -12,6 +12,7 @@ import { agruparHitos, hitosEngorde } from '../lib/standards'
 import { LIMITE_DOA_PCT, porIncubadora } from '../lib/arranque'
 import { LIMITE_PRIMERA_SEMANA_PCT } from '../lib/mortalidad'
 import { ciclosPorGalpon } from '../lib/reparto'
+import { valorHoy } from '../lib/venta'
 
 type Segmento = 'cerrado' | 'activo'
 
@@ -134,7 +135,7 @@ function FichaDelCiclo({ r, enCurso }: { r: LoteConMetrics; enCurso: boolean }) 
     // aves todavía chiquitas: lo que sirve es el mínimo para no perder.
     enCurso
       ? {
-          label: 'Mínimo para no perder',
+          label: r.precio?.arreglado ? 'Mínimo por lb arreglada' : 'Mínimo para no perder',
           valor: r.precio ? `${porLb(r.precio.precioEquilibrioLb)}/lb` : '—',
         }
       : { label: 'Costo por libra', valor: m.costoPorLb != null ? porLb(m.costoPorLb) : '—' },
@@ -250,22 +251,29 @@ function RepartoSocios({
 // hay que vender para no perder.
 function TotalesEnCurso({ lista }: { lista: LoteConMetrics[] }) {
   const { precioMercadoLb } = useSettings()
+  const modo = useModoVenta()
   const invertido = lista.reduce((a, r) => a + r.metrics.costos, 0)
   const vendido = lista.reduce((a, r) => a + r.metrics.ingresos, 0)
-  const valorEnPie = lista.reduce((a, r) => {
-    const precio = r.lote.precioVentaLb ?? precioMercadoLb
-    if (!precio || r.metrics.pesoEstimadoLb == null) return a
-    return a + r.metrics.avesVivas * r.metrics.pesoEstimadoLb * precio
-  }, 0)
+  const valorEnPie = lista.reduce(
+    (a, r) => a + valorHoy(r.metrics.avesVivas, r.metrics.pesoEstimadoLb, r.lote.precioVentaLb, precioMercadoLb, modo),
+    0,
+  )
   const minimo = precioMinimoConjunto(lista.filter((r) => r.precio).map((r) => r.precio!))
+  // A tu precio, con lo que falta por pagar: solo si todos los ciclos tienen
+  // con qué estimarla, que la suma de una parte se lee como la de todos.
+  const estimadas = lista.map((r) => r.precio?.actual?.ganancia)
+  const estimada = estimadas.every((g) => g != null) ? estimadas.reduce((a, g) => a! + g!, 0) : undefined
   const reparto = gananciaPorSocio(
     lista.map((r) => ({ socios: r.lote.socios, ganancia: r.metrics.costos })),
   )
   const filas = [
     { label: 'Invertido', valor: money(invertido) },
     ...(vendido > 0 ? [{ label: 'Vendido hasta hoy', valor: money(vendido) }] : []),
-    ...(valorEnPie > 0 ? [{ label: 'Valor en pie', valor: money(valorEnPie) }] : []),
-    ...(minimo != null ? [{ label: 'Mínimo para no perder', valor: `${porLb(minimo)}/lb` }] : []),
+    ...(valorEnPie > 0 ? [{ label: modo.arreglado ? 'Vale hoy' : 'Valor en pie', valor: money(valorEnPie) }] : []),
+    ...(minimo != null
+      ? [{ label: modo.arreglado ? 'Mínimo por lb arreglada' : 'Mínimo para no perder', valor: `${porLb(minimo)}/lb` }]
+      : []),
+    ...(estimada != null && lista.length > 0 ? [{ label: 'Ganancia estimada', valor: money(estimada) }] : []),
   ]
   return (
     <>

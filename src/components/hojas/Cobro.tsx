@@ -3,24 +3,28 @@ import { db, type Ingreso, type Lote } from '../../db/schema'
 import { Button, Field, Input, Select, Sheet } from '../ui'
 import { confirmar, toast } from '../confirm'
 import { nombreSocio } from '../../lib/sociedad'
-import { fecha as fechaCorta, hoyISO, money } from '../../lib/format'
+import { fecha as fechaCorta, hoyISO, money, numCorto } from '../../lib/format'
 import { cobradoDe, nombreComprador, pendienteDe } from '../../lib/cobros'
+import { precioCorto, precioDe } from '../../lib/venta'
 import { errorFechaFutura } from '../../lib/lote'
 import { IconClose } from '../icons'
 import { useEnvio } from '../useEnvio'
 
 // Un pago de una venta a crédito. Se llega desde la venta («Anotar un cobro»)
-// o desde «Te deben»; trae lo que falta como monto, que es lo más común.
+// o desde «Te deben»; trae lo que falta como monto, que es lo más común. Si la
+// venta quedó mal —el precio era 65 y se puso 60—, `onCorregir` la abre.
 export function CobroSheet({
   ingreso,
   lote,
   open,
   onClose,
+  onCorregir,
 }: {
   ingreso?: Ingreso
   lote?: Lote
   open: boolean
   onClose: () => void
+  onCorregir?: () => void
 }) {
   const { ocupado, enviar } = useEnvio(open)
   const [monto, setMonto] = useState('')
@@ -50,6 +54,7 @@ export function CobroSheet({
   const deMas = valor > pendiente + 0.5
   const quedaria = Math.max(0, pendiente - valor)
   const quien = nombreComprador(ingreso)
+  const precio = precioDe(ingreso)
 
   async function guardar() {
     if (!ingreso) return false
@@ -90,10 +95,24 @@ export function CobroSheet({
             Venta del {fechaCorta(ingreso.fecha)}
             {lote ? ` · ${lote.nombre}` : ''} · {money(ingreso.monto)}
           </div>
+          {ingreso.pesoLb != null && ingreso.pesoLb > 0 && precio != null && (
+            <div>
+              {numCorto(ingreso.pesoLb, 1)} lb{ingreso.arreglado ? ' arregladas' : ''} a {precioCorto(precio)}
+            </div>
+          )}
           <div className="mt-0.5 font-semibold text-ink">
             Cobrado {money(cobradoDe(ingreso))} · faltan {money(pendiente)}
           </div>
         </div>
+        {onCorregir && (
+          <button
+            type="button"
+            onClick={onCorregir}
+            className="-mt-2 h-11 w-full rounded-xl text-sm font-semibold text-forest-600 active:bg-paper-sunken"
+          >
+            Corregir la venta: el precio, las libras o el total
+          </button>
+        )}
 
         {(ingreso.cobros ?? []).length > 0 && (
           <div className="divide-y divide-line rounded-xl border border-line">

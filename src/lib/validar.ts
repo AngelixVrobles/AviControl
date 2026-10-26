@@ -36,6 +36,11 @@ const esSocio = (s: Fila) => esTexto(s.nombre) && esNumOpc(s.pct)
 const esCobro = (c: Fila) => esFecha(c.fecha) && esNum(c.monto) && esIdOpc(c.recibidoPor)
 const esConteo = (c: Fila) => esFecha(c.fecha) && esNum(c.qq)
 const esMovimiento = (m: Fila) => esFecha(m.fecha) && esTexto(m.de) && esTexto(m.a) && esNum(m.aves)
+const esPorVenir = (g: Fila) => esTexto(g.concepto) && esNum(g.monto) && esTextoOpc(g.categoria)
+const CADA_PAGO = ['dia', 'semana', 'quincena', 'mes', 'ciclo', 'ave']
+const esEmpleados = (v: unknown) =>
+  v == null || (esObjeto(v) && esNum(v.monto) && CADA_PAGO.includes(v.cada as string))
+const esArreglado = (v: unknown) => v == null || (esObjeto(v) && esNum(v.rindePct))
 
 const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
   lotes: (l) =>
@@ -47,6 +52,8 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
     listaDe(l.socios, esSocio) &&
     listaDe(l.conteosAlimento, esConteo) &&
     listaDe(l.movimientos, esMovimiento) &&
+    esEmpleados(l.empleados) &&
+    listaDe(l.gastosPorVenir, esPorVenir) &&
     (l.cierre == null || esObjeto(l.cierre)),
   registros: (r) =>
     esId(r.loteId) &&
@@ -61,7 +68,13 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
     esNum(g.monto) &&
     (g.traspaso == null || (esObjeto(g.traspaso) && esId(g.traspaso.loteId) && esIdOpc(g.traspaso.gastoId))),
   ingresos: (i) =>
-    esIdOpc(i.loteId) && esFecha(i.fecha) && esNum(i.monto) && listaDe(i.cobros, esCobro) && esTextoOpc(i.galponId),
+    esIdOpc(i.loteId) &&
+    esFecha(i.fecha) &&
+    esNum(i.monto) &&
+    listaDe(i.cobros, esCobro) &&
+    esTextoOpc(i.galponId) &&
+    esNumOpc(i.precioLb) &&
+    esArreglado(i.arreglado),
   pesajes: (p) => esId(p.loteId) && esFecha(p.fecha) && Array.isArray(p.pesos) && p.pesos.every(esNum),
   aplicaciones: (a) => esId(a.loteId) && esFecha(a.fecha) && esTexto(a.nombre),
   deudas: (d) => esTexto(d.concepto) && esNum(d.monto) && esFecha(d.fecha) && listaDe(d.socios, esSocio),

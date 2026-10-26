@@ -13,6 +13,8 @@ import { pesoObjetivoDe } from "../../lib/lote";
 import { gananciaPorSocio } from "../../lib/sociedad";
 import { fecha, money, num, numCompacto, pct, plural, porLb } from "../../lib/format";
 import { LB_POR_QUINTAL } from "../../lib/standards";
+import type { ModoVenta } from "../../lib/venta";
+import { useSettings } from "../../lib/hooks";
 import { AnimatedNumber } from "../../components/AnimatedNumber";
 import { Banda, Seccion } from "../../components/ui";
 import { GraficaLineas } from "../../components/chart";
@@ -77,20 +79,26 @@ export function ComoSalio({
             </div>
             <div className="mt-1 text-xs text-ink-faint">Aves vendidas</div>
           </div>
+          {/* Vendido arreglado, el peso y el precio son los de la libra limpia,
+              como se cobró; el peso en pie queda para comparar con los pesajes. */}
           <div>
             <div className="font-display text-base font-semibold leading-none tnum">
-              {r.pesoPromedioLb != null
-                ? `${num(r.pesoPromedioLb, 2)} lb`
-                : "—"}
+              {r.pesoArregladoLb != null
+                ? `${num(r.pesoArregladoLb, 2)} lb`
+                : r.pesoPromedioLb != null
+                  ? `${num(r.pesoPromedioLb, 2)} lb`
+                  : "—"}
             </div>
-            <div className="mt-1 text-xs text-ink-faint">Peso por ave</div>
+            <div className="mt-1 text-xs text-ink-faint">
+              {r.pesoArregladoLb != null ? "Arreglado, por ave" : "Peso por ave"}
+            </div>
           </div>
           <div>
             <div className="font-display text-base font-semibold leading-none tnum">
               {r.precioLogradoLb != null ? porLb(r.precioLogradoLb) : "—"}
             </div>
             <div className="mt-1 text-xs text-ink-faint">
-              Precio logrado
+              {r.arreglado ? "Por lb arreglada" : "Precio logrado"}
             </div>
           </div>
         </div>
@@ -166,16 +174,19 @@ export function PrecioMinimo({
   registros,
   gastos,
   metrics,
+  modo,
 }: {
   lote: Lote;
   registros: Registro[];
   gastos: Gasto[];
   metrics: LoteMetrics;
+  modo: ModoVenta;
 }) {
+  const { precioMercadoLb } = useSettings();
   if (lote.estado !== "activo") return null;
   const objetivo = pesoObjetivoDe(lote);
-  const p = proyectarVenta(lote, registros, gastos, metrics, objetivo);
-  const a = analizarPrecio(lote, gastos, metrics, p);
+  const p = proyectarVenta(lote, registros, gastos, metrics, objetivo, modo);
+  const a = analizarPrecio(lote, gastos, metrics, p, modo);
   const precioAlim = precioAlimentoLb(lote, gastos, metrics);
 
   if (!a)
@@ -189,7 +200,8 @@ export function PrecioMinimo({
       </>
     );
 
-  const lbPorAve = a.lbEnPie / Math.max(1, a.aves);
+  const lbPorAve = a.lbVenta / Math.max(1, a.aves);
+  const arreglada = a.arreglado ? " arreglada" : "";
   // Con ventas hechas, el precio mínimo ya descuenta lo cobrado: el desglose
   // por libra también, si no sumaba RD$93 bajo un mínimo de RD$16.
   const neto = a.costoTotal > 0 ? a.costoNeto / a.costoTotal : 1;
@@ -201,7 +213,7 @@ export function PrecioMinimo({
         etiqueta="A cómo vender"
         nota={
           <>
-            Sobre el cierre proyectado: {num(a.lbEnPie)} lb de {num(a.aves)} aves
+            Sobre el cierre proyectado: {num(a.lbVenta)} lb{a.arreglado ? " arregladas" : ""} de {num(a.aves)} aves
             {!p
               ? ", con lo gastado hasta hoy."
               : p.listo
@@ -232,7 +244,7 @@ export function PrecioMinimo({
 
       <Banda className="px-5 py-4">
         <div className="text-xs text-ink-faint">
-          Precio mínimo para no perder
+          {a.arreglado ? "Precio mínimo por libra arreglada" : "Precio mínimo para no perder"}
         </div>
         <div className="flex items-baseline gap-2">
           <span className="font-display text-3xl font-semibold leading-none tnum">
@@ -241,13 +253,23 @@ export function PrecioMinimo({
           <span className="text-sm text-ink-soft">/ lb</span>
         </div>
         <div className="mt-1.5 text-sm text-ink-soft tnum">
-          = {money(a.precioEquilibrioAve)} por pollo de {num(lbPorAve, 2)} lb
+          = {money(a.precioEquilibrioAve)} por pollo de {num(lbPorAve, 2)} lb{arreglada ? " arreglado" : ""}
         </div>
+        {a.equilibrioEnPieLb != null && (
+          <div className="mt-1 text-sm text-ink-soft tnum">
+            En pie, el pollero tendría que pagarte {porLb(a.equilibrioEnPieLb)} la libra
+            {precioMercadoLb
+              ? precioMercadoLb >= a.equilibrioEnPieLb
+                ? `; paga ${porLb(precioMercadoLb)}.`
+                : `; paga ${porLb(precioMercadoLb)}, y así perderías.`
+              : "."}
+          </div>
+        )}
         <div className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
-          De cada libra que vendas, {porLb((a.costoAlimento * neto) / a.lbEnPie)} son
+          De cada libra{arreglada} que vendas, {porLb((a.costoAlimento * neto) / a.lbVenta)} son
           alimento ({pct(a.alimentoPctDelCosto, 0)} del costo),{" "}
-          {porLb((a.costoAves * neto) / a.lbEnPie)} el pollito y{" "}
-          {porLb((a.costoOtros * neto) / a.lbEnPie)} lo demás
+          {porLb((a.costoAves * neto) / a.lbVenta)} el pollito y{" "}
+          {porLb((a.costoOtros * neto) / a.lbVenta)} lo demás
           {metrics.ingresos > 0 ? ", ya descontado lo que vendiste" : ""}. Cada {money(1)} de más por
           libra son{" "}
           <span className="font-semibold text-ink-soft">
@@ -299,7 +321,7 @@ export function PrecioMinimo({
           Al vender te sobrarían {num(p.sobranteLb / LB_POR_QUINTAL, 1)} qq (
           {money(p.sobranteLb * precioAlim)}). Están en el precio mínimo porque
           ya los pagaste; si los usas en el próximo ciclo, el mínimo de este
-          baja a {porLb(Math.max(0, a.costoNeto - p.sobranteLb * precioAlim) / a.lbEnPie)}.
+          baja a {porLb(Math.max(0, a.costoNeto - p.sobranteLb * precioAlim) / a.lbVenta)}.
         </p>
       )}
       {a.actual && (
@@ -331,15 +353,21 @@ export function PuntoOptimo({
   registros,
   gastos,
   metrics,
+  modo,
 }: {
   lote: Lote;
   registros: Registro[];
   gastos: Gasto[];
   metrics: LoteMetrics;
+  modo: ModoVenta;
 }) {
   const [foco, setFoco] = useState<number>();
   if (lote.estado !== "activo") return null;
-  const a = analizarPuntoOptimo(lote, registros, gastos, metrics);
+  const a = analizarPuntoOptimo(lote, registros, gastos, metrics, modo);
+  // A los empleados pagados por tiempo, cada día de más es un día más de sueldo:
+  // con su pago anotado, el mejor día ya lo cuenta.
+  const sueldoPorDia =
+    !!lote.empleados && !["ciclo", "ave"].includes(lote.empleados.cada);
   if (!a)
     return (
       <>
@@ -384,7 +412,7 @@ export function PuntoOptimo({
               {faltan > 0
                 ? `en ${faltan} ${plural(faltan, "día", "días")}`
                 : "ya pasó"}{" "}
-              · {num(a.optimo.pesoLb, 2)} lb/ave
+              · {num(a.optimo.pesoLb, 2)} lb/ave{modo.arreglado ? " en pie" : ""}
             </div>
           </div>
           <div className="shrink-0 text-right">
@@ -428,7 +456,7 @@ export function PuntoOptimo({
           valueClass={a.gananciaExtra > 0 ? "text-forest-600" : undefined}
         />
         <FilaDato
-          label="La próxima libra te cuesta"
+          label={modo.arreglado ? "La próxima libra arreglada te cuesta" : "La próxima libra te cuesta"}
           value={`${porLb(marginalHoy)} de ${porLb(a.precioVentaLb)}`}
           valueClass={
             marginalHoy > a.precioVentaLb ? "text-clay-deep" : "text-forest-600"
@@ -453,8 +481,10 @@ export function PuntoOptimo({
           ? `El día ${a.optimo.dia} sale un pollo de ${num(a.optimo.pesoLb, 2)} lb: solo conviene si te lo pagan a ${money(a.precioVentaLb)} la libra igual que uno de ${num(a.objetivoLb, 1)} lb. `
           : ""}
         Cuenta el alimento de los días extra y la mortalidad que falta por
-        ocurrir. Si pagas mano de obra por día, el mejor día es un poco antes
-        del que sale aquí.
+        ocurrir.
+        {sueldoPorDia
+          ? " También el sueldo de los empleados de cada día de más."
+          : " Si les pagas a tus empleados por día, semana o mes, ponlo en «Ganancia estimada»: cada día de más es más sueldo y el mejor día llega antes."}
       </p>
     </>
   );

@@ -2,6 +2,7 @@ import type { Gasto, Lote } from '../db/schema'
 import type { LoteMetrics } from './metrics'
 import type { Proyeccion } from './proyeccion'
 import { LB_POR_QUINTAL } from './standards'
+import { EN_PIE, type ModoVenta } from './venta'
 
 export const comprasAlimento = (gastos: Gasto[]) =>
   gastos.filter((g) => g.categoria === 'alimento')
@@ -39,6 +40,10 @@ export interface EscalonPrecio {
 
 export interface AnalisisPrecio {
   lbEnPie: number
+  // Las libras que se cobran: en pie, o las arregladas. Los precios del
+  // análisis son por esta libra.
+  lbVenta: number
+  arreglado: boolean
   aves: number
   costoTotal: number
   costoNeto: number
@@ -47,6 +52,10 @@ export interface AnalisisPrecio {
   costoOtros: number
   precioEquilibrioLb: number
   precioEquilibrioAve: number
+  /** Vendido arreglado: lo que tendría que pagar el pollero por la libra en pie para no perder. */
+  equilibrioEnPieLb?: number
+  /** Lo que falta de cubrir si se vendiera en pie: sin lo de arreglar las aves que quedan. */
+  costoNetoEnPie: number
   alimentoPctDelCosto: number
   gananciaPorPesoDeMas: number
   escalones: EscalonPrecio[]
@@ -57,33 +66,39 @@ const MARGENES = [0, 0.1, 0.15, 0.2, 0.25]
 
 // Precio mínimo por libra para no perder, y qué se gana al venderla más cara.
 // Todo se calcula sobre el cierre proyectado del ciclo (incluye el alimento que
-// falta por comprar), que es la pregunta real: ¿a cómo tengo que vender?
+// falta por comprar), que es la pregunta real: ¿a cómo tengo que vender? Con el
+// pollo arreglado, la libra es la arreglada, y arreglar cada pollo es un costo.
 export function analizarPrecio(
   lote: Lote,
   gastos: Gasto[],
   m: LoteMetrics,
   p: Proyeccion | null,
+  modo: ModoVenta = EN_PIE,
 ): AnalisisPrecio | null {
   const lbEnPie = p?.lbEnPie ?? (m.pesoEstimadoLb != null ? Math.round(m.avesVivas * m.pesoEstimadoLb) : 0)
   if (lbEnPie <= 0) return null
+  const lbVenta = p?.lbVenta ?? Math.round(lbEnPie * modo.rinde)
+  if (lbVenta <= 0) return null
 
   const aves = p?.avesAlVender ?? m.avesVivas
-  const costoTotal = p?.costoProyectado ?? m.costos
+  const arreglo = p?.faltaArreglo ?? aves * modo.costoAve
+  const costoTotal = p?.costoProyectado ?? m.costos + arreglo
   const costoNeto = Math.max(0, costoTotal - m.ingresos)
+  const costoNetoEnPie = Math.max(0, costoTotal - arreglo - m.ingresos)
 
   const gastoAlimento = gastos
     .filter((g) => g.categoria === 'alimento')
     .reduce((a, g) => a + g.monto, 0)
-  const costoAlimento = gastoAlimento + (p?.costoRestante ?? 0)
+  const costoAlimento = gastoAlimento + (p?.faltaAlimento ?? 0)
   const costoAves = lote.costoInicial + gastos.filter((g) => g.categoria === 'aves').reduce((a, g) => a + g.monto, 0)
   const costoOtros = Math.max(0, costoTotal - costoAlimento - costoAves)
 
-  const precioEquilibrioLb = costoNeto / lbEnPie
-  const lbPorAve = lbEnPie / Math.max(1, aves)
+  const precioEquilibrioLb = costoNeto / lbVenta
+  const lbPorAve = lbVenta / Math.max(1, aves)
 
   const escalon = (margen: number, etiqueta: string): EscalonPrecio => {
     const precioLb = precioEquilibrioLb / (1 - margen)
-    const ganancia = precioLb * lbEnPie - costoNeto
+    const ganancia = precioLb * lbVenta - costoNeto
     return {
       etiqueta,
       margenPct: margen * 100,
@@ -101,8 +116,8 @@ export function analizarPrecio(
   const precio = lote.precioVentaLb
   const actual = precio
     ? (() => {
-        const ganancia = precio * lbEnPie - costoNeto
-        const ingreso = precio * lbEnPie
+        const ganancia = precio * lbVenta - costoNeto
+        const ingreso = precio * lbVenta
         return {
           etiqueta: 'Tu precio',
           margenPct: ingreso > 0 ? (ganancia / ingreso) * 100 : 0,
@@ -119,6 +134,8 @@ export function analizarPrecio(
 
   return {
     lbEnPie,
+    lbVenta,
+    arreglado: modo.arreglado,
     aves,
     costoTotal,
     costoNeto,
@@ -127,8 +144,10 @@ export function analizarPrecio(
     costoOtros,
     precioEquilibrioLb,
     precioEquilibrioAve: precioEquilibrioLb * lbPorAve,
+    equilibrioEnPieLb: modo.arreglado ? costoNetoEnPie / lbEnPie : undefined,
+    costoNetoEnPie,
     alimentoPctDelCosto: costoTotal > 0 ? (costoAlimento / costoTotal) * 100 : 0,
-    gananciaPorPesoDeMas: lbEnPie,
+    gananciaPorPesoDeMas: lbVenta,
     escalones,
     actual,
   }
@@ -136,10 +155,12 @@ export function analizarPrecio(
 
 // El precio mínimo de varios ciclos juntos: lo que falta por cubrir de todos
 // entre todas las libras que van a salir. Promediar el de cada uno pesaba igual
-// un galpón de 500 aves que uno de 3.000.
+// un galpón de 500 aves que uno de 3.000. Con `enPie`, el de la libra viva:
+// lo que tendría que pagar el pollero si no se arreglaran.
 export function precioMinimoConjunto(
-  analisis: Pick<AnalisisPrecio, 'costoNeto' | 'lbEnPie'>[],
+  analisis: Pick<AnalisisPrecio, 'costoNeto' | 'costoNetoEnPie' | 'lbVenta' | 'lbEnPie'>[],
+  { enPie = false }: { enPie?: boolean } = {},
 ): number | undefined {
-  const lb = analisis.reduce((a, x) => a + x.lbEnPie, 0)
-  return lb > 0 ? analisis.reduce((a, x) => a + x.costoNeto, 0) / lb : undefined
+  const lb = analisis.reduce((a, x) => a + (enPie ? x.lbEnPie : x.lbVenta), 0)
+  return lb > 0 ? analisis.reduce((a, x) => a + (enPie ? x.costoNetoEnPie : x.costoNeto), 0) / lb : undefined
 }

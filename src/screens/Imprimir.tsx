@@ -176,7 +176,7 @@ export function Imprimir() {
               fecha(i.fecha),
               i.comprador ?? i.descripcion ?? '—',
               i.cantidad ? num(i.cantidad) : '—',
-              i.pesoLb ? num(i.pesoLb) : '—',
+              i.pesoLb ? `${num(i.pesoLb)}${i.arreglado ? ' arr.' : ''}` : '—',
               money(i.monto),
               pendienteDe(i) >= 1 ? money(pendienteDe(i)) : '—',
             ])}

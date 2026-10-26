@@ -22,10 +22,14 @@ export interface KpiReporte {
   value: string
 }
 
-// Lo que se sabe de un ciclo que sigue: todavía no hay ganancia que mostrar.
+// Lo que se sabe de un ciclo que sigue: todavía no hay ganancia que mostrar,
+// pero sí la que se estima con lo que falta por pagar.
 export interface EnCursoReporte {
   precioMinimoLb?: number
   valorEnPie?: number
+  gananciaEstimada?: number
+  /** Se vende arreglado: el mínimo es por libra arreglada y el valor, arreglado. */
+  arreglado?: boolean
 }
 
 export async function compartirReporte(
@@ -94,9 +98,14 @@ export async function compartirReporte(
     ctx.fillStyle = C.faint
     ctx.font = '400 18px Geist, sans-serif'
     const partes = [
-      enCurso.precioMinimoLb != null && `Mínimo para no perder ${porLb(enCurso.precioMinimoLb)}/lb`,
-      enCurso.valorEnPie != null && enCurso.valorEnPie > 0 && `Valor en pie ${money(enCurso.valorEnPie)}`,
+      enCurso.gananciaEstimada != null &&
+        `${enCurso.gananciaEstimada >= 0 ? 'Ganancia estimada' : 'Pérdida estimada'} ${money(Math.abs(enCurso.gananciaEstimada))}`,
+      enCurso.precioMinimoLb != null &&
+        `Mínimo para no perder ${porLb(enCurso.precioMinimoLb)}/lb${enCurso.arreglado ? ' arreglada' : ''}`,
       m.ingresos > 0 && `Vendido ${money(m.ingresos)}`,
+      enCurso.valorEnPie != null &&
+        enCurso.valorEnPie > 0 &&
+        `${enCurso.arreglado ? 'Vale arreglado' : 'Valor en pie'} ${money(enCurso.valorEnPie)}`,
     ].filter((p): p is string => !!p)
     ctx.fillText(
       recortar(ctx, partes.length ? partes.join('   ·   ') : 'Todavía sin vender', W - 152),

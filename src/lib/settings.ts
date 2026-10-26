@@ -1,4 +1,10 @@
-import { AVES_POR_M2, PESO_OBJETIVO_DEFAULT, PLAN_SANITARIO_DEFAULT, type HitoSanitario } from './standards'
+import {
+  AVES_POR_M2,
+  PESO_OBJETIVO_DEFAULT,
+  PLAN_SANITARIO_DEFAULT,
+  RINDE_ARREGLADO_PCT,
+  type HitoSanitario,
+} from './standards'
 import type { TipoBebedero, TipoComedero, TipoEquipo } from './equipo'
 
 const KEY = 'avicontrol.settings'
@@ -26,7 +32,15 @@ export interface Settings {
   avesPorEquipo: Partial<Record<TipoEquipo, number>>
   // Defaults de producción (aplican a cada ciclo nuevo).
   pesoObjetivoLb: number
+  // Lo que paga el pollero o la granja por la libra en pie.
   precioMercadoLb?: number
+  // Cómo se vende el pollo. En pie, al pollero, por libra viva; o arreglado
+  // —matado y limpio, por libra arreglada, a cada quien a su precio—. Arreglado,
+  // `rindePct` es lo que queda de cada 100 lb en pie y `costoArregloAve` lo que
+  // cuesta arreglar cada pollo: el gas, las fundas, el hielo.
+  venta: 'pie' | 'arreglado'
+  rindePct: number
+  costoArregloAve: number
   avesPorM2: number
   // Cómo se anota el alimento del día: en sacos de 100 lb o en libras.
   unidadAlimento: 'qq' | 'lb'
@@ -43,6 +57,9 @@ const defaults: Settings = {
   avesPorEquipo: {},
   galpones: [{ id: 'g1', nombre: 'Galpón 1' }],
   pesoObjetivoLb: PESO_OBJETIVO_DEFAULT,
+  venta: 'pie',
+  rindePct: RINDE_ARREGLADO_PCT,
+  costoArregloAve: 0,
   avesPorM2: AVES_POR_M2,
   unidadAlimento: 'qq',
   planSanitario: PLAN_SANITARIO_DEFAULT,

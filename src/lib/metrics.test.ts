@@ -245,3 +245,31 @@ describe('ventas por cabeza, sin pesar', () => {
     expect(sinPesar.lbVendidas).toBeGreaterThan(2000)
   })
 })
+
+describe('ventas de pollo arreglado', () => {
+  // 300 lb arregladas a 75 % salieron del galpón pesando 400 en pie: contarlas
+  // como 300 empeoraba la conversión y el peso por ave.
+  it('cuentan el peso en pie que salió del galpón', () => {
+    const l = lote({ estado: 'cerrado', fechaCierre: hace(0) })
+    const arreglada = ingreso({ cantidad: 80, pesoLb: 300, monto: 18000, arreglado: { rindePct: 75 } })
+    const m = computeMetrics(l, [], [], [arreglada])
+    expect(m.lbVendidas).toBeCloseTo(400, 5)
+    expect(m.pesoVentaLb).toBeCloseTo(5, 5)
+  })
+
+  // Lo que pesaron limpias contra lo que pesaban en pie ese día.
+  it('dice cuánto rindieron arregladas, según los pesajes', () => {
+    const l = lote()
+    const regs = [registro(30, { pesoPromedio: 5 })]
+    const venta = ingreso({ cantidad: 10, pesoLb: 35, monto: 2100, arreglado: { rindePct: 75 }, fecha: hace(0) })
+    const m = computeMetrics(l, regs, [], [venta])
+    expect(m.rindeObservadoPct).toBeCloseTo(70, 5)
+  })
+
+  it('un rinde imposible no se cree: es un pesaje viejo o una venta mal anotada', () => {
+    const l = lote()
+    const regs = [registro(30, { pesoPromedio: 5 })]
+    const venta = ingreso({ cantidad: 10, pesoLb: 12, monto: 2100, arreglado: { rindePct: 75 }, fecha: hace(0) })
+    expect(computeMetrics(l, regs, [], [venta]).rindeObservadoPct).toBeUndefined()
+  })
+})

@@ -4,6 +4,7 @@ import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
 import { pendienteDe } from './cobros'
 import { pesoObjetivoDe } from './lote'
 import { KG_POR_LB, diaParaPeso, fcaEstandar, pesoEstandarLb } from './standards'
+import { lbEnPieDe } from './venta'
 
 export interface LoteMetrics {
   dias: number
@@ -33,12 +34,17 @@ export interface LoteMetrics {
   fechaPeso?: string
   diasDesdePeso?: number
   pesoEstimadoLb?: number
-  /** Lo que pesó cada ave vendida: libras de la báscula entre aves, de las ventas con peso. */
+  /** Lo que pesó en pie cada ave vendida: libras de la báscula entre aves, de las ventas con peso. */
   pesoVentaLb?: number
   /** El peso con que se juzga el ciclo: el de venta si ya cerró, el estimado de hoy si sigue. */
   pesoFinalLb?: number
   /** Las libras que ya salieron vendidas: las de la báscula, y las vendidas por cabeza al peso del lote ese día. */
   lbVendidas: number
+  /**
+   * Lo que rindieron arregladas las ventas de pollo arreglado: lo que pesaron
+   * limpias contra lo que pesaban en pie ese día, según los pesajes.
+   */
+  rindeObservadoPct?: number
   biomasaLb?: number
   fca?: number
   costoPorLb?: number
@@ -162,15 +168,31 @@ export function computeMetrics(
   // contaba como cero libras: las aves salían del galpón pero su peso no
   // entraba en ninguna parte, y la conversión, el costo por libra y el IEP se
   // iban al doble.
+  // Lo vendido arreglado salió del galpón pesando más: cuenta su peso en pie.
   const pesoVendidoLb = sum(
     ingresos
       .filter((i) => i.tipo === 'aves')
       .map((i) => {
-        if ((i.pesoLb ?? 0) > 0) return i.pesoLb!
+        if ((i.pesoLb ?? 0) > 0) return lbEnPieDe(i)
         if (!(i.cantidad > 0)) return 0
         return i.cantidad * (pesoEnDia(diasEntre(lote.fechaInicio, i.fecha)) ?? 0)
       }),
   )
+
+  // Cuánto rinde el pollo arreglado, de verdad: las libras limpias de las
+  // ventas contra lo que esas aves pesaban en pie el día que se vendieron. Sin
+  // el pellejo o sin el menudo rinde menos que el 75 % de costumbre. Un rinde
+  // fuera de lo posible es un pesaje viejo o una venta mal anotada.
+  const arregladas = ingresos.filter(
+    (i) => i.tipo === 'aves' && i.arreglado && (i.pesoLb ?? 0) > 0 && i.cantidad > 0,
+  )
+  const enPieArregladas = sum(
+    arregladas.map((i) => i.cantidad * (pesoEnDia(diasEntre(lote.fechaInicio, i.fecha)) ?? 0)),
+  )
+  const rindeCrudo =
+    enPieArregladas > 0 ? (sum(arregladas.map((i) => i.pesoLb!)) / enPieArregladas) * 100 : undefined
+  const rindeObservadoPct =
+    rindeCrudo != null && rindeCrudo >= 50 && rindeCrudo <= 95 ? rindeCrudo : undefined
   const biomasaViva = pesoEstimadoLb ? avesVivas * pesoEstimadoLb : 0
   const biomasaLb = biomasaViva + pesoVendidoLb
 
@@ -193,7 +215,7 @@ export function computeMetrics(
   )
   const avesConPeso = sum(ventasConPeso.map((i) => i.cantidad))
   const pesoVentaLb =
-    avesConPeso > 0 ? sum(ventasConPeso.map((i) => i.pesoLb!)) / avesConPeso : undefined
+    avesConPeso > 0 ? sum(ventasConPeso.map((i) => lbEnPieDe(i))) / avesConPeso : undefined
   const pesoFinalLb =
     lote.estado === 'cerrado' && pesoVentaLb != null ? pesoVentaLb : pesoEstimadoLb
 
@@ -227,6 +249,7 @@ export function computeMetrics(
     pesoVentaLb,
     pesoFinalLb,
     lbVendidas: pesoVendidoLb,
+    rindeObservadoPct,
     biomasaLb,
     fca,
     costoPorLb,
