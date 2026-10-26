@@ -76,7 +76,7 @@ export function Sociedad({
       ? `Cada uno recupera lo que puso y se queda con su parte de la ganancia, ${liq.acuerdo}.`
       : `Lo que ha puesto cada uno, para seguir ${liq.acuerdo} con los gastos.${
           liq.ingresos > 0
-            ? " Lo cobrado de las ventas cuenta como dinero que ya recuperó quien lo recibió."
+            ? ` Lo vendido hasta hoy (${money(liq.ingresos)}) no entra en esta cuenta: lo guarda quien lo cobró y se reparte al cerrar el ciclo.`
             : ""
         }`) +
     (liq.porCobrar >= 1
@@ -106,15 +106,17 @@ export function Sociedad({
     }
     else {
       L.push(`Gastado hasta hoy: ${money(liq!.costos)}`);
-      if (liq!.ingresos > 0) L.push(`Vendido hasta hoy: ${money(liq!.ingresos)}`);
+      if (liq!.ingresos > 0)
+        L.push(`Vendido hasta hoy: ${money(liq!.ingresos)} (se reparte al cerrar el ciclo)`);
     }
     for (const s of liq!.socios) {
       L.push("", `${s.nombre} (${pct(s.pct, 0)})`, `  Puso: ${money(s.aporte)}`);
-      if (liq!.conVentas || s.cobrado > 0) L.push(`  Cobró de las ventas: ${money(s.cobrado)}`);
-      if (!liq!.conVentas)
-        L.push(
-          `  Le toca poner: ${money(liq!.ingresos > 0 ? Math.max(0, -s.corresponde) : s.leTocaPoner)}`,
-        );
+      if (liq!.conVentas) L.push(`  Cobró de las ventas: ${money(s.cobrado)}`);
+      else {
+        L.push(`  Le toca poner: ${money(s.leTocaPoner)}`);
+        if (s.cobrado >= 1)
+          L.push(`  Guarda de las ventas: ${money(s.cobrado)} (se reparte al cerrar)`);
+      }
       if (s.recibido > 0) L.push(`  Recibió de los socios: ${money(s.recibido)}`);
       if (s.entregado > 0) L.push(`  Entregó a los socios: ${money(s.entregado)}`);
       if (liq!.conVentas)
@@ -208,7 +210,6 @@ export function Sociedad({
               socios.length === 2 ? nombre(i === 0 ? 1 : 0) : "los socios"
             }
             conVentas={liq.conVentas}
-            hayVentas={liq.ingresos > 0}
             costos={liq.costos}
             estimada={estimada != null ? (estimada * s.pct) / 100 : undefined}
           />
@@ -290,20 +291,18 @@ export function Sociedad({
 }
 
 // La cuenta de un socio en dos renglones que se restan: lo que le toca contra
-// lo que ya tiene (o, antes de vender, lo que le toca poner contra lo que ha
-// puesto). Al socio que se llama «Yo» se le habla de tú.
+// lo que ya tiene (o, mientras el ciclo sigue, lo que le toca poner contra lo
+// que ha puesto). Al socio que se llama «Yo» se le habla de tú.
 function CuentaSocio({
   s,
   otros,
   conVentas,
-  hayVentas = false,
   costos,
   estimada,
 }: {
   s: SocioBalance;
   otros: string;
   conVentas: boolean;
-  hayVentas?: boolean;
   costos: number;
   estimada?: number;
 }) {
@@ -338,29 +337,19 @@ function CuentaSocio({
         },
       ]
     : [
-        // Con ventas antes de cerrar, a cada uno le toca poner su parte de lo
-        // gastado menos lo vendido, y lo que cobró de esas ventas ya es dinero
-        // que recuperó: así las tres cifras cuadran con lo que falta.
+        // Mientras el ciclo sigue, la cuenta es de los gastos: lo que cobró de
+        // las ventas no se resta, se guarda para repartirlo al cerrar.
         {
           label: t("Te toca poner", "Le toca poner"),
-          valor: hayVentas ? Math.max(0, -s.corresponde) : s.leTocaPoner,
-          detalle: hayVentas
-            ? `${pct(s.pct, 0)} de lo gastado menos lo vendido`
-            : `${pct(s.pct, 0)} de ${money(costos)} gastados`,
+          valor: s.leTocaPoner,
+          detalle: `${pct(s.pct, 0)} de ${money(costos)} gastados`,
         },
         {
           label: t("Has puesto", "Ha puesto"),
-          valor: s.aporte + s.entregado - s.recibido - s.cobrado,
-          detalle:
-            movimientos.length || s.cobrado > 0
-              ? [
-                  `${t("pagaste", "pagó")} ${money(s.aporte)}`,
-                  s.cobrado > 0 && `${t("cobraste", "cobró")} ${money(s.cobrado)} de ventas`,
-                  ...movimientos,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")
-              : "en pollitos y gastos",
+          valor: s.aporte + s.entregado - s.recibido,
+          detalle: movimientos.length
+            ? [`${t("pagaste", "pagó")} ${money(s.aporte)}`, ...movimientos].join(" · ")
+            : "en pollitos y gastos",
         },
       ];
 
@@ -438,6 +427,11 @@ function CuentaSocio({
         {parejo ? "✓ " : ""}
         {resultado}
       </div>
+      {!conVentas && s.cobrado >= 1 && (
+        <p className="mt-1.5 text-xs text-ink-faint tnum">
+          {t("Guardas", "Guarda")} {money(s.cobrado)} de las ventas para repartir al cerrar el ciclo.
+        </p>
+      )}
     </div>
   );
 }

@@ -61,9 +61,9 @@ describe('computeLiquidacion', () => {
     expect(liq.socios.reduce((a, s) => a + s.ajuste, 0)).toBeCloseTo(0, 5)
   })
 
-  it('el traspaso deja a los dos socios iguales', () => {
+  it('al cerrar, el traspaso deja a los dos socios iguales', () => {
     const { liq } = liquidar(
-      lote({ socios, costoInicial: 0 }),
+      lote({ socios, costoInicial: 0, estado: 'cerrado' }),
       [gasto({ monto: 40000, pagadoPor: 0 })],
       [ingreso({ monto: 100000, recibidoPor: 1 })],
     )
@@ -89,7 +89,7 @@ describe('computeLiquidacion', () => {
       { nombre: 'Cid', pct: 20 },
     ]
     const { liq, m } = liquidar(
-      lote({ socios: tres, costoInicial: 0 }),
+      lote({ socios: tres, costoInicial: 0, estado: 'cerrado' }),
       [gasto({ monto: 100000, pagadoPor: 0 })],
       [ingreso({ monto: 200000, recibidoPor: 0 })],
     )
@@ -118,10 +118,11 @@ describe('computeLiquidacion', () => {
 })
 
 describe('entregas entre socios', () => {
-  // Ana puso 40.000 y no cobró; Beto cobró 100.000 sin poner nada: Beto le debe
-  // 70.000 (los 40.000 de vuelta y 30.000 de la mitad de la ganancia).
+  // Ciclo cerrado: Ana puso 40.000 y no cobró; Beto cobró 100.000 sin poner
+  // nada. Beto le debe 70.000 (los 40.000 de vuelta y 30.000 de la mitad de la
+  // ganancia).
   const base = [
-    lote({ socios, costoInicial: 0 }),
+    lote({ socios, costoInicial: 0, estado: 'cerrado' }),
     [gasto({ monto: 40000, pagadoPor: 0 })],
     [ingreso({ monto: 100000, recibidoPor: 1 })],
   ] as const
@@ -177,7 +178,7 @@ describe('entregas entre socios', () => {
   })
 
   it('lo igualado antes de vender cuenta al liquidar después', () => {
-    const l = lote({ socios, costoInicial: 0 })
+    const l = lote({ socios, costoInicial: 0, estado: 'cerrado' })
     const gastos = [gasto({ monto: 100000, pagadoPor: 0 })]
     const ventas = [ingreso({ monto: 150000, recibidoPor: 1 })]
     // Beto le dio 50.000 a Ana para quedar a la par y después cobró la venta.
@@ -305,7 +306,7 @@ describe('sociedad con ventas a crédito', () => {
   // Venta de 100.000 a crédito, sin cobrar nada: nadie tiene ese dinero, así
   // que nadie le debe entregar nada a nadie por ella.
   it('lo que falta por cobrar no está en la mano de ningún socio', () => {
-    const l = lote({ socios, costoInicial: 0 })
+    const l = lote({ socios, costoInicial: 0, estado: 'cerrado' })
     const gastos = [gasto({ monto: 80000, pagadoPor: 0 })]
     const ingresos = [ingreso({ cantidad: 400, monto: 100000, credito: true, cobros: [] })]
     const m = computeMetrics(l, [registro(1)], gastos, ingresos)
@@ -337,19 +338,58 @@ describe('sociedad con ventas a crédito', () => {
 })
 
 describe('sociedad con ventas antes de cerrar', () => {
+  const yoYPedro = [
+    { nombre: 'Yo', pct: 50 },
+    { nombre: 'Pedro', pct: 50 },
+  ]
+
   // Con una venta parcial, la cuenta seguía como si el ciclo hubiera cerrado:
   // «Tu pérdida» del tamaño de todo lo que falta por vender.
   it('mientras el ciclo sigue, es la cuenta de lo que pone cada uno', () => {
-    const l = lote({ socios: [{ nombre: 'Yo', pct: 50 }, { nombre: 'Pedro', pct: 50 }], costoInicial: 0 })
+    const l = lote({ socios: yoYPedro, costoInicial: 0 })
     const gastos = [gasto({ monto: 100000, pagadoPor: 0 }), gasto({ id: 2, monto: 100000, pagadoPor: 1 })]
     const ingresos = [ingreso({ cantidad: 100, monto: 30000, recibidoPor: 0 })]
     const m = computeMetrics(l, [], gastos, ingresos)
     const liq = computeLiquidacion(l, gastos, ingresos, m)!
     expect(liq.conVentas).toBe(false)
-    // Yo cobró los 30,000: la mitad es de Pedro.
-    expect(liq.traspasos[0]).toMatchObject({ de: 'Yo', a: 'Pedro', monto: 15000 })
+    // Pusieron lo mismo: van parejos. Los 30,000 que cobró Yo se guardan.
+    expect(liq.traspasos).toEqual([])
+    expect(liq.socios[0].cobrado).toBe(30000)
+    // Al cerrar, la mitad de lo vendido es de Pedro.
     const cerrado = computeLiquidacion({ ...l, estado: 'cerrado' }, gastos, ingresos, m)!
     expect(cerrado.conVentas).toBe(true)
+    expect(cerrado.traspasos[0]).toMatchObject({ de: 'Yo', a: 'Pedro', monto: 15000 })
+  })
+
+  // El caso del productor: él pagó los gastos y cobró unas aves vendidas. El
+  // socio le debe su mitad de los gastos completa; lo de las ventas se
+  // reparte al final de la pollada. Antes se rebajaba de lo que el socio le
+  // tenía que dar.
+  it('lo cobrado de las ventas no se rebaja de lo que el socio debe por los gastos', () => {
+    const l = lote({ socios: yoYPedro, costoInicial: 0 })
+    const gastos = [gasto({ monto: 100000, pagadoPor: 0 })]
+    const ingresos = [ingreso({ cantidad: 100, monto: 30000, recibidoPor: 0 })]
+    const m = computeMetrics(l, [], gastos, ingresos)
+    const liq = computeLiquidacion(l, gastos, ingresos, m)!
+    expect(liq.traspasos).toEqual([{ de: 'Pedro', a: 'Yo', deIdx: 1, aIdx: 0, monto: 50000 }])
+    expect(liq.socios.map((s) => s.ajuste)).toEqual([50000, -50000])
+
+    // Pedro entrega sus 50,000 y quedan parejos con los gastos.
+    const pago = [entrega({ de: 1, a: 0, monto: 50000 })]
+    expect(computeLiquidacion(l, gastos, ingresos, m, pago)!.traspasos).toEqual([])
+
+    // Al cerrar se reparte lo vendido: Yo tiene los 30,000 y le da la mitad.
+    const cerrado = computeLiquidacion({ ...l, estado: 'cerrado' }, gastos, ingresos, m, pago)!
+    expect(cerrado.traspasos).toEqual([{ de: 'Yo', a: 'Pedro', deIdx: 0, aIdx: 1, monto: 15000 }])
+  })
+
+  it('un ciclo cerrado sin ventas sigue siendo la cuenta de lo que puso cada uno', () => {
+    const l = lote({ socios: yoYPedro, costoInicial: 0, estado: 'cerrado' })
+    const gastos = [gasto({ monto: 60000, pagadoPor: 0 })]
+    const m = computeMetrics(l, [], gastos, [])
+    const liq = computeLiquidacion(l, gastos, [], m)!
+    expect(liq.conVentas).toBe(false)
+    expect(liq.traspasos).toEqual([{ de: 'Pedro', a: 'Yo', deIdx: 1, aIdx: 0, monto: 30000 }])
   })
 })
 
