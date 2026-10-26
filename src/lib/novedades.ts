@@ -3,16 +3,15 @@
 // forma de enterarse. En Ajustes se puede volver a ver.
 
 export const NOVEDADES = {
-  version: '1.11',
+  version: '1.12',
   cosas: [
-    'Una pollada en varios galpones: si de grandes no caben, pasa parte a otro galpón desde la ficha Galpón y sigue siendo el mismo ciclo.',
-    'Un aviso dice cuándo un galpón no aguanta sus aves al peso de venta.',
-    'Las bajas del día se escriben con el teclado, y puedes anotar de qué murieron.',
-    'La venta saca el total con el precio por libra.',
-    'Con varios ciclos, Registrar pregunta en cuál anotas.',
-    'El alimento que sobró pasa al siguiente ciclo con su costo.',
-    'Reportes por galpón, y gas y luz, y cama, como gastos aparte.',
-    'Se lee mejor al sol y en teléfonos chicos.',
+    'Ganancia estimada en Dinero: lo que te queda al vender, con el alimento que falta por comprar, el pago de los empleados y los gastos que vienen.',
+    'Si vendes el pollo arreglado, dilo en «Cómo vendes»: las cuentas van por libra arreglada, con el rinde y lo que cuesta arreglarlo.',
+    'Te dice si a tu precio conviene más arreglarlo o venderlo en pie al pollero.',
+    'Cada comprador con su precio: al escribir su nombre sale el de la última vez, y los precios que usas se tocan.',
+    'Desde «Te deben» se corrige la venta: le cambias el precio y lo que falta se saca otra vez.',
+    'El mejor día para vender cuenta el sueldo de cada día de más.',
+    'Arreglar el pollo —gas, fundas, hielo— tiene su propia categoría de gasto.',
   ],
 }
 
