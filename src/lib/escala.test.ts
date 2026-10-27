@@ -93,6 +93,12 @@ describe('dominioConReferencia', () => {
     expect((0 - desde) / (hasta - desde)).toBeLessThan(0.85)
   })
 
+  it('con un mínimo, una diferencia chiquita no llena la gráfica', () => {
+    expect(dominioConReferencia([1.2, -0.8, 0.5], 0, 10)).toEqual([-10, 10])
+    // Lo que pasa del mínimo se ve completo.
+    expect(dominioConReferencia([-16, 4], 0, 10)[0]).toBe(-16)
+  })
+
   it('no recorta los datos cuando ya rodean la referencia', () => {
     const [desde, hasta] = dominioConReferencia([-60000, 14000], 0)
     expect(desde).toBeLessThanOrEqual(-60000)

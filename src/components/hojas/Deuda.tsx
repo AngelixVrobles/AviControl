@@ -111,7 +111,6 @@ export function DeudaSheet({
               inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              placeholder="0"
             />
           </Field>
         </div>
@@ -218,7 +217,6 @@ export function AbonoSheet({
               inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              placeholder="0"
             />
           </Field>
           <Field label="Fecha" error={errorFechaFutura(fecha)}>
@@ -249,7 +247,7 @@ export function AbonoSheet({
               Te pasas por {money(sobra)}: solo faltaban {money(falta)}. Revisa el monto.
             </div>
           ) : (
-            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
+            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-700">
               {quedaria > 0
                 ? `Después de este abono quedan ${money(quedaria)} por pagar.`
                 : 'Con este abono la deuda queda saldada.'}

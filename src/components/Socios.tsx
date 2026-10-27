@@ -8,7 +8,7 @@ export function Interruptor({ activo }: { activo: boolean }) {
   return (
     <span
       aria-hidden
-      className={clsx('relative h-6 w-10 shrink-0 rounded-full transition', activo ? 'bg-forest-500' : 'bg-line')}
+      className={clsx('relative h-6 w-10 shrink-0 rounded-full transition', activo ? 'bg-forest-600' : 'bg-line')}
     >
       <span
         className={clsx(
@@ -113,7 +113,7 @@ export function EditorSocios({
             >
               + Agregar socio
             </button>
-            <span className={clsx('text-xs tnum', suma === 100 ? 'text-ink-faint' : 'text-clay-deep')}>
+            <span className={clsx('text-xs tnum', suma === 100 ? 'text-ink-faint' : 'text-clay-text')}>
               Suma {suma}%
             </span>
           </div>

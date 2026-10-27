@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { desdeHace, diaLocal, enumerar } from './format'
+import { alimentoEn, desdeHace, diaLocal, enumerar, fecha, money, numCompacto } from './format'
 
 describe('enumerar', () => {
   it('junta lo que hay con comas y una «y» al final, sin lo que está en cero', () => {
@@ -34,5 +34,35 @@ describe('diaLocal', () => {
     const noche = new Date(2026, 9, 19, 21, 41)
     expect(diaLocal(noche)).toBe('2026-10-19')
     expect(diaLocal(noche.toISOString())).toBe('2026-10-19')
+  })
+})
+
+describe('cifras cortas', () => {
+  // «471.6 mil» y «1.2 M», como se dice aquí: es-DO daba «8 K» y «16 k».
+  it('miles y millones en palabras de aquí', () => {
+    expect(numCompacto(8000)).toBe('8 mil')
+    expect(numCompacto(47_520)).toBe('47.5 mil')
+    expect(numCompacto(155_900)).toBe('156 mil')
+    expect(numCompacto(999_700)).toBe('1 M')
+    expect(numCompacto(1_250_000)).toBe('1.3 M')
+    expect(numCompacto(-16_000)).toBe('−16 mil')
+    expect(numCompacto(950)).toBe('950')
+  })
+
+  it('el dinero corto lleva la moneda', () => {
+    expect(money(395_300, { compact: true })).toBe('RD$395 mil')
+    expect(money(900, { compact: true })).toBe('RD$900')
+  })
+})
+
+describe('fechas y alimento', () => {
+  it('«3 nov», sin el cero de relleno', () => {
+    expect(fecha('2026-11-03')).toBe('3 nov')
+  })
+
+  it('el alimento en quintales con un decimal', () => {
+    expect(alimentoEn(424, 'qq')).toBe('4.2 qq')
+    expect(alimentoEn(700, 'qq')).toBe('7 qq')
+    expect(alimentoEn(424, 'lb')).toBe('424 lb')
   })
 })

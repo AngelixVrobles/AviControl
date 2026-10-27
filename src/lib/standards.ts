@@ -80,7 +80,11 @@ export function diaParaPeso(objetivoLb: number, factor = 1): number {
   return DIA_MAX
 }
 
+/** Los cuatro alimentos de un ciclo, en el orden en que se dan. */
+export type FaseId = 'preinicio' | 'iniciador' | 'crecimiento' | 'engorde'
+
 export interface FaseAlimento {
+  id: FaseId
   nombre: string
   desde: number
   hasta: number
@@ -93,10 +97,10 @@ export interface FaseAlimento {
 // de Cobb (starter 0–12, grower 13–28, grower 2 29–39, finalizador 40+) para un
 // pollo de mercado de 5–6 lb.
 export const FASES_ALIMENTO: FaseAlimento[] = [
-  { nombre: 'Pre-inicio', desde: 0, hasta: 10, proteinaPct: '22–23', kcalKg: 2900, presentacion: 'Migaja fina' },
-  { nombre: 'Iniciador', desde: 11, hasta: 24, proteinaPct: '20–21', kcalKg: 2950, presentacion: 'Migaja' },
-  { nombre: 'Crecimiento', desde: 25, hasta: 35, proteinaPct: '19', kcalKg: 3050, presentacion: 'Pellet' },
-  { nombre: 'Engorde', desde: 36, hasta: Infinity, proteinaPct: '18', kcalKg: 3100, presentacion: 'Pellet' },
+  { id: 'preinicio', nombre: 'Pre-inicio', desde: 0, hasta: 10, proteinaPct: '22–23', kcalKg: 2900, presentacion: 'Migaja fina' },
+  { id: 'iniciador', nombre: 'Iniciador', desde: 11, hasta: 24, proteinaPct: '20–21', kcalKg: 2950, presentacion: 'Migaja' },
+  { id: 'crecimiento', nombre: 'Crecimiento', desde: 25, hasta: 35, proteinaPct: '19', kcalKg: 3050, presentacion: 'Pellet' },
+  { id: 'engorde', nombre: 'Engorde', desde: 36, hasta: Infinity, proteinaPct: '18', kcalKg: 3100, presentacion: 'Pellet' },
 ]
 
 export const PESO_OBJETIVO_DEFAULT = 5.5

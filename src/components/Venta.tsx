@@ -77,7 +77,6 @@ export function DatosDePago({
             inputMode="decimal"
             value={adelanto}
             onChange={(e) => onAdelanto(e.target.value)}
-            placeholder="0"
           />
         </Field>
       )}

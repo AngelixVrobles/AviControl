@@ -85,10 +85,10 @@ describe('hojasDelCiclo', () => {
     expect(hojas.map((h) => h.nombre)).toEqual(['Resumen', 'Días', 'Gastos', 'Ventas', 'Pesajes', 'Sanidad'])
     const resumen = Object.fromEntries(hojas[0].filas.slice(1).map((f) => [f[0], f[1]]))
     expect(resumen['Granja']).toBe('Granja El Sol')
-    expect(resumen['Socios']).toBe('Yo 50 % · Pedro 50 %')
+    expect(resumen['Socios']).toBe('Yo 50% · Pedro 50%')
     expect(hojas[1].filas[1]).toContain(31)
     // Los pollitos van como el primer gasto, con quien los pagó.
-    expect(hojas[2].filas[1]).toEqual([{ fecha: l.fechaInicio }, 'Pollitos', '500 pollitos', undefined, 24000, 'Pedro'])
+    expect(hojas[2].filas[1]).toEqual([{ fecha: l.fechaInicio }, 'Pollitos', '500 pollitos', undefined, undefined, 24000, 'Pedro'])
     expect(hojas[2].filas[2]).toContain('Yo')
     expect(hojas[3].filas[1].slice(7)).toEqual([9000, 4000, 5000])
   })

@@ -26,15 +26,17 @@ export function Seccion({
   nota,
   accion,
   className,
+  id,
 }: {
   etiqueta: string
   titulo?: ReactNode
   nota?: ReactNode
   accion?: ReactNode
   className?: string
+  id?: string
 }) {
   return (
-    <div className={clsx('border-t border-line pt-3', className)}>
+    <div id={id} className={clsx('border-t border-line pt-3', className)}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
           {etiqueta}
@@ -86,7 +88,7 @@ export function DangerButton({ children, ...rest }: ButtonHTMLAttributes<HTMLBut
   return (
     <button
       {...rest}
-      className="w-full rounded-full py-3 text-center text-sm font-semibold text-clay-deep transition active:bg-clay/10"
+      className="w-full rounded-full py-3 text-center text-sm font-semibold text-clay-text transition active:bg-clay/10"
     >
       {children}
     </button>
@@ -165,7 +167,7 @@ export function Segmentado<T extends string>({
     <div
       role="group"
       aria-label={etiqueta}
-      className={clsx('flex shrink-0 rounded-full bg-sunken p-0.5', className)}
+      className={clsx('flex shrink-0 rounded-full bg-paper-sunken p-0.5', className)}
     >
       {opciones.map((o) => (
         <button
@@ -198,7 +200,7 @@ export function Pill({
         'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
         tone === 'engorde' && 'bg-forest-50 text-forest-700',
         tone === 'ok' && 'bg-forest-50 text-forest-600',
-        tone === 'bad' && 'bg-clay/10 text-clay-deep',
+        tone === 'bad' && 'bg-clay/10 text-clay-text',
         tone === 'neutral' && 'bg-paper-sunken text-ink-soft',
       )}
     >
@@ -319,7 +321,7 @@ export function Pestanas<T extends string>({
   const n = opciones.length
   const i = Math.max(0, opciones.findIndex((o) => o.id === valor))
   return (
-    <div role="tablist" aria-label={etiqueta} className={clsx('relative flex gap-1 rounded-full bg-sunken p-1', className)}>
+    <div role="tablist" aria-label={etiqueta} className={clsx('relative flex gap-1 rounded-full bg-paper-sunken p-1', className)}>
       <span
         aria-hidden
         className="absolute inset-y-1 left-1 rounded-full bg-paper-raised shadow-card transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"

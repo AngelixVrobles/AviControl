@@ -155,7 +155,7 @@ export function PesajeSheet({
         )}
 
         {pesos.length === 0 && (
-          <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
+          <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-700">
             Pesa <span className="font-semibold tnum">{num(sugeridas)}</span> aves al azar
             {avesVivas > 0 && (
               <span className="text-forest-700"> ({pct((sugeridas / avesVivas) * 100, 1)} del galpón)</span>
@@ -275,7 +275,7 @@ export function PesajeSheet({
                       ? 'text-forest-600'
                       : muestra.precision === 'media'
                         ? 'text-ink'
-                        : 'text-clay-deep',
+                        : 'text-clay-text',
                   )}
                 >
                   ± {num(muestra.margenLb, 2)} lb
@@ -284,7 +284,7 @@ export function PesajeSheet({
               </div>
             </div>
 
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sunken">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
               <div
                 className={clsx(
                   'h-full rounded-full transition-all',

@@ -56,7 +56,7 @@ export function FichaMortalidad({
             <div
               className={
                 'font-display text-xl font-semibold leading-none tnum ' +
-                (sobreEsperado ? 'text-clay-deep' : 'text-forest-600')
+                (sobreEsperado ? 'text-clay-text' : 'text-forest-600')
               }
             >
               {pct(r.pct, 1)}
@@ -158,7 +158,7 @@ function Causas({ causas, sinCausa }: { causas: CausaDelCiclo[]; sinCausa: numbe
                 <span className="ml-2 text-ink-faint">{pct(c.pct, 0)}</span>
               </span>
             </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-sunken" aria-hidden>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-paper-sunken" aria-hidden>
               <div className="h-full rounded-full bg-clay" style={{ width: `${Math.max(2, c.pct)}%` }} />
             </div>
           </div>

@@ -11,6 +11,8 @@ import { aguaEsperadaL } from '../../lib/agua'
 import { EDAD_CALOR, CALOR_C, fraseCalor, juicioCalor } from '../../lib/calor'
 import { LB_POR_QUINTAL, tempRecomendadaC } from '../../lib/standards'
 import { errorFechaDelCiclo, topeDelCiclo } from '../../lib/lote'
+import { FASES, nombreFase, type AlimentoPorTipo } from '../../lib/alimentos'
+import type { FaseId } from '../../lib/standards'
 import { useEnvio } from '../useEnvio'
 
 export function RegistroSheet({
@@ -20,6 +22,7 @@ export function RegistroSheet({
   editar,
   registros = [],
   ingresos = [],
+  alimentos,
 }: {
   lote: Lote
   open: boolean
@@ -27,6 +30,8 @@ export function RegistroSheet({
   editar?: Registro
   registros?: Registro[]
   ingresos?: Ingreso[]
+  /** Lo que se compró de cada alimento: la hoja dice cuál se está dando. */
+  alimentos?: AlimentoPorTipo
 }) {
   const { ocupado, enviar } = useEnvio(open)
   const { unidadAlimento: unidad } = useSettings()
@@ -44,6 +49,11 @@ export function RegistroSheet({
   const [sinPesar, setSinPesar] = useState(false)
   const [nota, setNota] = useState('')
   const [masOpciones, setMasOpciones] = useState(false)
+  // El alimento que se dio: el que toca por los sacos comprados, salvo que se
+  // cambie a mano ese día.
+  const [faseAlimento, setFaseAlimento] = useState<FaseId>()
+  const [faseTocada, setFaseTocada] = useState(false)
+  const [cambiandoAlimento, setCambiandoAlimento] = useState(false)
 
   const previos = useMemo(
     () =>
@@ -92,6 +102,9 @@ export function RegistroSheet({
     setSinPesar(!!r && r.pesoPromedio == null)
     setNota(r?.nota ?? '')
     setMasOpciones(!!r?.descarte || !!r?.nota)
+    setFaseAlimento(r?.alimentoFase)
+    setFaseTocada(!!r?.alimentoFase)
+    setCambiandoAlimento(false)
   }, [])
 
   // Un día no puede tener dos registros: si ya está anotado, la hoja lo trae y
@@ -129,6 +142,10 @@ export function RegistroSheet({
 
   const dia = diasEntre(lote.fechaInicio, fecha)
   const existente = editar ?? registros.find((r) => r.fecha === fecha)
+  const faseInferida = alimentos ? (alimentos.dias.find((d) => d.dia === dia)?.fase ?? alimentos.actual) : undefined
+  const faseDelDia = faseTocada ? faseAlimento : faseInferida
+  const nombreAlimento = (f: FaseId) => alimentos?.fases.find((x) => x.fase === f)?.nombre ?? nombreFase(f)
+  const quedaDelDia = faseDelDia ? alimentos?.fases.find((x) => x.fase === faseDelDia)?.quedaLb : undefined
   const errorFecha =
     errorFechaDelCiclo(fecha, lote) ??
     (editar && registros.some((r) => r.fecha === fecha && r.id !== editar.id)
@@ -170,6 +187,9 @@ export function RegistroSheet({
       pesoPromedio: !sinPesar && Number(peso.replace(',', '.')) > 0 ? Number(peso.replace(',', '.')) : undefined,
       causa: mortalidad > 0 ? causa : undefined,
       nota: nota.trim() || undefined,
+      // Solo si se eligió a mano: si no, sigue lo que toca por los sacos, y
+      // corregir una compra después vuelve a repartir los días.
+      alimentoFase: alimentoLb > 0 ? (faseTocada ? faseAlimento : undefined) : undefined,
     }
     // Guardar desde aquí completa el día: si lo había creado un pesaje, deja de
     // ser «solo peso». Un día nuevo se busca otra vez dentro de la transacción:
@@ -257,11 +277,58 @@ export function RegistroSheet({
               valor={unidad}
               onCambio={cambiarUnidad}
               opciones={[
-                { id: 'qq', label: 'Sacos' },
+                { id: 'qq', label: 'Quintales' },
                 { id: 'lb', label: 'Libras' },
               ]}
             />
           </div>
+          {alimentos && alimentos.partidas.length > 0 && faseDelDia && (
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-xl bg-paper-sunken px-3 py-1 text-sm">
+              <span className="min-w-0">
+                <span className="text-ink-faint">Le das </span>
+                <span className="font-semibold">{nombreAlimento(faseDelDia)}</span>
+                {quedaDelDia != null && quedaDelDia > 0 && (
+                  <span className="text-ink-faint tnum"> · quedan ~{numCorto(quedaDelDia / LB_POR_QUINTAL, 1)} qq</span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCambiandoAlimento((v) => !v)}
+                aria-expanded={cambiandoAlimento}
+                className="-my-1 h-11 shrink-0 px-2 font-semibold text-forest-600"
+              >
+                {cambiandoAlimento ? 'Listo' : 'Cambiar'}
+              </button>
+            </div>
+          )}
+          {cambiandoAlimento && (
+            <div className="mb-2 grid grid-cols-2 gap-2" role="group" aria-label="Qué alimento le diste">
+              {FASES.map((f) => {
+                const nombre = nombreAlimento(f)
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    aria-pressed={faseDelDia === f}
+                    onClick={() => {
+                      setFaseAlimento(f)
+                      setFaseTocada(true)
+                      setCambiandoAlimento(false)
+                    }}
+                    className={clsx(
+                      'min-h-12 rounded-xl border px-3 py-1.5 text-left transition',
+                      faseDelDia === f
+                        ? 'border-2 border-forest-500 bg-forest-50 text-ink'
+                        : 'border-line bg-paper-raised text-ink-soft',
+                    )}
+                  >
+                    <span className="block text-sm font-semibold">{nombreFase(f)}</span>
+                    {nombre !== nombreFase(f) && <span className="block truncate text-xs text-ink-faint">{nombre}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2" role="group" aria-label="Alimento que se dio">
             {chips.map((v) => {
               const activo = !feedOtro && Number(alimento) === v
@@ -274,7 +341,7 @@ export function RegistroSheet({
                     setFeedOtro(false)
                   }}
                   aria-pressed={activo}
-                  aria-label={`${numCorto(v)} ${unidad === 'qq' ? 'sacos' : 'libras'}${v === ayer ? ', lo de ayer' : ''}`}
+                  aria-label={`${numCorto(v)} ${unidad === 'qq' ? 'quintales' : 'libras'}${v === ayer ? ', lo de ayer' : ''}`}
                   className={clsx(
                     'h-[52px] flex-1 rounded-xl border px-2 text-center font-display text-lg font-semibold transition',
                     activo ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
@@ -308,8 +375,8 @@ export function RegistroSheet({
               inputMode="decimal"
               value={alimento}
               onChange={(e) => setAlimento(e.target.value)}
-              placeholder={unidad === 'qq' ? 'Sacos de 100 lb (ej. 2.5)' : 'Libras de alimento'}
-              aria-label={unidad === 'qq' ? 'Alimento que se dio, en sacos' : 'Alimento que se dio, en libras'}
+              placeholder={unidad === 'qq' ? 'Quintales (ej. 2.5)' : 'Libras de alimento'}
+              aria-label={unidad === 'qq' ? 'Alimento que se dio, en quintales' : 'Alimento que se dio, en libras'}
               className={clsx(chips.length > 0 && 'mt-2')}
               autoFocus={feedOtro}
             />
@@ -318,7 +385,7 @@ export function RegistroSheet({
             {alimentoLb > 0
               ? unidad === 'qq'
                 ? `${num(alimentoLb)} lb. Con esto salen la conversión y el consumo por fase.`
-                : `${numCorto(alimentoLb / LB_POR_QUINTAL)} sacos de 100 lb. Con esto salen la conversión y el consumo por fase.`
+                : `${numCorto(alimentoLb / LB_POR_QUINTAL, 1)} qq. Con esto salen la conversión y el consumo por fase.`
               : 'Sin esto no hay conversión (FCA). Si no lo mides cada día, cuenta los sacos que quedan en la ficha de Alimento.'}
           </p>
         </div>
@@ -413,7 +480,7 @@ export function RegistroSheet({
           {sinPesar ? (
             <button
               onClick={() => setSinPesar(false)}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-line bg-sunken text-sm font-semibold text-ink-soft"
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-line bg-paper-sunken text-sm font-semibold text-ink-soft"
             >
               Sin pesar hoy · tocar para anotar
             </button>
@@ -434,7 +501,7 @@ export function RegistroSheet({
                   setSinPesar(true)
                   setPeso('')
                 }}
-                className="h-14 shrink-0 rounded-xl border border-line bg-sunken px-4 text-sm font-semibold text-ink-soft"
+                className="h-14 shrink-0 rounded-xl border border-line bg-paper-sunken px-4 text-sm font-semibold text-ink-soft"
               >
                 Sin pesar
               </button>

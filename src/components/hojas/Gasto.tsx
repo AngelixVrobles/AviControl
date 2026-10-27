@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { clsx } from 'clsx'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type CategoriaGasto, type Gasto, type Lote } from '../../db/schema'
 import { Button, DangerButton, Field, Input, Select, Sheet } from '../ui'
 import { confirmar, toast } from '../confirm'
@@ -8,6 +10,9 @@ import { LB_POR_QUINTAL } from '../../lib/standards'
 import { errorFechaFutura } from '../../lib/lote'
 import { useEnvio } from '../useEnvio'
 import { deshacerTraspaso } from '../../db/traspaso'
+import { aprenderPreciosAlimento } from '../../db/alimento'
+import { FASES, faseDeNombre, nombreFase } from '../../lib/alimentos'
+import type { FaseId } from '../../lib/standards'
 
 export function GastoSheet({
   lote,
@@ -27,6 +32,19 @@ export function GastoSheet({
   const [fecha, setFecha] = useState(hoyISO())
   const [descripcion, setDescripcion] = useState('')
   const [pagadoPor, setPagadoPor] = useState('')
+  // El tipo de alimento sale del nombre mientras no se elija a mano.
+  const [fase, setFase] = useState<FaseId>()
+  const [faseTocada, setFaseTocada] = useState(false)
+  // Los nombres que ya se usaron, para no escribirlos otra vez.
+  const nombres = useLiveQuery(async () => {
+    const compras = await db.gastos.where('categoria').equals('alimento').reverse().sortBy('fecha')
+    const vistos = new Map<string, string>()
+    for (const g of compras) {
+      const n = g.descripcion?.trim()
+      if (n && !g.traspaso && !vistos.has(n.toLowerCase())) vistos.set(n.toLowerCase(), n)
+    }
+    return [...vistos.values()].slice(0, 12)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -36,7 +54,11 @@ export function GastoSheet({
     setFecha(editar?.fecha ?? hoyISO())
     setDescripcion(editar?.descripcion ?? '')
     setPagadoPor(editar?.pagadoPor != null ? String(editar.pagadoPor) : '')
+    setFase(editar?.fase)
+    setFaseTocada(!!editar?.fase)
   }, [open, editar])
+
+  const faseElegida = faseTocada ? fase : faseDeNombre(descripcion)
 
   const qq = Math.max(0, Number(quintales) || 0)
   const precioQq = qq > 0 && Number(monto) > 0 ? Number(monto) / qq : 0
@@ -49,10 +71,12 @@ export function GastoSheet({
       fecha,
       descripcion: descripcion.trim() || undefined,
       cantidadQq: categoria === 'alimento' && qq > 0 ? qq : undefined,
+      fase: categoria === 'alimento' ? faseElegida : undefined,
       pagadoPor: pagadoPor !== '' ? Number(pagadoPor) : undefined,
     }
     if (editar) await db.gastos.update(editar.id, datos)
     else await db.gastos.add({ ...datos, creado: Date.now() })
+    if (categoria === 'alimento') aprenderPreciosAlimento().catch(() => {})
     toast(`${categoriaLabel(categoria)} · ${money(datos.monto)}`)
     onClose()
   }
@@ -106,6 +130,55 @@ export function GastoSheet({
             ))}
           </Select>
         </Field>
+        {categoria === 'alimento' && (
+          <>
+            <Field label="Nombre del alimento" hint="Como dice el saco. Con el nombre, la app sabe qué alimento das cada día.">
+              <Input
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Ej.: Mega Broiler Crecimiento"
+                list="nombres-alimento"
+                autoCapitalize="words"
+              />
+              <datalist id="nombres-alimento">
+                {(nombres ?? []).map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            </Field>
+            <div>
+              <span className="mb-1.5 block text-sm font-medium text-ink-soft">Tipo de alimento</span>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Tipo de alimento">
+                {FASES.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    aria-pressed={faseElegida === f}
+                    onClick={() => {
+                      setFase(f)
+                      setFaseTocada(true)
+                    }}
+                    className={clsx(
+                      'h-11 rounded-xl border px-3 text-sm font-semibold transition',
+                      faseElegida === f
+                        ? 'border-2 border-forest-500 bg-forest-50 text-ink'
+                        : 'border-line bg-paper-raised text-ink-soft',
+                    )}
+                  >
+                    {nombreFase(f)}
+                  </button>
+                ))}
+              </div>
+              <span className="mt-1 block text-xs text-ink-faint">
+                {faseElegida
+                  ? faseTocada
+                    ? 'Los sacos se dan en este orden: se acaba uno y sigue el próximo.'
+                    : 'Lo saqué del nombre. Si no es, toca el que es.'
+                  : 'Toca cuál es: con eso las cuentas usan el precio de este alimento.'}
+              </span>
+            </div>
+          </>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Monto">
             <Input
@@ -113,7 +186,6 @@ export function GastoSheet({
               inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              placeholder="0"
             />
           </Field>
           <Field label="Fecha" error={errorFechaFutura(fecha)}>
@@ -135,17 +207,18 @@ export function GastoSheet({
               inputMode="decimal"
               value={quintales}
               onChange={(e) => setQuintales(e.target.value)}
-              placeholder="0"
             />
           </Field>
         )}
-        <Field label="Descripción">
-          <Input
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Opcional"
-          />
-        </Field>
+        {categoria !== 'alimento' && (
+          <Field label="Descripción">
+            <Input
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Opcional"
+            />
+          </Field>
+        )}
         {lote.socios && lote.socios.length >= 2 && (
           <Field label="¿Quién pagó?">
             <Select value={pagadoPor} onChange={(e) => setPagadoPor(e.target.value)}>

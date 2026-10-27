@@ -22,7 +22,7 @@ function Fila({ label, valor, nota, tono }: { label: string; valor: string; nota
         <span
           className={clsx(
             'font-display font-semibold tnum',
-            tono === 'mal' && 'text-clay-deep',
+            tono === 'mal' && 'text-clay-text',
             tono === 'aviso' && 'text-amber-text',
             tono === 'bien' && 'text-forest-600',
           )}

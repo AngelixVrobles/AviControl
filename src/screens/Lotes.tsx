@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LoteCard } from '../components/LoteCard'
 import { Button, EmptyState, Pestanas, Seccion } from '../components/ui'
-import { IconPlus, IconPulso } from '../components/icons'
+import { IconPlus, IconPollito } from '../components/icons'
 import { useResumen } from '../lib/hooks'
 
 type Filtro = 'activo' | 'cerrado' | 'todos'
@@ -19,7 +19,7 @@ export function Lotes() {
         <h1 className="font-display text-2xl font-semibold">Ciclos</h1>
         <Link
           to="/lotes/nuevo"
-          className="inline-flex items-center gap-1.5 rounded-full bg-forest-500 px-4 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
+          className="inline-flex items-center gap-1.5 rounded-full bg-forest-600 px-4 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
         >
           <IconPlus width={18} height={18} strokeWidth={2.2} />
           Nuevo
@@ -41,7 +41,7 @@ export function Lotes() {
       <div className="mt-4 space-y-3">
         {lista.length === 0 && compartidos.length === 0 ? (
           <EmptyState
-            icon={<IconPulso width={28} height={28} strokeWidth={2} />}
+            icon={<IconPollito width={28} height={28} />}
             title="Sin ciclos en esta vista"
             text="Cambia el filtro o crea un ciclo nuevo para empezar."
             action={

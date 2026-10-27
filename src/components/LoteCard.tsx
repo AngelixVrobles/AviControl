@@ -49,7 +49,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
       </div>
 
       <div className="mb-1 mt-5">
-        <div className="relative h-2.5 rounded-full bg-sunken">
+        <div className="relative h-2.5 rounded-full bg-paper-sunken">
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
             style={{ width: pos(dia) }}
@@ -63,7 +63,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
           ))}
           {dia < total && (
             <span
-              className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-800"
+              className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-700"
               style={{ left: pos(dia), marginLeft: -12 }}
             />
           )}
@@ -91,7 +91,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
               <span
                 className={clsx(
                   'text-sm font-medium',
-                  metrics.ganancia >= 0 ? 'text-forest-800' : 'text-clay-text',
+                  metrics.ganancia >= 0 ? 'text-forest-700' : 'text-clay-text',
                 )}
               >
                 {metrics.ganancia >= 0 ? 'Ganancia' : 'Pérdida'}
@@ -99,7 +99,7 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
               <span
                 className={clsx(
                   'text-sm font-bold tnum',
-                  metrics.ganancia >= 0 ? 'text-forest-800' : 'text-clay-text',
+                  metrics.ganancia >= 0 ? 'text-forest-700' : 'text-clay-text',
                 )}
               >
                 {money(metrics.ganancia)}
@@ -117,8 +117,8 @@ export function LoteCard({ data }: { data: LoteConMetrics }) {
               </div>
             ) : (
               <div className="mt-3 flex items-center justify-between rounded-xl bg-forest-50 px-3.5 py-2.5">
-                <span className="text-sm font-medium text-forest-800">Venta estimada</span>
-                <span className="text-sm font-bold text-forest-800 tnum">
+                <span className="text-sm font-medium text-forest-700">Venta estimada</span>
+                <span className="text-sm font-bold text-forest-700 tnum">
                   {metrics.diaVentaEstimado <= metrics.dias
                     ? 'lista para vender'
                     : `${fecha(metrics.fechaVentaEstimada)} · ${enDias(metrics.diaVentaEstimado - metrics.dias)}`}

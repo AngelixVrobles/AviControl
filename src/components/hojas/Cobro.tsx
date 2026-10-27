@@ -158,7 +158,6 @@ export function CobroSheet({
               inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              placeholder="0"
             />
           </Field>
           <Field label="Fecha" error={errorFecha}>

@@ -50,7 +50,7 @@ export function juicioCalor(tempC: number, dia: number, humedad?: number): Juici
 export const conCalor = (j?: JuicioCalor) => j?.nivel === 'calor' || j?.nivel === 'peligro'
 
 export const gradosCalor = (j: Pick<JuicioCalor, 'tempC' | 'humedad'>) =>
-  `${num(j.tempC)} °C${j.humedad != null ? ` con ${num(j.humedad)} % de humedad` : ''}`
+  `${num(j.tempC)} °C${j.humedad != null ? ` con ${num(j.humedad)}% de humedad` : ''}`
 
 // Qué quiere decir esa temperatura a esa edad y qué hacer: debajo de la casilla
 // al anotarla, y en el aviso del ciclo.

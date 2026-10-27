@@ -176,7 +176,7 @@ export function Sociedad({
                 key={i}
                 className="flex items-center gap-3 rounded-xl border border-forest-400/30 bg-forest-50 py-2 pl-3.5 pr-2"
               >
-                <span className="min-w-0 flex-1 text-sm font-medium text-forest-800">
+                <span className="min-w-0 flex-1 text-sm font-medium text-forest-700">
                   {liq.traspasos.length === 1 ? (
                     "Cuando se entregue, anótalo y la cuenta queda al día."
                   ) : (
@@ -381,7 +381,7 @@ function CuentaSocio({
             <div
               className={clsx(
                 "font-display text-xl font-semibold leading-tight tnum",
-                s.corresponde >= 0 ? "text-forest-600" : "text-clay-deep",
+                s.corresponde >= 0 ? "text-forest-600" : "text-clay-text",
               )}
             >
               {money(s.corresponde)}
@@ -395,7 +395,7 @@ function CuentaSocio({
             <div
               className={clsx(
                 "font-display text-xl font-semibold leading-tight tnum",
-                estimada >= 0 ? "text-ink-soft" : "text-clay-deep",
+                estimada >= 0 ? "text-ink-soft" : "text-clay-text",
               )}
             >
               ≈ {money(estimada)}
@@ -421,7 +421,7 @@ function CuentaSocio({
       <div
         className={clsx(
           "mt-3 border-t border-line pt-2.5 text-sm font-semibold tnum",
-          bien ? "text-forest-700" : "text-clay-deep",
+          bien ? "text-forest-700" : "text-clay-text",
         )}
       >
         {parejo ? "✓ " : ""}

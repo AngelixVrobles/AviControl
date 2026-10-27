@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useLoteData, useSettings } from '../lib/hooks'
+import { useLoteData, useModoVenta, useSettings } from '../lib/hooks'
+import { proyectarVenta } from '../lib/proyeccion'
+import { pesoObjetivoDe } from '../lib/lote'
 import { fecha, hoyISO, money, num, pct, porLb } from '../lib/format'
 import { categoriaLabel, RAZA } from '../lib/labels'
 import { agruparGastos } from '../lib/metrics'
@@ -24,6 +26,7 @@ export function Imprimir() {
   const volver = useVolver(id ? `/lotes/${id}` : '/lotes')
   const data = useLoteData(id ? Number(id) : undefined)
   const settings = useSettings()
+  const modo = useModoVenta()
   const [sinVista, setSinVista] = useState(false)
 
   // Con la app instalada en el iPhone, imprimir a veces no hace nada. Si la
@@ -57,12 +60,22 @@ export function Imprimir() {
   const hasta = lote.fechaCierre ?? hoyISO()
   const cerrado = lote.estado === 'cerrado'
   // Con el ciclo en curso lo vendido es solo una parte: lo que va no es una
-  // pérdida, es lo que falta por vender.
-  const resultado: [string, string] = cerrado
-    ? [m.ganancia >= 0 ? 'Ganancia' : 'Pérdida', money(m.ganancia)]
-    : m.ingresos > 0
-      ? ['Vendido menos invertido', money(m.ganancia)]
-      : ['Invertido', money(m.costos)]
+  // pérdida, es lo que falta por vender. Va lo que se espera ganar al vender,
+  // como en la pestaña Dinero; antes salía «Vendido menos invertido» con un
+  // número negativo que el banco o el socio leían como pérdida.
+  const proyeccion = cerrado
+    ? null
+    : proyectarVenta(lote, registros, gastos, m, pesoObjetivoDe(lote), modo)
+  const resultado: [string, string][] = cerrado
+    ? [[m.ganancia >= 0 ? 'Ganancia' : 'Pérdida', money(m.ganancia)]]
+    : proyeccion?.gananciaProyectada != null
+      ? [
+          [
+            proyeccion.gananciaProyectada >= 0 ? 'Ganancia estimada al vender' : 'Pérdida estimada al vender',
+            money(proyeccion.gananciaProyectada),
+          ],
+        ]
+      : []
   const costos = [
     ...(lote.costoInicial > 0 ? [{ categoria: 'Pollitos', total: lote.costoInicial }] : []),
     ...agruparGastos(gastos).map((g) => ({ categoria: categoriaLabel(g.categoria), total: g.total })),
@@ -87,9 +100,9 @@ export function Imprimir() {
     ['Peso promedio', m.pesoFinalLb != null ? `${num(m.pesoFinalLb, 2)} lb` : '—'],
     ['Conversión (FCA)', m.fca != null ? num(m.fca, 2) : '—'],
     ['Alimento', `${num(m.alimentoTotalLb / LB_POR_QUINTAL, 1)} qq`],
-    ['Costos', money(m.costos)],
-    ['Ventas', money(m.ingresos)],
-    resultado,
+    [cerrado ? 'Costos' : 'Invertido hasta hoy', money(m.costos)],
+    [cerrado ? 'Ventas' : 'Vendido hasta hoy', money(m.ingresos)],
+    ...resultado,
     ['Costo por libra', m.costoPorLb != null ? porLb(m.costoPorLb) : '—'],
     ...(m.porCobrar > 0 ? [['Por cobrar', money(m.porCobrar)] as [string, string]] : []),
   ]

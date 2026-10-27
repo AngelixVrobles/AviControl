@@ -145,7 +145,6 @@ export function PorVenirSheet({
               min={0}
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              placeholder="0"
             />
           </Field>
         </div>

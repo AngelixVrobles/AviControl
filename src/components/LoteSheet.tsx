@@ -256,7 +256,6 @@ function FormLote({
             value={cantidad}
             onChange={(e) => setCantidad(e.target.value)}
             aria-invalid={!!errores.cantidad}
-            placeholder="0"
           />
         </Field>
       </div>
@@ -275,7 +274,6 @@ function FormLote({
             inputMode="decimal"
             value={costo}
             onChange={(e) => setCosto(e.target.value)}
-            placeholder="0"
           />
         </Field>
         <Field label="Precio del quintal" hint="Alimento, 100 lb." error={negativos.quintal}>
@@ -284,7 +282,6 @@ function FormLote({
             inputMode="decimal"
             value={precioQuintal}
             onChange={(e) => setPrecioQuintal(e.target.value)}
-            placeholder="0"
           />
         </Field>
       </div>
@@ -319,7 +316,6 @@ function FormLote({
             inputMode="decimal"
             value={precioLb}
             onChange={(e) => setPrecioLb(e.target.value)}
-            placeholder="0"
           />
         </Field>
       </div>

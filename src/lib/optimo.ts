@@ -3,11 +3,12 @@ import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, sumarDias } from './format'
 import { pesoObjetivoDe } from './lote'
 import { precioAlimentoLb } from './precios'
+import { alimentoPorTipo, precioDelDiaLb } from './alimentos'
 import { proyectarVenta } from './proyeccion'
 import { pagoEmpleados, totalPorVenir } from './porPagar'
 import { EN_PIE, type ModoVenta } from './venta'
 import {
-  alimentoAcumEstandarLb,
+  alimentoDiaEstandarLb,
   diaParaPeso,
   mortalidadEsperadaPct,
   pesoEstandarLb,
@@ -30,6 +31,8 @@ export interface AnalisisOptimo {
   puntos: PuntoVenta[]
   hoy: PuntoVenta
   optimo: PuntoVenta
+  /** El día de venta que se eligió, si se eligió uno. */
+  plan?: PuntoVenta
   tope: PuntoVenta
   excedeObjetivo: boolean
   objetivoLb: number
@@ -70,6 +73,12 @@ export function analizarPuntoOptimo(
   const p = proyectarVenta(lote, registros, gastos, m, objetivoLb, modo)
   const usadoDelAlmacenLb = p ? Math.min(p.existenciaLb, p.alimentoRestanteLb) : 0
   const porVenir = totalPorVenir(lote)
+  // Cada día se paga el alimento que toca ese día —casi siempre engorde—, no
+  // el promedio de lo comprado: el pre-inicio caro hacía ver más cara la libra
+  // de más y adelantaba el mejor día.
+  const porTipo = alimentoPorTipo(lote, registros, gastos, m)
+  const precioDia = (d: number) => precioDelDiaLb(porTipo, d, precioAlim)
+  let costoCurva = 0
 
   const puntos: PuntoVenta[] = []
   let previo: PuntoVenta | undefined
@@ -83,12 +92,13 @@ export function analizarPuntoOptimo(
     )
     const aves = Math.max(0, m.avesVivas - bajas)
     const avesPromedio = (m.avesVivas + aves) / 2
-    const consumo = Math.max(0, alimentoAcumEstandarLb(dia) - alimentoAcumEstandarLb(desde))
+    if (dia > desde) costoCurva += alimentoDiaEstandarLb(dia) * precioDia(dia)
     const empleados =
       pagoEmpleados(lote.empleados, gastos, { diaVenta: dia, aves: m.vendidas + aves })?.falta ?? 0
     const costo =
       m.costos +
-      (consumo * avesPromedio * factorEf - usadoDelAlmacenLb) * precioAlim +
+      costoCurva * avesPromedio * factorEf -
+      usadoDelAlmacenLb * precioDia(desde + 1) +
       empleados +
       porVenir +
       aves * modo.costoAve
@@ -121,10 +131,20 @@ export function analizarPuntoOptimo(
   // peso que compra el cliente.
   const tope = puntos.find((p) => p.dia >= diaParaPeso(objetivoLb, m.factorCurva)) ?? hoy
 
+  // Para comparar con el mejor día: antes la pestaña decía «vendes el día 35»
+  // en un lado y «te conviene esperar hasta el 40» en otro, sin decir cuánto
+  // va de uno a otro.
+  // Sin día elegido, el del peso objetivo ya sale como «Si topan en…».
+  const plan =
+    m.diaVentaFijo != null && m.diaVentaEstimado != null
+      ? puntos.find((p) => p.dia === m.diaVentaEstimado)
+      : undefined
+
   return {
     puntos,
     hoy,
     optimo,
+    plan,
     tope,
     excedeObjetivo: optimo.dia > tope.dia,
     objetivoLb,

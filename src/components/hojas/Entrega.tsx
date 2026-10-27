@@ -151,7 +151,6 @@ export function EntregaSheet({
               inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              placeholder="0"
               className="h-14 text-lg"
             />
           </Field>
@@ -182,17 +181,17 @@ export function EntregaSheet({
               Te pasas por {money(sePasa.monto)}: solo faltaban {money(faltaba)}. Revisa el monto.
             </div>
           ) : faltaDespues === 0 ? (
-            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
+            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-700">
               Con esta entrega quedan parejos, {acuerdo}.
             </div>
           ) : despues.traspasos.length === 1 &&
             despues.traspasos[0].deIdx === de &&
             despues.traspasos[0].aIdx === a ? (
-            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
+            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-700">
               Después de esta entrega faltan {money(faltaDespues)} para quedar parejos.
             </div>
           ) : (
-            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-800">
+            <div className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-700">
               Después de esta entrega todavía:{' '}
               {despues.traspasos.map((t) => frase(t.de, t.a, t.monto)).join('; ')}.
             </div>

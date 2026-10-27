@@ -8,6 +8,7 @@ import { Dashboard } from './screens/Dashboard'
 import { Lotes } from './screens/Lotes'
 import { iniciarActualizaciones } from './lib/actualizacion'
 import { iniciarInstalacion } from './lib/instalar'
+import { aprenderPreciosAlimento } from './db/alimento'
 
 // Inicio y Ciclos van en el paquete de entrada; las demás pantallas se bajan
 // cuando se abren. Antes la app entera —765 kB— tenía que llegar antes de
@@ -97,6 +98,8 @@ navigator.storage
 
 iniciarActualizaciones()
 iniciarInstalacion()
+// Lo último que costó cada tipo de alimento, para estimar lo que falta comprar.
+aprenderPreciosAlimento().catch(() => {})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

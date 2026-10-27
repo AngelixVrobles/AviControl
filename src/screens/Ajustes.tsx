@@ -1,3 +1,4 @@
+import { clsx } from 'clsx'
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/schema'
@@ -8,7 +9,7 @@ import { galponDe, galponInicial, nuevoGalpon } from '../lib/galpones'
 import { repartido } from '../lib/reparto'
 import { borrarTodo as borrarTodoDeLaBase } from '../db/ciclo'
 import { borrarBorradoresDe } from '../lib/borrador'
-import { diasSinRespaldo, fechaDelRespaldo, validarRespaldo, type Respaldo } from '../lib/respaldo'
+import { DIAS_PARA_RECORDAR, diasSinRespaldo, fechaDelRespaldo, validarRespaldo, type Respaldo } from '../lib/respaldo'
 import { leerRespaldo, VERSION_RESPALDO } from '../db/respaldo'
 import { useRespaldo } from '../components/useRespaldo'
 import { useAbrirCiclo } from '../components/useCicloCompartido'
@@ -338,7 +339,7 @@ export function Ajustes() {
         </Button>
       </Banda>
 
-      <Seccion className="mb-3 mt-8 text-clay-deep" etiqueta="Zona de peligro" />
+      <Seccion className="mb-3 mt-8 text-clay-text" etiqueta="Zona de peligro" />
       <Banda className="space-y-3 px-5 py-4">
         <p className="text-sm leading-relaxed text-ink-soft">{queSeBorra(conteos)}</p>
         <DangerButton onClick={borrarTodo}>Borrar todo</DangerButton>
@@ -415,16 +416,25 @@ function AvisoRespaldo({
   onRestaurar: () => void
 }) {
   const dias = diasSinRespaldo(ultimo)
+  // Con un respaldo de esta semana no hay nada que avisar: el ámbar siempre
+  // encendido dejaba de verse cuando de verdad tocaba.
+  const toca = dias == null || dias >= DIAS_PARA_RECORDAR
+  const texto = toca ? 'text-amber-text' : 'text-ink-soft'
   return (
-    <div className="mt-5 rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
-      <div className="font-display text-base font-semibold text-amber-text">
+    <div
+      className={clsx(
+        'mt-5 rounded-xl2 border p-4',
+        toca ? 'border-amber-line border-l-4 border-l-amber-400 bg-amber-tint' : 'border-line bg-paper-raised',
+      )}
+    >
+      <div className={clsx('font-display text-base font-semibold', toca ? 'text-amber-text' : 'text-ink')}>
         Tus datos viven solo en este teléfono
       </div>
-      <p className="mt-1 text-sm leading-relaxed text-amber-text">
+      <p className={clsx('mt-1 text-sm leading-relaxed', texto)}>
         Si lo pierdes o lo cambias, se pierde todo. No hay copia en internet: guarda el respaldo
         fuera del teléfono, en WhatsApp, el correo o Drive.
       </p>
-      <p className="mt-2 text-sm font-medium text-amber-text">
+      <p className={clsx('mt-2 text-sm font-medium', texto)}>
         {ultimo
           ? `Último respaldo: ${haceCuanto(dias!)} · ${fecha(ultimo)}`
           : 'Nunca has hecho un respaldo.'}
@@ -432,13 +442,16 @@ function AvisoRespaldo({
       <div className="mt-3 grid grid-cols-2 gap-3">
         <button
           onClick={onRespaldar}
-          className="rounded-full bg-forest-500 py-3 text-center text-sm font-semibold text-paper-raised transition active:scale-95"
+          className="rounded-full bg-forest-600 py-3 text-center text-sm font-semibold text-paper-raised transition active:scale-95"
         >
           Respaldar ahora
         </button>
         <button
           onClick={onRestaurar}
-          className="rounded-full border border-amber-line bg-paper-raised py-3 text-center text-sm font-semibold text-amber-text transition active:scale-95"
+          className={clsx(
+            'rounded-full border bg-paper-raised py-3 text-center text-sm font-semibold transition active:scale-95',
+            toca ? 'border-amber-line text-amber-text' : 'border-borde text-ink',
+          )}
         >
           Restaurar
         </button>

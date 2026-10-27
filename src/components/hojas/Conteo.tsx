@@ -94,7 +94,6 @@ export function ConteoSheet({
               inputMode="decimal"
               value={quedan}
               onChange={(e) => setQuedan(e.target.value)}
-              placeholder="0"
               className="h-14 text-lg"
               autoFocus
             />
@@ -115,7 +114,7 @@ export function ConteoSheet({
           <div
             className={clsx(
               'rounded-xl px-4 py-3 text-sm leading-relaxed',
-              dadoQq >= 0 ? 'bg-forest-50 text-forest-800' : 'border-l-4 border-clay bg-clay-tint text-clay-text',
+              dadoQq >= 0 ? 'bg-forest-50 text-forest-700' : 'border-l-4 border-clay bg-clay-tint text-clay-text',
             )}
           >
             {dadoQq >= 0 ? (
@@ -157,7 +156,7 @@ export function ConteoSheet({
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="font-display font-semibold tnum">
-                      {numCorto(c.qq, 2)} {c.qq === 1 ? 'saco' : 'sacos'}
+                      {numCorto(c.qq, 2)} qq
                     </span>
                     <button
                       onClick={() => quitar(c.fecha)}

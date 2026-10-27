@@ -10,8 +10,8 @@ export function AvisoInstalar({ hayDatos }: { hayDatos: boolean }) {
   if (!como || callado) return null
   return (
     <section className="mt-6 rounded-xl2 border border-forest-200 bg-forest-50 p-4">
-      <h2 className="font-display text-base font-semibold text-forest-800">Instala la app en tu teléfono</h2>
-      <p className="mt-1 text-sm leading-relaxed text-forest-800">
+      <h2 className="font-display text-base font-semibold text-forest-700">Instala la app en tu teléfono</h2>
+      <p className="mt-1 text-sm leading-relaxed text-forest-700">
         {como === 'ios'
           ? 'Toca Compartir y después «Añadir a pantalla de inicio». En Safari, si pasas una semana sin abrirla, el iPhone puede borrar tus datos; instalada no.'
           : 'Abre más rápido, funciona sin internet y tus datos quedan guardados con ella.'}
@@ -24,7 +24,7 @@ export function AvisoInstalar({ hayDatos }: { hayDatos: boolean }) {
           <button
             type="button"
             onClick={() => instalar()}
-            className="h-11 rounded-full bg-forest-500 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
+            className="h-11 rounded-full bg-forest-600 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
           >
             Instalar
           </button>

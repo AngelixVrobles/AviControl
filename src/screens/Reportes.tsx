@@ -13,6 +13,7 @@ import { LIMITE_DOA_PCT, porIncubadora } from '../lib/arranque'
 import { LIMITE_PRIMERA_SEMANA_PCT } from '../lib/mortalidad'
 import { ciclosPorGalpon } from '../lib/reparto'
 import { valorHoy } from '../lib/venta'
+import { nombresCortos } from '../lib/labels'
 
 type Segmento = 'cerrado' | 'activo'
 
@@ -194,7 +195,7 @@ function Totales({ lista }: { lista: LoteConMetrics[] }) {
             <span
               className={clsx(
                 'font-display text-xl font-semibold tnum',
-                f.tono === 'ok' ? 'text-forest-600' : f.tono === 'bad' ? 'text-clay-deep' : 'text-ink',
+                f.tono === 'ok' ? 'text-forest-600' : f.tono === 'bad' ? 'text-clay-text' : 'text-ink',
               )}
             >
               {money(f.valor)}
@@ -227,7 +228,7 @@ function RepartoSocios({
           <span
             className={clsx(
               'font-display text-lg font-semibold tnum',
-              neutro ? 'text-ink' : s.monto >= 0 ? 'text-forest-600' : 'text-clay-deep',
+              neutro ? 'text-ink' : s.monto >= 0 ? 'text-forest-600' : 'text-clay-text',
             )}
           >
             {money(s.monto)}
@@ -349,7 +350,7 @@ function DeudasDeLaEmpresa() {
                 {e.saldo > 0 ? money(e.saldo) : 'Saldada'}
               </span>
             </div>
-            <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
+            <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
                 style={{ width: `${e.pagadoPct}%` }}
@@ -368,13 +369,14 @@ function VasMejorando({ lista }: { lista: LoteConMetrics[] }) {
     .sort((a, b) => a.lote.fechaInicio.localeCompare(b.lote.fechaInicio))
   if (conIep.length < 2) return null
 
-  const nombres = conIep.map((r) => r.lote.nombre.replace(/^(Lote|Ciclo)\s*/i, ''))
-  // Debajo de cada barra, el nombre si es corto; si no, la fecha en que
-  // llegaron los pollitos, que también distingue un ciclo de otro y cabe.
-  const cortos = nombres.every((n) => n.length <= 8)
+  const nombres = conIep.map((r) => r.lote.nombre)
+  // Debajo de cada barra, lo que distingue el nombre («agosto», «julio»); si no
+  // cabe, la fecha en que llegaron los pollitos. Antes «Pollada de agosto» ya
+  // no cabía y salían solo fechas, sin decir de qué ciclo era cada barra.
+  const cortos = nombresCortos(nombres)
   const datos = conIep.map((r, i) => ({
     nombre: nombres[i],
-    rotulo: cortos ? nombres[i] : fecha(r.lote.fechaInicio),
+    rotulo: cortos?.[i] ?? fecha(r.lote.fechaInicio),
     iep: Math.round(r.metrics.iep!),
   }))
   const attr = atribucionIEP(conIep)
@@ -497,7 +499,7 @@ function PorGalpon({ lista }: { lista: LoteConMetrics[] }) {
 function Cifra({ valor, label, mal }: { valor: string; label: string; mal?: boolean }) {
   return (
     <div>
-      <div className={clsx('font-display text-base font-semibold tnum', mal ? 'text-clay-deep' : 'text-ink')}>
+      <div className={clsx('font-display text-base font-semibold tnum', mal ? 'text-clay-text' : 'text-ink')}>
         {valor}
       </div>
       {label}
@@ -588,14 +590,14 @@ function VacioReportes({ seg, activos }: { seg: Segmento; activos: LoteConMetric
       {activo && seg === 'cerrado' && <BarraCiclo r={activo} />}
 
       {viejo && (
-        <div className="rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
+        <div className="rounded-xl2 border border-amber-line border-l-4 border-l-amber-400 bg-amber-tint p-4">
           <p className="text-sm font-medium leading-relaxed text-amber-text">
             El peso, la conversión y el costo por libra que ves son del{' '}
             {fecha(viejo.metrics.ultimaFecha!)} — no de hoy.
           </p>
           <Link
             to={`/lotes/${viejo.lote.id}?reg=1`}
-            className="mt-3 inline-flex rounded-full bg-forest-500 px-4 py-2.5 text-sm font-semibold text-paper-raised"
+            className="mt-3 inline-flex rounded-full bg-forest-600 px-4 py-2.5 text-sm font-semibold text-paper-raised"
           >
             Ponerme al día
           </Link>
@@ -631,7 +633,7 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
           día {r.metrics.dias} de {total}
         </span>
       </div>
-      <div className="relative h-2.5 rounded-full bg-sunken">
+      <div className="relative h-2.5 rounded-full bg-paper-sunken">
         <div className="absolute inset-y-0 left-0 rounded-full bg-forest-500" style={{ width: pos(dia) }} />
         {hitos.slice(1, -1).map((h) => (
           <span
@@ -642,7 +644,7 @@ function BarraCiclo({ r }: { r: LoteConMetrics }) {
         ))}
         {dia < total && (
           <span
-            className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-800"
+            className="absolute top-[-7px] h-6 w-6 rounded-full border-[3px] border-paper bg-forest-700"
             style={{ left: pos(dia), marginLeft: -12 }}
           />
         )}

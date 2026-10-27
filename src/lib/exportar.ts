@@ -11,6 +11,8 @@ import type { Galpon } from './settings'
 import { nombreSocio } from './sociedad'
 import { LB_POR_QUINTAL } from './standards'
 import { precioDe } from './venta'
+import { alimentoPorTipo, faseDeCompra, nombreFase } from './alimentos'
+import type { FaseId } from './standards'
 import type { Celda, Hoja } from './xlsx'
 
 export interface DatosDelCiclo {
@@ -32,6 +34,13 @@ const redondo = (v: number | undefined, dec = 2) => (v == null ? undefined : Mat
 // sacar las cuentas a mano, mandárselas al contador o guardarlas aparte.
 export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon[] = []): Hoja[] {
   const { lote, metrics: m } = d
+  // El alimento de cada día, el que se compró: «Engorde», no la fase del estándar.
+  const porTipo = alimentoPorTipo(lote, d.registros, d.gastos, m)
+  const tipoDelDia = (dia: number) => {
+    const f = porTipo.dias.find((x) => x.dia === dia)?.fase
+    return f ? nombreFase(f) : undefined
+  }
+  const nombreDeTipo = (f?: FaseId) => (f ? nombreFase(f) : undefined)
   // Con la pollada repartida, los galpones van en su hoja y cada venta dice de
   // cuál salió. Los nombres son los de esta granja.
   const enVarios = repartido(lote) && !lote.compartido
@@ -60,23 +69,19 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
     ['Alimento (lb)', redondo(m.alimentoTotalLb, 1)],
     ['Alimento (qq)', redondo(m.alimentoTotalLb / LB_POR_QUINTAL, 1)],
     ['Conversión (FCA)', redondo(m.fca)],
-    ['Costos', redondo(m.costos)],
-    ['Ventas', redondo(m.ingresos)],
+    [lote.estado === 'cerrado' ? 'Costos' : 'Invertido hasta hoy', redondo(m.costos)],
+    [lote.estado === 'cerrado' ? 'Ventas' : 'Vendido hasta hoy', redondo(m.ingresos)],
     // Con el ciclo en curso, lo vendido es solo una parte: no es una pérdida.
-    lote.estado === 'cerrado'
-      ? ['Ganancia', redondo(m.ganancia)]
-      : m.ingresos > 0
-        ? ['Vendido menos invertido', redondo(m.ganancia)]
-        : ['Invertido', redondo(m.costos)],
+    ...(lote.estado === 'cerrado' ? [['Ganancia', redondo(m.ganancia)] as Celda[]] : []),
     ['Costo por libra', redondo(m.costoPorLb)],
     ...(m.porCobrar > 0 ? [['Por cobrar', redondo(m.porCobrar)] as Celda[]] : []),
     ...(lote.socios && lote.socios.length >= 2
-      ? [['Socios', lote.socios.map((s, i) => `${nombreSocio(s, i)} ${s.pct} %`).join(' · ')] as Celda[]]
+      ? [['Socios', lote.socios.map((s, i) => `${nombreSocio(s, i)} ${s.pct}%`).join(' · ')] as Celda[]]
       : []),
   ]
 
   const dias: Celda[][] = [
-    ['Fecha', 'Día', 'Bajas', 'Causa', 'Descarte', 'Alimento (lb)', 'Agua (L)', 'Peso (lb)', 'Temp. máx. (°C)', 'Humedad (%)', 'Nota'],
+    ['Fecha', 'Día', 'Bajas', 'Causa', 'Descarte', 'Alimento (lb)', 'Tipo de alimento', 'Agua (L)', 'Peso (lb)', 'Temp. máx. (°C)', 'Humedad (%)', 'Nota'],
     ...porFecha(d.registros).map((r) => [
       fecha(r.fecha),
       diasEntre(lote.fechaInicio, r.fecha),
@@ -84,6 +89,7 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
       causaLabel(r.causa),
       r.descarte,
       r.alimentoLb || undefined,
+      r.alimentoLb ? tipoDelDia(diasEntre(lote.fechaInicio, r.fecha)) : undefined,
       r.aguaL,
       r.pesoPromedio,
       r.tempMaxC,
@@ -93,14 +99,15 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
   ]
 
   const gastos: Celda[][] = [
-    ['Fecha', 'Categoría', 'Detalle', 'Quintales', 'Monto', ...(lote.socios?.length ? ['Pagó'] : [])],
+    ['Fecha', 'Categoría', 'Detalle', 'Tipo de alimento', 'Quintales', 'Monto', ...(lote.socios?.length ? ['Pagó'] : [])],
     ...(lote.costoInicial > 0
-      ? [[fecha(lote.fechaInicio), 'Pollitos', `${lote.cantidadInicial} pollitos`, undefined, lote.costoInicial, ...(lote.socios?.length ? [quien(lote.costoInicialPagadoPor)] : [])]]
+      ? [[fecha(lote.fechaInicio), 'Pollitos', `${lote.cantidadInicial} pollitos`, undefined, undefined, lote.costoInicial, ...(lote.socios?.length ? [quien(lote.costoInicialPagadoPor)] : [])]]
       : []),
     ...porFecha(d.gastos).map((g) => [
       fecha(g.fecha),
       categoriaLabel(g.categoria),
       g.descripcion,
+      g.categoria === 'alimento' ? nombreDeTipo(faseDeCompra(g)) : undefined,
       g.cantidadQq,
       g.monto,
       ...(lote.socios?.length ? [quien(g.pagadoPor)] : []),

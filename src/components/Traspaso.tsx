@@ -7,6 +7,7 @@ import { useEnvio } from './useEnvio'
 import { fecha as fechaCorta, hoyISO, money, num } from '../lib/format'
 import { errorFechaDelCiclo } from '../lib/lote'
 import { esYo, mismosSocios, nombreSocio } from '../lib/sociedad'
+import type { FaseId } from '../lib/standards'
 
 // El alimento que sobró en el almacén al cerrar, al ciclo que sigue: con su
 // costo, para que el que cierra no cargue con sacos que no se comió y el que
@@ -16,6 +17,7 @@ export function TraspasoAlimentoSheet({
   destinos,
   sobranQq,
   precioQq,
+  fase,
   open,
   onClose,
 }: {
@@ -24,6 +26,8 @@ export function TraspasoAlimentoSheet({
   destinos: Lote[]
   sobranQq: number
   precioQq?: number
+  /** El alimento que sobró: el otro ciclo lo da cuando le toque. */
+  fase?: FaseId
   open: boolean
   onClose: () => void
 }) {
@@ -103,6 +107,7 @@ export function TraspasoAlimentoSheet({
       qq: nQq,
       monto: total,
       fecha,
+      fase,
       seLoQueda: !iguales && sociosDesde && seLoQueda !== '' ? Number(seLoQueda) : undefined,
       loPone: !iguales && sociosHacia && loPone !== '' ? Number(loPone) : undefined,
     })
@@ -134,7 +139,7 @@ export function TraspasoAlimentoSheet({
                 error={errorQq}
                 hint={sobranQq > 0 ? `Por las cuentas sobran ${num(sobranQq, 1)}` : undefined}
               >
-                <Input type="number" inputMode="decimal" min={0} value={qq} onChange={(e) => setQq(e.target.value)} placeholder="0" />
+                <Input type="number" inputMode="decimal" min={0} value={qq} onChange={(e) => setQq(e.target.value)} />
               </Field>
               <Field
                 label="Lo que valen"
@@ -149,7 +154,6 @@ export function TraspasoAlimentoSheet({
                     setMontoTocado(true)
                     setMonto(e.target.value)
                   }}
-                  placeholder="0"
                 />
               </Field>
             </div>

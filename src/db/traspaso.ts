@@ -1,3 +1,4 @@
+import type { FaseId } from '../lib/standards'
 import { db, type Gasto, type Lote } from './schema'
 
 /**
@@ -15,6 +16,7 @@ export async function pasarAlimento({
   fecha,
   seLoQueda,
   loPone,
+  fase,
 }: {
   desde: Pick<Lote, 'id' | 'nombre'>
   hacia: Pick<Lote, 'id' | 'nombre'>
@@ -28,6 +30,8 @@ export async function pasarAlimento({
    */
   seLoQueda?: number
   loPone?: number
+  /** El alimento que sobró: casi siempre engorde, que el otro ciclo da al final. */
+  fase?: FaseId
 }) {
   await db.transaction('rw', db.gastos, async () => {
     const creado = Date.now()
@@ -39,6 +43,7 @@ export async function pasarAlimento({
       fecha,
       descripcion: `Lo que sobró de ${desde.nombre}`,
       traspaso: { loteId: desde.id },
+      fase,
       pagadoPor: loPone,
       creado,
     })) as number
@@ -50,6 +55,7 @@ export async function pasarAlimento({
       fecha,
       descripcion: `Pasado a ${hacia.nombre}`,
       traspaso: { loteId: hacia.id, gastoId: llega },
+      fase,
       // En negativo: lo que ese socio puso le vuelve en sacos.
       pagadoPor: seLoQueda,
       creado,

@@ -170,7 +170,6 @@ export function NuevoLote() {
               inputMode="numeric"
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
-              placeholder="0"
             />
           </Field>
         </div>
@@ -182,7 +181,6 @@ export function NuevoLote() {
               inputMode="decimal"
               value={costoAve}
               onChange={(e) => setCostoAve(e.target.value)}
-              placeholder="0"
             />
           </Field>
           <Field label="Precio del quintal" hint="Alimento, 100 lb." error={errores.quintal}>
@@ -191,7 +189,6 @@ export function NuevoLote() {
               inputMode="decimal"
               value={precioQuintal}
               onChange={(e) => setPrecioQuintal(e.target.value)}
-              placeholder="0"
             />
           </Field>
         </div>
@@ -226,7 +223,6 @@ export function NuevoLote() {
               inputMode="decimal"
               value={precioLb}
               onChange={(e) => setPrecioLb(e.target.value)}
-              placeholder="0"
             />
           </Field>
         </div>
@@ -263,7 +259,6 @@ export function NuevoLote() {
                     min={0}
                     value={avesOtro}
                     onChange={(e) => setAvesOtro(e.target.value)}
-                    placeholder="0"
                     aria-invalid={!!errorOtro}
                   />
                 </Field>

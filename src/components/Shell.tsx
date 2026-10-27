@@ -41,7 +41,7 @@ function AvisoVersionNueva() {
         <button
           type="button"
           onClick={ponerVersionNueva}
-          className="h-11 shrink-0 rounded-full bg-forest-500 px-4 font-semibold text-paper-raised"
+          className="h-11 shrink-0 rounded-full bg-forest-600 px-4 font-semibold text-paper-raised"
         >
           Actualizar
         </button>

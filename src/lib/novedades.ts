@@ -3,15 +3,15 @@
 // forma de enterarse. En Ajustes se puede volver a ver.
 
 export const NOVEDADES = {
-  version: '1.13',
+  version: '1.14',
   cosas: [
-    'Tú decides a los cuántos días vendes: en Dinero, «Cambiar el día». El alimento que falta, el pago de los empleados y la ganancia estimada se cuentan hasta ese día. En Ajustes queda para todos los ciclos.',
-    'En Android, el botón Atrás cierra la hoja abierta en vez de sacarte del ciclo.',
-    'En Android el respaldo ya sale por WhatsApp o Drive: llega como .txt y se restaura igual.',
-    'Antes de restaurar se dice de cuándo es el respaldo, con el año. Si no era ese, «Volver a eso» en Ajustes trae lo que tenías.',
-    'Cuando hay una versión nueva, un aviso abajo la pone con un toque, cuando tú quieras.',
-    'En el iPhone, Inicio explica cómo instalar la app: instalada, Safari no le borra los datos.',
-    'Pasar alimento entre ciclos con socios distintos dice quién lo pone y quién se lo queda. Y las bajas ya no pasan de las aves que quedan después de vender.',
+    'Cada compra de alimento lleva el nombre del saco —«Mega Broiler Crecimiento»— y la app saca de ahí si es pre-inicio, iniciador, crecimiento o engorde. Si no lo adivina, tocas cuál es.',
+    'Los sacos se dan en orden: se acaba uno y sigue el próximo. Hoy dice qué alimento le estás dando, para cuántos días alcanza y cuál sigue; el registro del día lo trae puesto y lo cambias con «Cambiar».',
+    'Lo que falta por comprar se cuenta del tipo que toca y a lo último que pagaste por él: el engorde ya no sale al precio del pre-inicio. La ficha de Alimento lo junta por tipo.',
+    'Punto de venta compara el mejor día con el día de venta que elegiste, y dice cuánto va de uno a otro.',
+    'Fechas como «3 nov», montos como «156 mil» y el alimento en quintales (qq) en toda la app. La letra más chica es un poco más grande.',
+    'Fuera de Hoy, los avisos del ciclo van en un renglón; Dinero tiene un índice arriba para ir a cada parte.',
+    'La imagen para WhatsApp pone tu granja primero y la ganancia estimada en grande, y el PDF de un ciclo en curso ya no muestra una pérdida que no es.',
   ],
 }
 

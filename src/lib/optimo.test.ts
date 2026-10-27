@@ -41,6 +41,22 @@ describe('analizarPuntoOptimo', () => {
   })
 })
 
+describe('el día de venta que elegiste', () => {
+  // La pestaña decía «vendes el día 35» arriba y «te conviene esperar hasta el
+  // 40» abajo, sin decir cuánto va de uno a otro.
+  it('se compara con el mejor día', () => {
+    const conDia = { ...l, diaVenta: 32 }
+    const m = computeMetrics(conDia, registros, justo, [])
+    const a = analizarPuntoOptimo(conDia, registros, justo, m)!
+    expect(a.plan?.dia).toBe(32)
+    expect(a.plan!.ganancia).toBeLessThanOrEqual(a.optimo.ganancia)
+  })
+
+  it('sin día elegido no hay con qué comparar', () => {
+    expect(analizar(justo).a.plan).toBeUndefined()
+  })
+})
+
 describe('ciclos que se pasan del día 56', () => {
   // La venta atrasada: antes el recorrido quedaba vacío y la pestaña Dinero se
   // caía con «La app se quedó trabada».

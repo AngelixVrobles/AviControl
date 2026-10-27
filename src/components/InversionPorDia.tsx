@@ -69,7 +69,7 @@ export function InversionPorDia({
             className={clsx(
               'h-11 rounded-full border px-3.5 text-sm font-semibold tnum transition active:scale-95',
               dia === d
-                ? 'border-forest-500 bg-forest-50 text-forest-800'
+                ? 'border-forest-500 bg-forest-50 text-forest-700'
                 : 'border-line bg-paper-raised text-ink-soft',
             )}
           >
@@ -89,7 +89,7 @@ export function InversionPorDia({
               const v = Math.round(Number(e.target.value))
               if (e.target.value !== '' && v >= 0 && v <= DIA_MAX) setElegido(v)
             }}
-            className="h-8 w-14 rounded-full bg-sunken text-center text-sm font-semibold text-ink tnum outline-none focus:ring-2 focus:ring-forest-100"
+            className="h-8 w-14 rounded-full bg-paper-sunken text-center text-sm font-semibold text-ink tnum outline-none focus:ring-2 focus:ring-forest-100"
           />
         </label>
       </div>
@@ -134,7 +134,7 @@ export function InversionPorDia({
                   </span>
                   <span className="font-display font-semibold tnum">{money(p.monto)}</span>
                 </div>
-                <div className="relative mt-1.5 h-1.5 overflow-hidden rounded-full bg-sunken">
+                <div className="relative mt-1.5 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
                   <div
                     className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
                     style={{ width: `${(p.monto / Math.max(1, propio.total)) * 100}%` }}

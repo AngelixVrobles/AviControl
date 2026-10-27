@@ -26,6 +26,8 @@ export interface Serie {
 export interface Referencia {
   valor: number
   texto: string
+  /** Lo mínimo que la escala se abre a cada lado de la referencia. */
+  minimo?: number
 }
 
 /** Nota al margen anclada a un punto de la última serie. */
@@ -171,7 +173,7 @@ export function GraficaLineas({
   if (x.length === 0 || valores.length === 0) return null
 
   const [min, max] = referencia
-    ? dominioConReferencia(valores, referencia.valor)
+    ? dominioConReferencia(valores, referencia.valor, referencia.minimo)
     : [Math.min(...valores), Math.max(...valores)]
   const escala = escalaY(min, max)
   const x0 = Math.min(...x)

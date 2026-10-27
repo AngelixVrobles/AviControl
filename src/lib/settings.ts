@@ -3,6 +3,7 @@ import {
   PESO_OBJETIVO_DEFAULT,
   PLAN_SANITARIO_DEFAULT,
   RINDE_ARREGLADO_PCT,
+  type FaseId,
   type HitoSanitario,
 } from './standards'
 import type { TipoBebedero, TipoComedero, TipoEquipo } from './equipo'
@@ -53,6 +54,12 @@ export interface Settings {
   unidadAlimento: 'qq' | 'lb'
   planSanitario: HitoSanitario[]
   ultimoRespaldo: string | null
+  /**
+   * Lo último que se pagó por el quintal de cada tipo de alimento, en
+   * cualquier ciclo. Con eso se estima lo que falta por comprar de un tipo que
+   * este ciclo todavía no compra: el engorde no cuesta lo que el pre-inicio.
+   */
+  preciosAlimento: Partial<Record<FaseId, number>>
 }
 
 const defaults: Settings = {
@@ -72,6 +79,7 @@ const defaults: Settings = {
   unidadAlimento: 'qq',
   planSanitario: PLAN_SANITARIO_DEFAULT,
   ultimoRespaldo: null,
+  preciosAlimento: {},
 }
 
 // Rellena con defaults sin pisar lo que ya hay: un respaldo v1 no trae los
@@ -97,12 +105,24 @@ function completar(guardado: Record<string, unknown>): Settings {
       ? (guardado.planSanitario as HitoSanitario[])
       : defaults.planSanitario,
     galpones: leerGalpones(guardado),
+    preciosAlimento: leerPrecios(guardado.preciosAlimento),
     galponesQuitados: Array.isArray(guardado.galponesQuitados)
       ? (guardado.galponesQuitados as Galpon[]).filter(
           (g) => g && typeof g.id === 'string' && typeof g.nombre === 'string',
         )
       : [],
   }
+}
+
+// Solo precios que se pueden creer: un número positivo por tipo conocido.
+function leerPrecios(v: unknown): Partial<Record<FaseId, number>> {
+  if (!v || typeof v !== 'object') return {}
+  const out: Partial<Record<FaseId, number>> = {}
+  for (const f of ['preinicio', 'iniciador', 'crecimiento', 'engorde'] as const) {
+    const p = (v as Record<string, unknown>)[f]
+    if (typeof p === 'number' && Number.isFinite(p) && p > 0) out[f] = p
+  }
+  return out
 }
 
 // Antes la granja tenía un solo galpón, con sus medidas sueltas en los

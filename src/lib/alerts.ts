@@ -4,6 +4,7 @@ import { resumenAgua } from './agua'
 import { calorReciente, fraseCalor, gradosCalor } from './calor'
 import { retiroEn } from './retiro'
 import { computeInventarioAlimento, computePlanAlimento } from './plan'
+import { alimentoPorTipo, nombreFase } from './alimentos'
 import { sinAves } from './lote'
 import { agendaSanitaria } from './sanidad'
 import { getSettings, type Settings } from './settings'
@@ -21,6 +22,11 @@ export interface Alerta {
   nivel: 'bad' | 'warn' | 'info'
   texto: string
 }
+
+const GRAVEDAD = { bad: 0, warn: 1, info: 2 }
+
+/** Para `sort`: lo más serio primero. */
+export const porGravedad = (a: Alerta, b: Alerta) => GRAVEDAD[a.nivel] - GRAVEDAD[b.nivel]
 
 // Lo del plan que se pasó sin anotarse se recuerda unos días y no para siempre:
 // quien no lleva las vacunas en la app no tiene por qué cargar el aviso todo el
@@ -153,6 +159,11 @@ export function computeAlertas(
   }
 
   const inv = computeInventarioAlimento(gastos, m, computePlanAlimento(lote, m)?.totalQuintales ?? 0)
+  // El alimento que sigue, si todavía no se compró: el aviso dice qué comprar.
+  const porTipo = alimentoPorTipo(lote, registros, gastos, m)
+  const sigue = porTipo.siguiente ? porTipo.fases.find((f) => f.fase === porTipo.siguiente) : undefined
+  const comprar = porTipo.partidas.length && sigue && sigue.quedaLb <= 0 ? nombreFase(sigue.fase).toLowerCase() : undefined
+  let avisoDeAlimento = false
   if (inv?.completo) {
     // Lo anotado contra lo comprado, sin la estimación de los días sin dato:
     // una estimación no puede acusar una compra perdida.
@@ -173,19 +184,33 @@ export function computeAlertas(
       })
     } else if (inv.diasQueAlcanza <= 3) {
       const aprox = inv.diasSinAnotar > 0 ? ' (aprox., cuenta los sacos)' : ''
+      const que = comprar ? `: compra ${comprar}` : ''
+      avisoDeAlimento = true
       alertas.push({
         nivel: 'bad',
         texto:
           inv.diasQueAlcanza === 0
-            ? `Te quedan ${num(inv.existenciaQq, 1)} qq: no alcanzan para mañana${aprox}`
-            : `Te queda alimento para ${inv.diasQueAlcanza} ${inv.diasQueAlcanza === 1 ? 'día' : 'días'}${aprox}`,
+            ? `Te quedan ${num(inv.existenciaQq, 1)} qq: no alcanzan para mañana${que}${aprox}`
+            : `Te queda alimento para ${inv.diasQueAlcanza} ${inv.diasQueAlcanza === 1 ? 'día' : 'días'}${que}${aprox}`,
       })
     }
   }
 
-  const cambio = FASES_ALIMENTO.find((f) => f.desde === m.dias && f.desde > 0)
-  if (cambio) {
-    alertas.push({ nivel: 'info', texto: `Día ${m.dias}: cambia a alimento ${cambio.nombre}` })
+  // Con las compras anotadas, el cambio de alimento sale de los sacos: cuando se
+  // acaba el que se está dando, y si el que sigue todavía no se compró. Sin
+  // compras, el día en que el estándar cambia de alimento.
+  if (porTipo.partidas.length) {
+    const queda = porTipo.fases.find((f) => f.fase === porTipo.actual)?.quedaLb ?? 0
+    if (comprar && sigue && queda > 0 && porTipo.alcanzaActual <= 3 && !avisoDeAlimento) {
+      const cuando = porTipo.alcanzaActual === 0 ? 'hoy' : `en ${porTipo.alcanzaActual} ${plural(porTipo.alcanzaActual, 'día', 'días')}`
+      alertas.push({
+        nivel: 'warn',
+        texto: `Se acaba el ${nombreFase(porTipo.actual).toLowerCase()} ${cuando} y no has comprado ${nombreFase(sigue.fase).toLowerCase()}`,
+      })
+    }
+  } else {
+    const cambio = FASES_ALIMENTO.find((f) => f.desde === m.dias && f.desde > 0)
+    if (cambio) alertas.push({ nivel: 'info', texto: `Día ${m.dias}: cambia a alimento ${cambio.nombre}` })
   }
 
   // Las vacunas salen del plan de Ajustes y de lo ya anotado: antes era un plan

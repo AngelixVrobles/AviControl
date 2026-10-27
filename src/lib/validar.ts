@@ -42,6 +42,9 @@ const esEmpleados = (v: unknown) =>
   v == null || (esObjeto(v) && esNum(v.monto) && CADA_PAGO.includes(v.cada as string))
 const esArreglado = (v: unknown) => v == null || (esObjeto(v) && esNum(v.rindePct))
 
+const FASES_ALIMENTO_ID = ['preinicio', 'iniciador', 'crecimiento', 'engorde']
+const esFaseOpc = (v: unknown) => v == null || FASES_ALIMENTO_ID.includes(v as string)
+
 const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
   lotes: (l) =>
     esTexto(l.nombre) &&
@@ -62,11 +65,13 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
     esNumOpc(r.mortalidad) &&
     esNumOpc(r.descarte) &&
     esNumOpc(r.alimentoLb) &&
-    esTextoOpc(r.causa),
+    esTextoOpc(r.causa) &&
+    esFaseOpc(r.alimentoFase),
   gastos: (g) =>
     esIdOpc(g.loteId) &&
     esFecha(g.fecha) &&
     esNum(g.monto) &&
+    esFaseOpc(g.fase) &&
     (g.traspaso == null || (esObjeto(g.traspaso) && esId(g.traspaso.loteId) && esIdOpc(g.traspaso.gastoId))),
   ingresos: (i) =>
     esIdOpc(i.loteId) &&

@@ -244,20 +244,19 @@ export function CierreSheet({
                 inputMode="decimal"
                 value={pesoTotal}
                 onChange={(e) => setPesoTotal(e.target.value)}
-                placeholder="0"
                 className="h-14 text-lg"
               />
             </Field>
           </div>
 
           {pesoPorAve != null && pesoEnPieAve != null && (
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-forest-50 px-4 py-3 text-sm text-forest-800">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-forest-50 px-4 py-3 text-sm text-forest-700">
               <span>{arreglado ? 'Arreglado, por ave' : 'Peso por ave'}</span>
               <span className="text-right tnum">
                 <span className="font-display text-base font-semibold">{num(pesoPorAve, 2)} lb</span>
                 {arreglado && (
                   <span className="block text-xs text-forest-700">
-                    en pie {num(pesoEnPieAve, 2)} lb, al {num(rinde)} % de rinde
+                    en pie {num(pesoEnPieAve, 2)} lb, al {num(rinde)}% de rinde
                   </span>
                 )}
                 {snap.pesoProyectadoLb != null && (
@@ -280,7 +279,6 @@ export function CierreSheet({
                   setPrecio(e.target.value)
                   setPrecioTocado(true)
                 }}
-                placeholder="0"
               />
             </Field>
             <Field label="Fecha de venta" error={errorFechaDelCiclo(fecha, lote)}>
@@ -316,7 +314,6 @@ export function CierreSheet({
                 setMontoTocado(true)
                 setMonto(e.target.value)
               }}
-              placeholder="0"
               className="h-14 text-lg"
             />
           </Field>
@@ -370,7 +367,7 @@ export function CierreSheet({
             <div
               className={clsx(
                 'font-display text-3xl font-semibold leading-none tnum',
-                ganancia >= 0 ? 'text-forest-600' : 'text-clay-deep',
+                ganancia >= 0 ? 'text-forest-600' : 'text-clay-text',
               )}
             >
               {money(ganancia)}
@@ -388,7 +385,7 @@ export function CierreSheet({
                     <span
                       className={clsx(
                         'font-display text-base font-semibold tnum',
-                        s.monto >= 0 ? 'text-forest-600' : 'text-clay-deep',
+                        s.monto >= 0 ? 'text-forest-600' : 'text-clay-text',
                       )}
                     >
                       {money(s.monto)}
@@ -401,7 +398,7 @@ export function CierreSheet({
               <DatoCierre label="Vendiste" valor={`${num(nAves)} aves`} />
               <DatoCierre label={arreglado ? 'Arreglado' : 'En pie'} valor={`${num(lbTotal)} lb`} />
               <DatoCierre
-                label="Costo / lb"
+                label="Costo por lb"
                 valor={real.costoPorLb != null ? porLb(real.costoPorLb) : '—'}
               />
             </div>

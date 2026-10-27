@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { FaseId } from '../lib/standards'
 
 export type TipoLote = 'engorde'
 export type EstadoLote = 'activo' | 'cerrado'
@@ -118,6 +119,11 @@ export interface Registro {
   humedadPct?: number
   pesoPromedio?: number
   causa?: CausaBaja
+  /**
+   * El alimento que se dio ese día, si el productor lo cambió. Sin él, es el
+   * que toca por los sacos comprados: se acaba uno y sigue el próximo.
+   */
+  alimentoFase?: FaseId
   nota?: string
   // Lo creó un pesaje en un día sin registro: trae el peso y nada más. No cuenta
   // como el registro del día —faltan las bajas y el alimento— hasta que se
@@ -172,6 +178,11 @@ export interface Gasto {
   fecha: string
   descripcion?: string
   cantidadQq?: number
+  /**
+   * El tipo de alimento de la compra. Sin él, sale del nombre («Mega Broiler
+   * Crecimiento» es crecimiento).
+   */
+  fase?: FaseId
   pagadoPor?: number
   // Alimento que sobró y se pasó de un ciclo a otro: el gasto va en los dos,
   // en negativo en el que lo pasó, y cada uno apunta al otro.
