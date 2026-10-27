@@ -93,7 +93,7 @@ export function Muestreo({
                       ) *
                         0.95
                       ? "text-forest-600"
-                      : "text-clay-deep",
+                      : "text-clay-text",
                   )}
                 >
                   {pct(
@@ -312,7 +312,7 @@ export function Desvio({ lote, registros }: { lote: Lote; registros: Registro[] 
             <div
               className={clsx(
                 "mt-0.5 text-xs font-medium tnum",
-                punto.desvio >= 0 ? "text-forest-600" : "text-clay-deep",
+                punto.desvio >= 0 ? "text-forest-600" : "text-clay-text",
               )}
             >
               {punto.desvio >= 0 ? "▲" : "▼"} {pct(Math.abs(punto.desvio), 0)}
@@ -326,7 +326,7 @@ export function Desvio({ lote, registros }: { lote: Lote; registros: Registro[] 
             series={[{ datos: puntos.map((p) => p.desvio), puntos: true }]}
             alto={190}
             banda="signo"
-            referencia={{ valor: 0, texto: RAZA }}
+            referencia={{ valor: 0, texto: RAZA, minimo: 10 }}
             nota={nota}
             formatoY={(v) => `${v > 0 ? "+" : ""}${num(v, 0)}%`}
             etiquetaX={(v) => `d${v}`}
@@ -336,8 +336,8 @@ export function Desvio({ lote, registros }: { lote: Lote; registros: Registro[] 
           />
         </div>
         <p className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
-          La línea del centro es el {RAZA}. Arriba es lo que le sacas de ventaja;
-          abajo, lo que le falta. Arrastra el dedo para ver cualquier pesaje.
+          La línea marcada {RAZA} es el peso que le toca. Arriba es lo que le sacas
+          de ventaja; abajo, lo que le falta. Arrastra el dedo para ver cualquier pesaje.
         </p>
       </Banda>
     </>

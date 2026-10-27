@@ -69,7 +69,7 @@ describe('alerta de calor', () => {
 
   it('el calor de ayer también', () => {
     const a = alertas([registro(29, { tempMaxC: 31, humedadPct: 60, alimentoLb: 100 })])
-    expect(a.some((x) => x.texto.startsWith('Ayer el galpón llegó a 31 °C con 60 % de humedad'))).toBe(true)
+    expect(a.some((x) => x.texto.startsWith('Ayer el galpón llegó a 31 °C con 60% de humedad'))).toBe(true)
   })
 
   it('un día fresco no avisa', () => {

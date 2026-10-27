@@ -55,7 +55,7 @@ export function Deudas() {
         <>
           <Banda className="mt-4 px-5 py-4">
             <div className="text-xs text-ink-faint">Falta por pagar</div>
-            <div className="font-display text-3xl font-semibold leading-none tnum text-clay-deep">
+            <div className="font-display text-3xl font-semibold leading-none tnum text-clay-text">
               {money(resumen.saldo)}
             </div>
             <div className="mt-1.5 text-sm text-ink-soft tnum">
@@ -63,7 +63,7 @@ export function Deudas() {
               {plural(resumen.deudas.length, 'deuda', 'deudas')} · abonado{' '}
               {money(resumen.abonado)}
             </div>
-            <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-sunken">
+            <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-paper-sunken">
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
                 style={{ width: `${resumen.pagadoPct}%` }}
@@ -148,7 +148,7 @@ function Reparto({ estados }: { estados: EstadoDeuda[] }) {
               <div
                 className={clsx(
                   'mt-1 text-xs font-medium tnum',
-                  s.ajuste > 0 ? 'text-forest-600' : 'text-clay-deep',
+                  s.ajuste > 0 ? 'text-forest-600' : 'text-clay-text',
                 )}
               >
                 {s.ajuste > 0
@@ -201,7 +201,7 @@ function FichaDeuda({
         </div>
       </button>
 
-      <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-sunken">
+      <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
         <div
           className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
           style={{ width: `${pagadoPct}%` }}

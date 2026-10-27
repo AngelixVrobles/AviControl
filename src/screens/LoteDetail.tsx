@@ -12,6 +12,8 @@ import { avesPorGalpon } from "../lib/reparto";
 import { retiroEn } from "../lib/retiro";
 import { armarCiclo } from "../lib/compartido";
 import { computeArranque, tituloArranque } from "../lib/arranque";
+import { alimentoPorTipo } from "../lib/alimentos";
+import { porGravedad } from "../lib/alerts";
 import { TarjetaArranque } from "../components/Arranque";
 import { useVolver } from "../components/useVolver";
 import { hojasDelCiclo } from "../lib/exportar";
@@ -23,7 +25,7 @@ import { conCalor, juicioDe } from "../lib/calor";
 import { pendienteDe } from "../lib/cobros";
 import { valorHoy } from "../lib/venta";
 import { compartirReporte } from "../lib/reporte";
-import { alimentoEn, diaLocal, fecha, hoyISO, money, num, numCorto, pct, porLb } from "../lib/format";
+import { alimentoEn, diaLocal, fecha, hoyISO, money, num, numCorto, pct, plural, porLb } from "../lib/format";
 import { categoriaLabel, RAZA, tipoIngresoLabel } from "../lib/labels";
 import { LB_POR_QUINTAL } from "../lib/standards";
 import { AlertaChip } from "../components/AlertaChip";
@@ -33,7 +35,7 @@ import { EditarLoteSheet } from "../components/LoteSheet";
 import { confirmar, toast } from "../components/confirm";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Button, Banda, Pestanas, Pill, Seccion } from "../components/ui";
-import { IconBack, IconClose, IconLapiz, IconMoney, IconPesa, IconPlus, IconScale, IconTrend } from "../components/icons";
+import { IconBack, IconClose, IconLapiz, IconMoney, IconPesa, IconPlus, IconTrend, IconVenta } from "../components/icons";
 import {
   ActionButton,
   CierreSheet,
@@ -138,6 +140,20 @@ export function LoteDetail() {
     metrics,
     alertas,
   } = data;
+  const alertasEnOrden = [...alertas].sort(porGravedad);
+  // Dinero, con el ciclo en curso, es la pestaña más larga: el índice lleva a
+  // cada parte sin tener que bajar buscándola.
+  const indiceDinero: [string, string][] =
+    lote.estado === "activo" && !sinAves(metrics)
+      ? [
+          ["d-estimado", "Estimado"],
+          ["d-precio", "A cómo vender"],
+          ["d-punto", "Cuándo vender"],
+          ["d-gastos", "Gastos"],
+          ...(lote.socios && lote.socios.length >= 2 ? [["d-socios", "Socios"] as [string, string]] : []),
+          ...(ingresos.length > 0 ? [["d-ventas", "Ventas"] as [string, string]] : []),
+        ]
+      : [];
   const cerrado =
     lote.estado === "cerrado" && ingresos.some((i) => i.tipo === "aves");
   const gastosCat = agruparGastos(gastos);
@@ -147,6 +163,8 @@ export function LoteDetail() {
   // Un ciclo que mandó un socio se mira y no se toca: lo lleva él.
   const soloVer = !!lote.compartido;
   const arranque = computeArranque(lote, registros, metrics.dias);
+  // Qué alimento se da cada día, por lo que se compró.
+  const alimentos = alimentoPorTipo(lote, registros, gastos, metrics);
 
   async function quitarCopia() {
     const ok = await confirmar({
@@ -211,14 +229,14 @@ export function LoteDetail() {
   const kpis = [
     {
       label:
-        (metrics.diasDesdePeso ?? 0) >= 2 ? "Peso estimado hoy" : "Peso prom.",
+        (metrics.diasDesdePeso ?? 0) >= 2 ? "Peso estimado hoy" : "Peso promedio",
       value:
         metrics.pesoEstimadoLb != null
           ? `${num(metrics.pesoEstimadoLb, 2)} lb`
           : "—",
     },
     {
-      label: "Conv. alim. (FCA)",
+      label: "Conversión (FCA)",
       value: metrics.fca != null ? num(metrics.fca, 2) : "—",
     },
     { label: "Mortalidad", value: pct(metrics.mortalidadPct) },
@@ -232,7 +250,7 @@ export function LoteDetail() {
           value: analisisReporte ? `${porLb(analisisReporte.precioEquilibrioLb)}/lb` : "—",
         }
       : {
-          label: "Costo / lb",
+          label: "Costo por lb",
           value: metrics.costoPorLb != null ? porLb(metrics.costoPorLb) : "—",
         },
     enCurso
@@ -298,7 +316,7 @@ export function LoteDetail() {
       </header>
 
       {lote.compartido && (
-        <div className="mb-4 rounded-xl2 border border-line bg-sunken px-4 py-3 text-sm leading-relaxed text-ink-soft">
+        <div className="mb-4 rounded-xl2 border border-line bg-paper-sunken px-4 py-3 text-sm leading-relaxed text-ink-soft">
           <span className="font-semibold text-ink">Te lo mandó {lote.compartido.de}</span>{" "}
           el {fecha(diaLocal(lote.compartido.exportado))}. Es una copia para mirar: no se
           puede cambiar y no entra en tus cuentas. Para verlo al día, pídele que te lo mande otra
@@ -307,10 +325,19 @@ export function LoteDetail() {
       )}
 
       {alertas.length > 0 && !vacio && (
+        // Completas en Hoy; en las otras pestañas, la más seria en un renglón:
+        // tres avisos largos empujaban la gráfica o el dinero fuera de la
+        // pantalla cada vez que se cambiaba de pestaña.
         <div className="mb-4 space-y-2">
-          {alertas.map((a, i) => (
-            <AlertaChip key={i} alerta={a} />
-          ))}
+          {tab === "hoy" ? (
+            alertasEnOrden.map((a, i) => <AlertaChip key={i} alerta={a} />)
+          ) : (
+            <AlertaChip
+              alerta={alertasEnOrden[0]}
+              mas={alertasEnOrden.length - 1}
+              onClick={() => setTab("hoy")}
+            />
+          )}
         </div>
       )}
 
@@ -345,8 +372,8 @@ export function LoteDetail() {
           />
           <ActionButton
             label="Venta"
-            tone="amber"
-            icon={<IconScale width={20} height={20} />}
+            tone="neutral"
+            icon={<IconVenta width={20} height={20} />}
             onClick={() => abrir("ingreso")}
           />
         </div>
@@ -388,7 +415,7 @@ export function LoteDetail() {
               <TarjetaArranque a={arranque} dia={metrics.dias} />
             </>
           )}
-          <FaseActual lote={lote} gastos={gastos} metrics={metrics} />
+          <FaseActual lote={lote} gastos={gastos} metrics={metrics} alimentos={alimentos} />
 
           <Seccion className="mb-3 mt-8" etiqueta="Historial" />
           {registros.length === 0 ? (
@@ -450,7 +477,7 @@ export function LoteDetail() {
                         )}
                         {r.mortalidad > 0 && (
                           <span className="text-ink-soft">
-                            {num(r.mortalidad)} bajas
+                            {num(r.mortalidad)} {plural(r.mortalidad, "baja", "bajas")}
                           </span>
                         )}
                       </div>
@@ -497,6 +524,7 @@ export function LoteDetail() {
 
       {tab === "dinero" && (
         <div className="animate-rise">
+          {indiceDinero.length > 0 && <IndiceDinero partes={indiceDinero} />}
           <ComoSalio lote={lote} metrics={metrics} ingresos={ingresos} />
           {/* La cifra grande va sola arriba y las otras dos debajo: lado a lado,
               a 320 px se cortaban en «RD$74,2…» y «RD$1,37…». */}
@@ -511,7 +539,7 @@ export function LoteDetail() {
               <div
                 className={
                   "mt-1 font-display text-2xl font-semibold tracking-tight tnum leading-none " +
-                  (sinVender ? "text-ink" : positivo ? "text-forest-600" : "text-clay-deep")
+                  (sinVender ? "text-ink" : positivo ? "text-forest-600" : "text-clay-text")
                 }
               >
                 <AnimatedNumber
@@ -571,41 +599,48 @@ export function LoteDetail() {
             </Link>
           )}
 
-          <GananciaEstimada
-            lote={lote}
-            metrics={metrics}
-            proyeccion={proyeccion}
-            modo={modo}
-            onEmpleados={soloVer ? undefined : () => setSheet("empleados")}
-            onPorVenir={
-              soloVer
-                ? undefined
-                : (i) => {
-                    setPorVenir(i);
-                    setSheet("porVenir");
-                  }
-            }
-            onComoVendes={soloVer ? undefined : () => setSheet("comoVendes")}
-            onDiaVenta={soloVer ? undefined : () => setSheet("diaVenta")}
-          />
-          <PrecioMinimo
-            lote={lote}
-            registros={registros}
-            gastos={gastos}
-            metrics={metrics}
-            modo={modo}
-          />
-          <PuntoOptimo
-            lote={lote}
-            registros={registros}
-            gastos={gastos}
-            metrics={metrics}
-            modo={modo}
-          />
+          <div id="d-estimado" className="scroll-mt-20">
+            <GananciaEstimada
+              lote={lote}
+              metrics={metrics}
+              proyeccion={proyeccion}
+              modo={modo}
+              onEmpleados={soloVer ? undefined : () => setSheet("empleados")}
+              onPorVenir={
+                soloVer
+                  ? undefined
+                  : (i) => {
+                      setPorVenir(i);
+                      setSheet("porVenir");
+                    }
+              }
+              onComoVendes={soloVer ? undefined : () => setSheet("comoVendes")}
+              onDiaVenta={soloVer ? undefined : () => setSheet("diaVenta")}
+            />
+          </div>
+          <div id="d-precio" className="scroll-mt-20">
+            <PrecioMinimo
+              lote={lote}
+              registros={registros}
+              gastos={gastos}
+              metrics={metrics}
+              modo={modo}
+            />
+          </div>
+          <div id="d-punto" className="scroll-mt-20">
+            <PuntoOptimo
+              lote={lote}
+              registros={registros}
+              gastos={gastos}
+              metrics={metrics}
+              modo={modo}
+            />
+          </div>
 
           <Link
+            id="d-gastos"
             to={`/lotes/${lote.id}/ficha/gastos`}
-            className="mt-7 flex items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 transition active:scale-[0.99]"
+            className="mt-7 flex scroll-mt-20 items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 transition active:scale-[0.99]"
           >
             <div>
               <div className="font-display text-lg font-semibold leading-tight">
@@ -631,20 +666,22 @@ export function LoteDetail() {
             diaActual={metrics.dias}
           />
 
-          <Sociedad
-            lote={lote}
-            registros={registros}
-            gastos={gastos}
-            ingresos={ingresos}
-            entregas={entregas}
-            metrics={metrics}
-            settings={settings}
-            soloVer={soloVer}
-          />
+          <div id="d-socios" className="scroll-mt-20">
+            <Sociedad
+              lote={lote}
+              registros={registros}
+              gastos={gastos}
+              ingresos={ingresos}
+              entregas={entregas}
+              metrics={metrics}
+              settings={settings}
+              soloVer={soloVer}
+            />
+          </div>
 
           {ingresos.length > 0 && (
             <>
-              <Seccion className="mb-3 mt-8" etiqueta="Ventas" />
+              <Seccion id="d-ventas" className="mb-3 mt-8 scroll-mt-20" etiqueta="Ventas" />
               {!soloVer && (
                 <p className="mb-3 text-xs text-ink-faint">
                   Toca una para corregirla.
@@ -706,7 +743,6 @@ export function LoteDetail() {
                     kpis,
                     enCurso
                       ? {
-                          precioMinimoLb: analisisReporte?.precioEquilibrioLb,
                           valorEnPie,
                           gananciaEstimada: proyeccion?.gananciaProyectada,
                           arreglado: modo.arreglado,
@@ -796,6 +832,7 @@ export function LoteDetail() {
             lote={lote}
             registros={registros}
             ingresos={ingresos}
+            alimentos={alimentos}
             open={sheet === "registro"}
             onClose={() => setSheet(null)}
             editar={editRegistro}
@@ -901,5 +938,27 @@ export function LoteDetail() {
         </>
       )}
     </div>
+  );
+}
+
+function IndiceDinero({ partes }: { partes: [string, string][] }) {
+  const ir = (id: string) =>
+    document.getElementById(id)?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start",
+    });
+  return (
+    <nav aria-label="Partes de Dinero" className="-mx-5 mb-1 flex gap-2 overflow-x-auto px-5 pb-1">
+      {partes.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => ir(id)}
+          className="h-9 shrink-0 rounded-full border border-line bg-paper-raised px-3.5 text-sm font-medium text-ink-soft transition active:bg-paper-sunken"
+        >
+          {label}
+        </button>
+      ))}
+    </nav>
   );
 }

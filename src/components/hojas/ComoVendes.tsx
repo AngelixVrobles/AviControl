@@ -141,7 +141,6 @@ export function ComoVendesSheet({
                   min={0}
                   value={costo}
                   onChange={(e) => setCosto(e.target.value)}
-                  placeholder="0"
                 />
               </Field>
             </div>
@@ -153,7 +152,7 @@ export function ComoVendesSheet({
               >
                 <span className="text-ink-soft">
                   Con tus pesajes y lo que pesaron tus ventas, este ciclo rinde{' '}
-                  <span className="font-semibold text-ink tnum">{num(metrics.rindeObservadoPct)} %</span>.
+                  <span className="font-semibold text-ink tnum">{num(metrics.rindeObservadoPct)}%</span>.
                 </span>
                 <span className="shrink-0 font-semibold text-forest-600">Usar</span>
               </button>
@@ -176,7 +175,6 @@ export function ComoVendesSheet({
             min={0}
             value={precio}
             onChange={(e) => setPrecio(e.target.value)}
-            placeholder="0"
           />
         </Field>
         {promedio != null && (
@@ -207,7 +205,6 @@ export function ComoVendesSheet({
               min={0}
               value={precioPie}
               onChange={(e) => setPrecioPie(e.target.value)}
-              placeholder="0"
             />
           </Field>
         )}

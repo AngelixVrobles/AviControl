@@ -3,14 +3,17 @@ import { eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, hoyISO, sumarDias } from './format'
 import { computeInventarioAlimento } from './plan'
 import { precioAlimentoLb } from './precios'
+import { alimentoFuturo, alimentoPorTipo } from './alimentos'
 import { pagoEmpleados, totalPorVenir } from './porPagar'
 import { EN_PIE, type ModoVenta } from './venta'
 import {
   LB_POR_QUINTAL,
   alimentoAcumEstandarLb,
+  alimentoDiaEstandarLb,
   diaParaPeso,
   mortalidadEsperadaPct,
   pesoEstandarLb,
+  type FaseId,
 } from './standards'
 
 export interface Proyeccion {
@@ -25,7 +28,11 @@ export interface Proyeccion {
   existenciaLb: number
   alimentoPorComprarLb: number
   alimentoPorComprarQuintales: number
+  /** Lo que falta comprar de cada tipo de alimento, a su precio. */
+  comprarPorTipo: { fase: FaseId; lb: number; precioQq?: number; costo?: number }[]
   sobranteLb: number
+  /** Lo que valen, a lo que se pagaron, los sacos que sobrarían al vender. */
+  sobranteValor?: number
   avesAlVender: number
   pesoVentaLb: number
   lbEnPie: number
@@ -94,14 +101,12 @@ export function proyectarVenta(
   // El alimento que falta sale de la curva de consumo (que se dispara al final
   // del ciclo) escalada por lo ineficiente que va el lote: los días extra cuestan
   // proporcionalmente más de lo que engordan.
+  const factorEf = eficienciaAlimento(m)
+  const avesPromedio = (m.avesVivas + avesAlVender) / 2
+  const desdeDia = Math.max(diaUltimo, m.dias)
   let alimentoRestanteLb = 0
   if (!listo) {
-    const factorEf = eficienciaAlimento(m)
-    const consumoStd = Math.max(
-      0,
-      alimentoAcumEstandarLb(diaVenta) - alimentoAcumEstandarLb(Math.max(diaUltimo, m.dias)),
-    )
-    const avesPromedio = (m.avesVivas + avesAlVender) / 2
+    const consumoStd = Math.max(0, alimentoAcumEstandarLb(diaVenta) - alimentoAcumEstandarLb(desdeDia))
     alimentoRestanteLb = Math.round(avesPromedio * consumoStd * factorEf)
   }
 
@@ -124,8 +129,21 @@ export function proyectarVenta(
   const existenciaLb = inventario?.completo
     ? Math.max(0, inventario.existenciaQq) * LB_POR_QUINTAL
     : 0
-  const alimentoPorComprarLb = Math.max(0, alimentoRestanteLb - existenciaLb)
   const sobranteLb = Math.max(0, existenciaLb - alimentoRestanteLb)
+
+  // Tipo por tipo: los sacos del almacén se dan en su orden y lo que falta se
+  // compra del alimento que toca esos días, a lo que cuesta ese alimento. Antes
+  // todo se pagaba al promedio de lo comprado, y el pre-inicio caro subía el
+  // engorde que falta. Sin todas las compras con quintales, el almacén no
+  // cuenta, igual que arriba.
+  const porTipo = alimentoPorTipo(lote, registros, gastos, m)
+  const futuro = alimentoFuturo(
+    inventario?.completo ? porTipo : { ...porTipo, partidas: [] },
+    desdeDia,
+    listo ? desdeDia : diaVenta,
+    (d) => avesPromedio * alimentoDiaEstandarLb(d) * factorEf,
+  )
+  const alimentoPorComprarLb = Math.max(0, alimentoRestanteLb - existenciaLb)
 
   // Lo de los empleados: lo que les toca hasta el día de venta, menos lo ya
   // anotado como mano de obra.
@@ -143,7 +161,12 @@ export function proyectarVenta(
   const aparte = gastos
     .filter((g) => g.categoria === 'arreglo' || (pago && g.categoria === 'mano_obra'))
     .reduce((a, g) => a + g.monto, 0)
-  const faltaAlimento = precioLb
+  const faltaAlimento =
+    futuro.costo != null && futuro.comprarLb > 0
+      ? futuro.costo * (alimentoPorComprarLb / futuro.comprarLb)
+      : alimentoPorComprarLb <= 0
+        ? 0
+        : precioLb
     ? alimentoPorComprarLb * precioLb
     : m.dias > 0
       ? (Math.max(0, m.costos - pollitos - aparte) / m.dias) * diasRestantes
@@ -172,7 +195,9 @@ export function proyectarVenta(
     existenciaLb,
     alimentoPorComprarLb,
     alimentoPorComprarQuintales: alimentoPorComprarLb / LB_POR_QUINTAL,
+    comprarPorTipo: futuro.comprar,
     sobranteLb,
+    sobranteValor: sobranteLb > 0 ? futuro.sobranteValor : undefined,
     avesAlVender,
     pesoVentaLb,
     lbEnPie,
@@ -183,7 +208,7 @@ export function proyectarVenta(
     faltaPorVenir,
     faltaArreglo,
     costoRestante,
-    sinPrecioAlimento: !precioLb,
+    sinPrecioAlimento: !precioLb && futuro.costo == null,
     costoProyectado,
     ingresoProyectado,
     gananciaProyectada,

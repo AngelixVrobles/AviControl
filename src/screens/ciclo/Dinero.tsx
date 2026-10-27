@@ -7,6 +7,7 @@ import { db, type Gasto, type Ingreso, type Lote, type Registro } from "../../db
 import type { LoteMetrics } from "../../lib/metrics";
 import { proyectarVenta, type Proyeccion } from "../../lib/proyeccion";
 import { analizarPrecio, precioAlimentoLb } from "../../lib/precios";
+import { deQueTipo } from "../../lib/alimentos";
 import { resultadoCiclo, type Contraste } from "../../lib/cierre";
 import { analizarPuntoOptimo } from "../../lib/optimo";
 import { pesoObjetivoDe } from "../../lib/lote";
@@ -44,7 +45,7 @@ export function ComoSalio({
         <div
           className={clsx(
             "font-display text-3xl font-semibold leading-none tnum",
-            positivo ? "text-forest-600" : "text-clay-deep",
+            positivo ? "text-forest-600" : "text-clay-text",
           )}
         >
           {money(r.ganancia)}
@@ -63,7 +64,7 @@ export function ComoSalio({
                 <span
                   className={clsx(
                     "font-display text-lg font-semibold tnum",
-                    s.monto >= 0 ? "text-forest-600" : "text-clay-deep",
+                    s.monto >= 0 ? "text-forest-600" : "text-clay-text",
                   )}
                 >
                   {money(s.monto)}
@@ -307,7 +308,7 @@ export function PrecioMinimo({
                 <span
                   className={clsx(
                     "w-[84px] font-display text-base font-semibold tnum",
-                    e.ganancia >= 0 ? "text-forest-600" : "text-clay-deep",
+                    e.ganancia >= 0 ? "text-forest-600" : "text-clay-text",
                   )}
                 >
                   {money(e.ganancia, { compact: true })}
@@ -319,9 +320,9 @@ export function PrecioMinimo({
       {p && p.sobranteLb >= 50 && precioAlim > 0 && (
         <p className="mt-2 text-xs leading-relaxed text-ink-faint tnum">
           Al vender te sobrarían {num(p.sobranteLb / LB_POR_QUINTAL, 1)} qq (
-          {money(p.sobranteLb * precioAlim)}). Están en el precio mínimo porque
+          {money(p.sobranteValor ?? p.sobranteLb * precioAlim)}). Están en el precio mínimo porque
           ya los pagaste; si los usas en el próximo ciclo, el mínimo de este
-          baja a {porLb(Math.max(0, a.costoNeto - p.sobranteLb * precioAlim) / a.lbVenta)}.
+          baja a {porLb(Math.max(0, a.costoNeto - (p.sobranteValor ?? p.sobranteLb * precioAlim)) / a.lbVenta)}.
         </p>
       )}
       {a.actual && (
@@ -341,11 +342,18 @@ function notaAlimento(p: Proyeccion): string {
   const qq = (lb: number) => num(lb / LB_POR_QUINTAL, 1);
   if (p.sinPrecioAlimento)
     return `Faltan ${qq(p.alimentoPorComprarLb)} qq de alimento; sin su precio, lo que cuestan se estima con lo que llevas gastando por día, sin los pollitos. Anota los quintales de cada compra de alimento para afinarlo.`;
+  // De qué alimento y a cuánto: el engorde que falta no cuesta lo que el pre-inicio.
+  const cual =
+    p.comprarPorTipo.length === 1 && p.comprarPorTipo[0].precioQq != null
+      ? ` ${deQueTipo(p.comprarPorTipo)} a ${money(p.comprarPorTipo[0].precioQq)} el quintal`
+      : p.comprarPorTipo.length
+        ? ` ${deQueTipo(p.comprarPorTipo)}`
+        : "";
   if (p.existenciaLb <= 0)
-    return `Hasta entonces hay que comprar ${qq(p.alimentoPorComprarLb)} qq más de alimento.`;
+    return `Hasta entonces hay que comprar ${qq(p.alimentoPorComprarLb)} qq más${cual}.`;
   if (p.alimentoPorComprarLb <= 0)
     return `Se comerán ${qq(p.alimentoRestanteLb)} qq más y alcanzan con los ${qq(p.existenciaLb)} del almacén, que ya están pagados.`;
-  return `Se comerán ${qq(p.alimentoRestanteLb)} qq más: ${qq(p.existenciaLb)} ya están en el almacén y pagados, y faltan ${qq(p.alimentoPorComprarLb)} por comprar.`;
+  return `Se comerán ${qq(p.alimentoRestanteLb)} qq más: ${qq(p.existenciaLb)} ya están en el almacén y pagados, y faltan ${qq(p.alimentoPorComprarLb)} por comprar${cual}.`;
 }
 
 export function PuntoOptimo({
@@ -386,17 +394,23 @@ export function PuntoOptimo({
   const faltan = a.optimo.dia - metrics.dias;
   const marginalHoy = a.puntos[1]?.costoLbMarginal ?? 0;
   const punto = a.puntos[foco ?? 0];
+  // El día en que piensas vender, si no es el mejor.
+  const plan = a.plan && a.plan.dia !== a.optimo.dia ? a.plan : undefined;
+  const titulo =
+    faltan <= 0
+      ? `El mejor día era el ${a.optimo.dia} y ya pasó`
+      : a.plan?.dia === a.optimo.dia
+        ? `Tu día de venta, el ${a.optimo.dia}, es el mejor`
+        : plan && plan.dia > a.optimo.dia
+          ? `Te conviene vender antes: el día ${a.optimo.dia}`
+          : `Te conviene esperar hasta el día ${a.optimo.dia}`;
 
   return (
     <>
       <Seccion
         className="mt-8"
         etiqueta="Punto de venta"
-        titulo={
-          faltan > 0
-            ? `Te conviene esperar hasta el día ${a.optimo.dia}`
-            : `El mejor día era el ${a.optimo.dia} y ya pasó`
-        }
+        titulo={titulo}
         nota="Cada día extra el pollo convierte peor. Este es el día en que la ganancia deja de subir."
       />
 
@@ -420,7 +434,7 @@ export function PuntoOptimo({
             <div
               className={clsx(
                 "font-display text-lg font-semibold leading-none tnum",
-                a.optimo.ganancia >= 0 ? "text-forest-600" : "text-clay-deep",
+                a.optimo.ganancia >= 0 ? "text-forest-600" : "text-clay-text",
               )}
             >
               {money(a.optimo.ganancia, { compact: true })}
@@ -455,18 +469,25 @@ export function PuntoOptimo({
           value={faltan > 0 ? `+${money(a.gananciaExtra)}` : "Ya lo pasaste"}
           valueClass={a.gananciaExtra > 0 ? "text-forest-600" : undefined}
         />
+        {plan && faltan > 0 && (
+          <FilaDato
+            label={`Vender el día ${plan.dia}, como tienes puesto`}
+            value={`${money(a.optimo.ganancia - plan.ganancia)} menos`}
+            valueClass="text-clay-text"
+          />
+        )}
         <FilaDato
           label={modo.arreglado ? "La próxima libra arreglada te cuesta" : "La próxima libra te cuesta"}
           value={`${porLb(marginalHoy)} de ${porLb(a.precioVentaLb)}`}
           valueClass={
-            marginalHoy > a.precioVentaLb ? "text-clay-deep" : "text-forest-600"
+            marginalHoy > a.precioVentaLb ? "text-clay-text" : "text-forest-600"
           }
         />
         {a.diaCruce != null && (
           <FilaDato
             label="Deja de convenir"
             value={`día ${a.diaCruce}`}
-            valueClass="text-clay-deep"
+            valueClass="text-clay-text"
           />
         )}
         {a.excedeObjetivo && (

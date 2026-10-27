@@ -245,7 +245,7 @@ export function FichaGalpon({
                 label="Hoy tienes"
                 value={`${num(g.avesPorM2Hoy, 1)} aves/m²`}
                 sub={`${num(g.kgM2AlVender, 1)} kg/m² al venderlas`}
-                valueClass={g.sobrepoblado ? 'text-clay-deep' : undefined}
+                valueClass={g.sobrepoblado ? 'text-clay-text' : undefined}
               />
               <Fila
                 label="Con el galpón lleno"
@@ -447,7 +447,6 @@ export function MedidasGalpon({ settings, galpon }: { settings: Settings; galpon
                 ),
               })
             }}
-            placeholder="0"
             className="h-12 w-full rounded-xl border border-borde bg-paper-raised px-4 text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
           />
         </label>

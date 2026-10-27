@@ -246,7 +246,6 @@ export function MoverAvesSheet({
             min={1}
             value={aves}
             onChange={(e) => setAves(e.target.value)}
-            placeholder="0"
             aria-invalid={!!errorAves}
           />
         </Field>

@@ -9,13 +9,11 @@ export default {
           raised: '#FFFEFA',
           sunken: '#EDE9DD',
         },
-        sunken: '#EDE9DD',
         ink: {
           DEFAULT: '#14201A',
           soft: '#3A4840',
           // 4.9 sobre el fondo hundido: el de antes se quedaba en 4.48, debajo de AA.
           faint: '#5A675F',
-          muted: '#5A675F',
         },
         line: '#DCD6C7',
         // El borde de lo que se llena. `line` separa y no tiene que verse mucho,
@@ -39,20 +37,15 @@ export default {
           500: '#1E7340',
           600: '#175C31',
           700: '#153F27',
-          800: '#123F24',
         },
         amber: {
           400: '#E9A93C',
-          500: '#B8720F',
-          600: '#B8720F',
-          700: '#8A5510',
           text: '#8A5510',
           tint: '#FDF0D6',
           line: '#EBC77F',
         },
         clay: {
           DEFAULT: '#A03A16',
-          deep: '#8A2F11',
           text: '#8A2F11',
           tint: '#FBE7DE',
           line: '#F0CFC0',
@@ -62,6 +55,8 @@ export default {
       // se añaden los pasos de display, que es donde hacía falta aire. Antes
       // convivían 22 tamaños distintos elegidos a ojo pantalla por pantalla.
       fontSize: {
+        // 13 px: a 12 las notas al pie no se leían al sol con el brazo estirado.
+        xs: ['0.8125rem', { lineHeight: '1.125rem' }],
         xl: ['1.375rem', { lineHeight: '1.25' }],
         '2xl': ['1.75rem', { lineHeight: '1.15' }],
         '3xl': ['2.125rem', { lineHeight: '1.05' }],

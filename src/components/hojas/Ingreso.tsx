@@ -302,7 +302,6 @@ export function IngresoSheet({
               min={1}
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
-              placeholder="0"
               aria-invalid={!!errorAves}
             />
           </Field>
@@ -316,7 +315,6 @@ export function IngresoSheet({
                 setPesoLb(e.target.value)
                 recalcular(Number(e.target.value) || 0, precioLb)
               }}
-              placeholder="0"
             />
           </Field>
           <Field label="Precio por libra" error={errorPrecio}>
@@ -330,7 +328,6 @@ export function IngresoSheet({
                 setPrecioTocado(true)
                 recalcular(lb, Number(e.target.value) || 0)
               }}
-              placeholder="0"
             />
           </Field>
           <Field
@@ -353,7 +350,6 @@ export function IngresoSheet({
                 setModoTotal('mano')
                 setMonto(e.target.value)
               }}
-              placeholder="0"
               aria-invalid={!!errorTotal}
             />
           </Field>

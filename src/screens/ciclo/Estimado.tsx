@@ -9,6 +9,7 @@ import type { Lote } from "../../db/schema";
 import type { LoteMetrics } from "../../lib/metrics";
 import type { Proyeccion } from "../../lib/proyeccion";
 import { fecha, money, num, pct } from "../../lib/format";
+import { deQueTipo } from "../../lib/alimentos";
 import { categoriaLabel } from "../../lib/labels";
 import { fraseDelPago } from "../../lib/porPagar";
 import { precioCorto, type ModoVenta } from "../../lib/venta";
@@ -79,7 +80,7 @@ export function GananciaEstimada({
               <div
                 className={clsx(
                   "font-display text-3xl font-semibold leading-none tnum",
-                  ganancia >= 0 ? "text-forest-600" : "text-clay-deep",
+                  ganancia >= 0 ? "text-forest-600" : "text-clay-text",
                 )}
               >
                 <AnimatedNumber value={ganancia} format={(n) => money(n)} />
@@ -119,7 +120,7 @@ export function GananciaEstimada({
           label="Por vender"
           sub={
             p
-              ? `${num(p.avesAlVender)} pollos · ${num(p.lbVenta)} ${libra}${precio ? ` a ${precioCorto(precio)}` : ""}`
+              ? `${num(p.avesAlVender)} aves · ${num(p.lbVenta)} ${libra}${precio ? ` a ${precioCorto(precio)}` : ""}`
               : "Falta un pesaje"
           }
           valor={p && precio ? money(p.lbVenta * precio) : "—"}
@@ -136,7 +137,7 @@ export function GananciaEstimada({
               : p.sinPrecioAlimento
                 ? "Sin precio del quintal: con lo gastado por día"
                 : p.alimentoPorComprarLb > 0
-                  ? `${num(p.alimentoPorComprarQuintales, 1)} qq`
+                  ? `${num(p.alimentoPorComprarQuintales, 1)} qq ${deQueTipo(p.comprarPorTipo)}`.trim()
                   : "Alcanza con lo del almacén"
           }
           valor={p ? money(-p.faltaAlimento) : "—"}

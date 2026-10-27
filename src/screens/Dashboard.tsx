@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertaChip } from '../components/AlertaChip'
+import { porGravedad } from '../lib/alerts'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { LoteCard } from '../components/LoteCard'
 import type { LoteConMetrics } from '../lib/hooks'
 import { Button, EmptyState, Seccion } from '../components/ui'
-import { IconCheck, IconScale, LogoAviControl } from '../components/icons'
+import { IconCheck, IconPollito, LogoAviControl } from '../components/icons'
 import { alimentoEn, desdeHace, fechaLarga, hoyISO, money, num, pct, plural, porLb } from '../lib/format'
 import { precioMinimoConjunto } from '../lib/precios'
 import { sinAves } from '../lib/lote'
@@ -36,7 +37,7 @@ export function Dashboard() {
   const hoy = capitalizar(fechaLarga(hoyISO()))
   const novedades = tocaNovedades(novedadesVistas, activos.length + cerrados > 0) && (
     <section className="mt-6 rounded-xl2 border border-forest-200 bg-forest-50 p-4">
-      <h2 className="mb-2 font-display text-base font-semibold text-forest-800">
+      <h2 className="mb-2 font-display text-base font-semibold text-forest-700">
         Lo nuevo de la versión {NOVEDADES.version}
       </h2>
       <ListaNovedades corta />
@@ -46,7 +47,7 @@ export function Dashboard() {
           marcarNovedadesVistas()
           setNovedadesVistas(NOVEDADES.version)
         }}
-        className="mt-2 block h-11 rounded-full bg-forest-500 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
+        className="mt-2 block h-11 rounded-full bg-forest-600 px-5 text-sm font-semibold text-paper-raised transition active:scale-95"
       >
         Entendido
       </button>
@@ -71,7 +72,7 @@ export function Dashboard() {
           <AvisoInstalar hayDatos={cerrados > 0} />
           <Compartidos lista={compartidos} />
           <EmptyState
-            icon={<IconScale width={28} height={28} />}
+            icon={<IconPollito width={28} height={28} />}
             title={cerrados ? 'No tienes ciclos en curso' : 'Aún no tienes ciclos'}
             text={
               cerrados
@@ -181,7 +182,7 @@ function RecordarRespaldo({ ultimo }: { ultimo: string | null }) {
   const { respaldar } = useRespaldo()
   const dias = diasSinRespaldo(ultimo)
   return (
-    <section className="mt-7 rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
+    <section className="mt-7 rounded-xl2 border border-amber-line border-l-4 border-l-amber-400 bg-amber-tint p-4">
       <h2 className="font-display text-base font-semibold text-amber-text">
         {dias == null ? 'Nunca has respaldado tus datos' : `Hace ${num(dias)} días del último respaldo`}
       </h2>
@@ -191,7 +192,7 @@ function RecordarRespaldo({ ultimo }: { ultimo: string | null }) {
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={respaldar}
-          className="rounded-full bg-forest-500 px-5 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
+          className="rounded-full bg-forest-600 px-5 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
         >
           Respaldar ahora
         </button>
@@ -205,10 +206,9 @@ function RecordarRespaldo({ ultimo }: { ultimo: string | null }) {
 
 function Alertas({ activos }: { activos: LoteConMetrics[] }) {
   const [todas, setTodas] = useState(false)
-  const orden = { bad: 0, warn: 1, info: 2 }
   const items = activos
     .flatMap((r) => r.alertas.map((a) => ({ a, lote: r.lote })))
-    .sort((x, y) => orden[x.a.nivel] - orden[y.a.nivel])
+    .sort((x, y) => porGravedad(x.a, y.a))
   if (items.length === 0) return null
   const visibles = todas ? items : items.slice(0, 2)
 
@@ -241,13 +241,22 @@ function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
     const g = nombreGalpon(r.lote, settings, r.galpones)
     return g ? `${g} · ` : ''
   }
+  // El nombre en su renglón: al lado, el «·» quedaba colgando al partirse.
+  const titulo = (r: LoteConMetrics) => (
+    <>
+      <div className="truncate text-sm font-semibold leading-tight">{r.lote.nombre}</div>
+      <div className="text-sm text-ink-soft tnum">
+        {donde(r)}día {r.metrics.dias}
+      </div>
+    </>
+  )
   // El ciclo que ya no tiene aves no tiene día que anotar: su aviso es cerrarlo.
   const activos = todos.filter((r) => !sinAves(r.metrics))
   const listos = activos.filter((r) => r.metrics.registroHoy).length
   if (activos.length === 0) return null
 
   return (
-    <section className="mt-6 rounded-xl2 bg-sunken p-3">
+    <section className="mt-6 rounded-xl2 bg-paper-sunken p-3">
       <div className="mb-2 flex items-center justify-between px-1">
         <h2 className="font-display text-lg font-semibold">Registro de hoy</h2>
         <span className="text-sm font-medium text-ink-soft tnum">
@@ -261,7 +270,7 @@ function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
             const resumen = [
               rh.pesoPromedio != null ? `${num(rh.pesoPromedio, 2)} lb` : null,
               rh.alimentoLb > 0 ? `${alimentoEn(rh.alimentoLb, unidadAlimento)} de alimento` : null,
-              rh.mortalidad > 0 ? `${num(rh.mortalidad)} bajas` : null,
+              rh.mortalidad > 0 ? `${num(rh.mortalidad)} ${plural(rh.mortalidad, 'baja', 'bajas')}` : null,
             ]
               .filter(Boolean)
               .join(' · ')
@@ -275,37 +284,27 @@ function RegistroDeHoy({ activos: todos }: { activos: LoteConMetrics[] }) {
                   <IconCheck width={15} height={15} strokeWidth={2.6} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold leading-tight">
-                    {r.lote.nombre}{' '}
-                    <span className="font-normal text-ink-faint">
-                      · {donde(r)}día {r.metrics.dias}
-                    </span>
-                  </div>
+                  {titulo(r)}
                   {resumen && <div className="text-sm text-ink-soft tnum">{resumen}</div>}
                 </div>
               </Link>
             )
           }
           return (
-            <div
-              key={r.lote.id}
-              className="flex items-center gap-3 rounded-xl border-t-2 border-amber-line bg-amber-tint px-3 py-2.5"
-            >
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 border-dashed border-amber text-sm font-bold text-amber-text">
-                !
-              </span>
+            // Lo que falta es lo normal de cada mañana, no una alarma: sin el
+            // ámbar, que se queda para los avisos de verdad.
+            <div key={r.lote.id} className="flex items-center gap-3 rounded-xl bg-paper px-3 py-2.5">
+              <span
+                className="h-7 w-7 shrink-0 rounded-full border-2 border-dashed border-borde"
+                aria-hidden
+              />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold leading-tight">
-                  {r.lote.nombre}{' '}
-                  <span className="font-normal text-ink-soft">
-                    · {donde(r)}día {r.metrics.dias}
-                  </span>
-                </div>
-                <div className="text-sm font-medium text-amber-text">Falta el de hoy</div>
+                {titulo(r)}
+                <div className="text-sm font-medium text-ink">Falta el de hoy</div>
               </div>
               <button
                 onClick={() => nav(`/lotes/${r.lote.id}?reg=1`)}
-                className="shrink-0 rounded-full bg-forest-500 px-4 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
+                className="shrink-0 rounded-full bg-forest-600 px-4 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
               >
                 Registrar
               </button>

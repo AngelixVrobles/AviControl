@@ -19,10 +19,14 @@ export const IconHome = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-export const IconFlock = (p: SVGProps<SVGSVGElement>) => (
+// Los ciclos son los pollos: el pulso de antes parecía cosa de hospital.
+export const IconPollito = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
-    <path d="M12 3c-3.6 0-6 4.8-6 9.2C6 16.4 8.7 20 12 20s6-3.6 6-7.8C18 7.8 15.6 3 12 3Z" />
-    <path d="M12 8c-.6 3-2 4.6-4.4 5.4" />
+    <circle cx="14" cy="7" r="3.2" />
+    <path d="m17.2 6.6 2.8.9-2.6 1.1" />
+    <path d="M11.2 9.3C7.3 9.6 4.5 12.2 4.5 15c0 2.6 2.4 4.5 6 4.5h1.5c3.3 0 5.5-2.3 5.5-5.2 0-1.5-.6-2.9-1.6-3.9" />
+    <path d="M10 19.5v2M13 19.5v2" />
+    <path d="M8.3 13.6c1.3 1.1 3.2 1.3 4.7.5" />
   </svg>
 )
 
@@ -57,9 +61,12 @@ export const IconBack = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-export const IconScale = (p: SVGProps<SVGSVGElement>) => (
+// La etiqueta de precio: la balanza de antes, de un solo plato, se leía como
+// una copa de trofeo.
+export const IconVenta = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
-    <path d="M12 3v18M7 21h10M5 7h14l-2.5 6a3.5 3.5 0 0 1-9 0L5 7Z" />
+    <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
+    <circle cx="7.5" cy="7.5" r="1.5" />
   </svg>
 )
 
@@ -81,12 +88,6 @@ export const IconTrend = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
     <path d="M3 17 9 11l4 4 8-8" />
     <path d="M21 12V7h-5" />
-  </svg>
-)
-
-export const IconPulso = (p: SVGProps<SVGSVGElement>) => (
-  <svg {...base({ strokeWidth: 2, ...p })}>
-    <path d="M3 12h4l3-7 4 14 3-7h4" />
   </svg>
 )
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { IconChart, IconGear, IconHome, IconLapiz, IconPulso } from './icons'
+import { IconChart, IconGear, IconHome, IconLapiz, IconPollito } from './icons'
 import { Sheet } from './ui'
 import { db, type Lote } from '../db/schema'
 import { diasEntre } from '../lib/format'
@@ -11,7 +11,7 @@ import { useHoy, useLotes, useSettings } from '../lib/hooks'
 
 const items = [
   { to: '/', label: 'Inicio', Icon: IconHome, end: true },
-  { to: '/lotes', label: 'Ciclos', Icon: IconPulso, end: false },
+  { to: '/lotes', label: 'Ciclos', Icon: IconPollito, end: false },
   { to: '/reportes', label: 'Reportes', Icon: IconChart, end: false },
   { to: '/ajustes', label: 'Ajustes', Icon: IconGear, end: false },
 ]
@@ -30,7 +30,7 @@ export function BottomNav() {
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/90 backdrop-blur-xl safe-b">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper safe-b">
       <div className="mx-auto grid max-w-md grid-cols-5 items-end px-2 pb-1 pt-1.5">
         {items.slice(0, 2).map((it) => (
           <Tab key={it.to} {...it} />
@@ -38,7 +38,7 @@ export function BottomNav() {
         <div className="flex flex-col items-center">
           <button
             onClick={registrar}
-            className="grid h-14 w-14 -translate-y-3 place-items-center rounded-full bg-forest-500 text-paper-raised shadow-pop transition active:scale-90"
+            className="grid h-14 w-14 -translate-y-3 place-items-center rounded-full bg-forest-600 text-paper-raised shadow-pop transition active:scale-90"
             aria-label="Registrar día"
           >
             <IconLapiz width={24} height={24} />

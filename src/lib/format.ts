@@ -5,16 +5,11 @@ import { LB_POR_QUINTAL } from './standards'
 // cada fecha hacía que mil fechas tardaran 858 ms en un Android lento, contra 5
 // ms así. Reportes con muchos ciclos se trababa casi un segundo.
 const numeros = new Map<string, Intl.NumberFormat>()
-function formatoNumero(min: number, max: number, compacto = false): Intl.NumberFormat {
-  const clave = `${min}|${max}|${compacto}`
+function formatoNumero(min: number, max: number): Intl.NumberFormat {
+  const clave = `${min}|${max}`
   let f = numeros.get(clave)
   if (!f) {
-    f = new Intl.NumberFormat(
-      'es-DO',
-      compacto
-        ? { notation: 'compact', maximumFractionDigits: max }
-        : { minimumFractionDigits: min, maximumFractionDigits: max },
-    )
+    f = new Intl.NumberFormat('es-DO', { minimumFractionDigits: min, maximumFractionDigits: max })
     numeros.set(clave, f)
   }
   return f
@@ -41,7 +36,7 @@ export function money(value: number, opts: { compact?: boolean; decimales?: numb
   const abs = Math.abs(value)
   const body =
     opts.compact && abs >= 1000
-      ? formatoNumero(0, 1, true).format(abs)
+      ? compacto(abs)
       : formatoNumero(opts.decimales ?? 0, opts.decimales ?? 0).format(abs)
   // Un valor negativo que redondea a cero no lleva signo: «−RD$0» no existe.
   const negativo = value < 0 && Number(body.replace(/[^0-9]/g, '')) > 0
@@ -53,12 +48,18 @@ export function money(value: number, opts: { compact?: boolean; decimales?: numb
 // dos escalones distintos de la tabla se vean con el mismo precio.
 export const porLb = (value: number) => money(value, { decimales: 2 })
 
-// es-DO alterna «8 K» y «16 k» según la magnitud; en un mismo eje se ve mal.
+// «471.6 mil», «1.2 M»: como se dice aquí. La notación compacta de es-DO da
+// «8 K» y «16 k» según la magnitud, y la k no es de aquí.
+// Pasados los cien mil, sin decimal: «156 mil» cabe donde «155.9 mil» se partía.
+function compacto(abs: number): string {
+  if (abs >= 999_500) return `${formatoNumero(0, 1).format(abs / 1_000_000)} M`
+  if (abs >= 99_950) return `${formatoNumero(0, 0).format(abs / 1000)} mil`
+  if (abs >= 1000) return `${formatoNumero(0, 1).format(abs / 1000)} mil`
+  return formatoNumero(0, 1).format(abs)
+}
+
 export function numCompacto(value: number): string {
-  return formatoNumero(0, 1, true)
-    .format(value)
-    .replace('K', 'k')
-    .replace('-', '−')
+  return `${value < 0 ? '−' : ''}${compacto(Math.abs(value))}`
 }
 
 export const plural = (n: number, singular: string, plural: string) =>
@@ -94,12 +95,12 @@ export function numCorto(value: number, max = 2): string {
     .replace('-', '−')
 }
 
-// El alimento se piensa en sacos de 100 lb (un quintal) o en libras, según
-// cómo lo lleve cada quien; por dentro siempre se guarda en libras.
+// El alimento se piensa en quintales (sacos de 100 lb) o en libras, según
+// cómo lo lleve cada quien; por dentro siempre se guarda en libras. Los
+// quintales con un decimal y «qq», como en la factura del almacén.
 export function alimentoEn(lb: number, unidad: 'qq' | 'lb'): string {
   if (unidad === 'lb') return `${num(lb)} lb`
-  const sacos = lb / LB_POR_QUINTAL
-  return `${numCorto(sacos)} ${Math.abs(sacos) === 1 ? 'saco' : 'sacos'}`
+  return `${numCorto(lb / LB_POR_QUINTAL, 1)} qq`
 }
 
 export function pct(value: number, decimals = 1): string {
@@ -108,7 +109,7 @@ export function pct(value: number, decimals = 1): string {
 
 export function fecha(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
-  return formatoFecha({ day: '2-digit', month: 'short' }).format(d)
+  return formatoFecha({ day: 'numeric', month: 'short' }).format(d)
 }
 
 export function fechaLarga(iso: string): string {

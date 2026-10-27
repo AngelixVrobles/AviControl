@@ -70,7 +70,6 @@ export function DatosRecibo({
             inputMode="numeric"
             value={muertos}
             onChange={(e) => onMuertos(e.target.value)}
-            placeholder="0"
             aria-invalid={!!errorMuertos}
           />
         </Field>

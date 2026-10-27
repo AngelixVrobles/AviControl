@@ -116,7 +116,7 @@ export function FichaGastos({
                   </span>
                   <span className="font-display font-semibold tnum">{money(monto)}</span>
                 </div>
-                <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
+                <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
                   <div
                     className={clsx(
                       'absolute inset-y-0 left-0 rounded-full',

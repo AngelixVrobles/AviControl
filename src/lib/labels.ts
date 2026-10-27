@@ -43,3 +43,25 @@ export const tipoIngresoLabel = (id: string) =>
 
 export const tipoLoteLabel = (_t: TipoLote) => 'Pollos de engorde'
 
+
+// Lo que distingue un ciclo de otro debajo de una barra angosta: «Pollada de
+// agosto» y «Lote de julio» quedan en «agosto» y «julio». Si aun así no cabe
+// alguno, `undefined`, y va la fecha.
+export function nombresCortos(nombres: string[], max = 10): string[] | undefined {
+  const cortos = nombres.map((n) =>
+    n
+      .trim()
+      .replace(/^(lote|ciclo|pollada|pollos|crianza)\s+(de(l)?\s+)?/i, '')
+      .trim(),
+  )
+  const palabras = cortos.map((n) => n.split(/\s+/))
+  // Lo que se repite al principio de todos tampoco distingue nada.
+  let k = 0
+  while (
+    palabras.length > 1 &&
+    palabras.every((p) => p.length > k + 1 && p[k].toLowerCase() === palabras[0][k].toLowerCase())
+  )
+    k++
+  const finales = palabras.map((p) => p.slice(k).join(' '))
+  return finales.every((n) => n.length > 0 && n.length <= max) ? finales : undefined
+}

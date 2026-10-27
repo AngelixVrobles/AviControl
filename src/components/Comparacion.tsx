@@ -21,13 +21,13 @@ const METRICAS: Metrica[] = [
   { label: 'Ganancia', value: (m) => m.ganancia, format: (v) => money(v, { compact: true }), mejor: 'mayor' },
   { label: 'Margen', value: (m) => m.margenPct, format: (v) => pct(v), mejor: 'mayor' },
   {
-    label: 'Ganancia / ave',
+    label: 'Ganancia por ave',
     value: (m) => (m.cantidadInicial > 0 ? m.ganancia / m.cantidadInicial : undefined),
     format: (v) => money(v),
     mejor: 'mayor',
   },
   { label: 'FCA', value: (m) => m.fca, format: (v) => num(v, 2), mejor: 'menor' },
-  { label: 'Costo / lb', value: (m) => m.costoPorLb, format: (v) => porLb(v), mejor: 'menor' },
+  { label: 'Costo por lb', value: (m) => m.costoPorLb, format: (v) => porLb(v), mejor: 'menor' },
   // El de la báscula al vender; en un ciclo que sigue, el estimado de hoy.
   { label: 'Peso final', value: (m) => m.pesoFinalLb, format: (v) => `${num(v, 2)} lb`, mejor: 'mayor', parcialEnActivo: true },
   { label: 'Mortalidad', value: (m) => m.mortalidadPct, format: (v) => pct(v), mejor: 'menor' },

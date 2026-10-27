@@ -8,6 +8,7 @@ import { computeGuiaDia } from "../../lib/guia";
 import { computeInventarioAlimento, computePlanAlimento } from "../../lib/plan";
 import { alimentoEn, fecha, hoyISO, money, num, pct, plural } from "../../lib/format";
 import { LB_POR_QUINTAL } from "../../lib/standards";
+import { nombreFase, type AlimentoPorTipo } from "../../lib/alimentos";
 import { confirmar, toast } from "../../components/confirm";
 import { Banda, Seccion } from "../../components/ui";
 
@@ -46,7 +47,7 @@ export function CerrarSinAves({
   }
 
   return (
-    <div className="mt-1 rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
+    <div className="mt-1 rounded-xl2 border border-amber-line border-l-4 border-l-amber-400 bg-amber-tint p-4">
       <div className="font-display text-base font-semibold text-amber-text">
         {vendio ? "Vendiste todas las aves" : "No quedan aves en el galpón"}
       </div>
@@ -56,7 +57,7 @@ export function CerrarSinAves({
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={cerrar}
-          className="rounded-full bg-forest-500 px-5 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
+          className="rounded-full bg-forest-600 px-5 py-2.5 text-sm font-semibold text-paper-raised transition active:scale-95"
         >
           Cerrar el ciclo
         </button>
@@ -75,11 +76,17 @@ export function FaseActual({
   lote,
   gastos,
   metrics,
+  alimentos,
 }: {
   lote: Lote;
   gastos: Gasto[];
   metrics: LoteMetrics;
+  alimentos?: AlimentoPorTipo;
 }) {
+  // Con las compras anotadas manda lo que se compró: el saco que se está dando,
+  // lo que queda de ese y el que sigue. Sin compras, la fase que toca por la edad.
+  if (alimentos && alimentos.partidas.length > 0)
+    return <AlimentoDeHoy lote={lote} alimentos={alimentos} />;
   const plan = computePlanAlimento(lote, metrics);
   if (!plan?.faseActual) return null;
   const f = plan.faseActual;
@@ -112,7 +119,7 @@ export function FaseActual({
           <div
             className={
               "font-display text-lg font-semibold leading-none tnum " +
-              (inv!.diasQueAlcanza <= 3 ? "text-clay-deep" : "")
+              (inv!.diasQueAlcanza <= 3 ? "text-clay-text" : "")
             }
           >
             {aprox ? "~" : ""}
@@ -121,6 +128,57 @@ export function FaseActual({
           <div className="mt-0.5 text-xs text-ink-faint">
             {aprox ? "sin contar" : "en el galpón"}
           </div>
+        </div>
+      )}
+    </Link>
+  );
+}
+
+function AlimentoDeHoy({ lote, alimentos }: { lote: Lote; alimentos: AlimentoPorTipo }) {
+  const actual = alimentos.fases.find((f) => f.fase === alimentos.actual)!;
+  const siguiente = alimentos.siguiente
+    ? alimentos.fases.find((f) => f.fase === alimentos.siguiente)
+    : undefined;
+  const quedaQq = actual.quedaLb / LB_POR_QUINTAL;
+  const poco = alimentos.alcanzaActual <= 3;
+  return (
+    <Link
+      to={`/lotes/${lote.id}/ficha/alimento`}
+      className="mt-5 block rounded-xl2 border border-line bg-paper-raised p-4 transition active:scale-[0.99]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs text-ink-faint">Le estás dando</div>
+          <div className="font-display text-lg font-semibold leading-tight">{actual.nombre}</div>
+          <div className="text-sm text-ink-soft">
+            {nombreFase(actual.fase)}
+            {quedaQq > 0.05
+              ? ` · alcanza ${alimentos.alcanzaActual === 0 ? "para hoy" : `~${alimentos.alcanzaActual} ${plural(alimentos.alcanzaActual, "día", "días")}`}`
+              : " · ya no queda"}
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div
+            className={
+              "font-display text-lg font-semibold leading-none tnum " + (poco ? "text-clay-text" : "")
+            }
+          >
+            {num(Math.max(0, quedaQq), 1)} qq
+          </div>
+          <div className="mt-0.5 text-xs text-ink-faint">de este</div>
+        </div>
+      </div>
+      {siguiente && (
+        <div
+          className={
+            "mt-3 border-t border-line pt-2.5 text-sm " +
+            (poco && siguiente.quedaLb <= 0 ? "font-medium text-clay-text" : "text-ink-soft")
+          }
+        >
+          Después: {nombreFase(siguiente.fase)}
+          {siguiente.quedaLb > 0
+            ? ` · ${num(siguiente.quedaLb / LB_POR_QUINTAL, 1)} qq en el almacén`
+            : " · todavía no lo compras"}
         </div>
       )}
     </Link>
@@ -180,7 +238,7 @@ export function GuiaDelDia({
               <div
                 className={
                   "font-display text-lg font-semibold tnum leading-none " +
-                  (desv >= -3 ? "text-forest-600" : "text-clay-deep")
+                  (desv >= -3 ? "text-forest-600" : "text-clay-text")
                 }
               >
                 {num(g.pesoRealLb, 2)} lb
@@ -188,7 +246,7 @@ export function GuiaDelDia({
               <div
                 className={
                   "text-xs tnum " +
-                  (desv >= -3 ? "text-forest-600" : "text-clay-deep")
+                  (desv >= -3 ? "text-forest-600" : "text-clay-text")
                 }
               >
                 {desv >= 0 ? "+" : ""}

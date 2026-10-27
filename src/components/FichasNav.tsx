@@ -66,7 +66,7 @@ export function FichasNav({
             <span className="text-sm font-medium text-ink-soft">{f.titulo}</span>
             <span className="text-ink-faint">›</span>
           </div>
-          <div className="mt-1.5 font-display text-xl font-semibold leading-none tnum">
+          <div className="mt-1.5 whitespace-nowrap font-display text-xl font-semibold leading-none tnum">
             {f.valor}
           </div>
           <div className="mt-1 text-xs text-ink-faint">{f.pie}</div>

@@ -130,11 +130,16 @@ export function interpolar(x: number[], datos: (number | undefined)[]): (number 
 
 /**
  * La referencia necesita aire a los dos lados: pegada al borde no se lee que
- * hay un arriba y un abajo, que es justo lo que la gráfica quiere decir.
+ * hay un arriba y un abajo, que es justo lo que la gráfica quiere decir. Con
+ * `minimo`, la escala nunca se abre menos que eso a cada lado: un 1 % de
+ * diferencia con Cobb llenaba la gráfica y parecía un problema.
  */
-export function dominioConReferencia(valores: number[], referencia: number): [number, number] {
+export function dominioConReferencia(valores: number[], referencia: number, minimo = 0): [number, number] {
   const min = Math.min(...valores)
   const max = Math.max(...valores)
   const lado = Math.max(max - referencia, referencia - min)
-  return [Math.min(min, referencia - lado * 0.22), Math.max(max, referencia + lado * 0.22)]
+  return [
+    Math.min(min, referencia - lado * 0.22, referencia - minimo),
+    Math.max(max, referencia + lado * 0.22, referencia + minimo),
+  ]
 }

@@ -4,7 +4,10 @@ import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, numCompacto, numCorto, pct, plural, porLb } from '../../lib/format'
 import { useLotes, useSettings } from '../../lib/hooks'
 import { estadoAgua, type ResumenAgua, resumenAgua } from '../../lib/agua'
-import { computeInventarioAlimento, computePlanAlimento, consumoPorFase } from '../../lib/plan'
+import { computeInventarioAlimento, computePlanAlimento } from '../../lib/plan'
+import { alimentoPorTipo, faseDeCompra, nombreFase, type AlimentoPorTipo } from '../../lib/alimentos'
+import type { Proyeccion } from '../../lib/proyeccion'
+import { alimentoDiaEstandarLb, FASES_ALIMENTO } from '../../lib/standards'
 import { precioQuintalReal } from '../../lib/precios'
 import { fcaEstandar, LB_POR_QUINTAL } from '../../lib/standards'
 import { juicioFca } from '../../lib/metrics'
@@ -12,7 +15,7 @@ import { pesoObjetivoDe } from '../../lib/lote'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { db } from '../../db/schema'
 import { Banda, Seccion } from '../../components/ui'
-import { ConteoSheet, RegistroSheet } from '../../components/sheets'
+import { ConteoSheet, GastoSheet, RegistroSheet } from '../../components/sheets'
 import { TraspasoAlimentoSheet } from '../../components/Traspaso'
 import { Button } from '../../components/ui'
 import { GraficaLineas } from '../../components/chart'
@@ -42,7 +45,9 @@ export function FichaAlimento({
   // Lo que sobró al cerrar puede pasar a un ciclo en curso, con su costo.
   const enCurso = useLotes('activo')
   const destinos = (enCurso ?? []).filter((l) => l.id !== lote.id)
-  const fases = consumoPorFase(lote, metrics).filter((f) => f.realLb > 0 || f.planALaFechaLb > 0)
+  // Lo que se da cada día, por lo que se compró: el tipo de cada saco manda.
+  const porTipo = alimentoPorTipo(lote, registros, gastos, metrics)
+  const [editarCompra, setEditarCompra] = useState<Gasto>()
   const precioQq = precioQuintalReal(gastos)
   const plan = computePlanAlimento(lote, metrics, precioQq ?? lote.precioQuintal)
   const inv = computeInventarioAlimento(gastos, metrics, plan?.totalQuintales ?? 0)
@@ -103,7 +108,7 @@ export function FichaAlimento({
                         ? 'text-forest-600'
                         : estadoFca === 'temprano'
                           ? 'text-ink'
-                          : 'text-clay-deep')
+                          : 'text-clay-text')
                     }
                   >
                     {num(metrics.fca, 2)}
@@ -153,69 +158,25 @@ export function FichaAlimento({
         </p>
       )}
 
-      {fases.length > 0 && !sinAlimento && (
+      {porTipo.partidas.length > 0 && (
         <div>
           <Seccion
             className="mb-3"
-            etiqueta="Lo que diste en cada fase"
+            etiqueta="Alimento por tipo"
             nota={
-              diaFca < metrics.dias - 1 && !sinAlimento
-                ? `Contra lo que tocaba hasta el día ${diaFca}, el último con dato de alimento.`
-                : 'Contra lo que tocaba hasta hoy, no la fase entera.'
+              activo
+                ? 'Se da en orden: se acaba uno y sigue el próximo. Si cambiaste antes, dilo en el registro del día.'
+                : 'Lo que se dio de cada alimento y los días en que se dio.'
             }
           />
-          <Banda className="divide-y divide-line">
-            {fases.map((f) => {
-              const dif = f.planALaFechaLb > 0 ? ((f.realLb - f.planALaFechaLb) / f.planALaFechaLb) * 100 : 0
-              const notable = Math.abs(dif) >= 5 && f.realLb > 0
-              return (
-                <div key={f.nombre} className={'px-5 py-3 ' + (f.enCurso ? 'bg-forest-50' : '')}>
-                  <div className="flex items-baseline justify-between">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      {f.nombre}
-                      {f.enCurso && (
-                        <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-forest-700">
-                          En curso
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-right tnum">
-                      <span className="font-display font-semibold">
-                        {num(f.realLb / LB_POR_QUINTAL, 1)} qq
-                      </span>
-                      {notable && (
-                        <span
-                          className={
-                            'ml-1.5 text-xs font-semibold ' +
-                            (dif > 0 ? 'text-clay-text' : 'text-forest-600')
-                          }
-                        >
-                          {dif > 0 ? '▲' : '▼'} {num(Math.abs(dif), 0)}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-1 flex items-baseline justify-between gap-3 text-xs text-ink-faint tnum">
-                    <span>
-                      Días {f.desde}–{f.hasta} ·{' '}
-                      {f.porConteoLb > 0 && f.diasRegistrados === 0
-                        ? 'por conteo'
-                        : `${f.diasRegistrados} ${plural(f.diasRegistrados, 'día anotado', 'días anotados')}${f.porConteoLb > 0 ? ' + conteo' : ''}`}
-                    </span>
-                    <span className="shrink-0">tocaban {num(f.planALaFechaLb / LB_POR_QUINTAL, 1)} qq</span>
-                  </div>
-                  <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
-                      style={{
-                        width: `${Math.min(100, f.planTotalLb > 0 ? (f.realLb / f.planTotalLb) * 100 : 0)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </Banda>
+          {porTipo.supuestas > 0 && (
+            <p className="mb-3 rounded-xl border-l-4 border-amber-400 bg-amber-tint px-4 py-3 text-sm leading-relaxed text-amber-text">
+              {porTipo.supuestas === 1 ? 'Una compra no dice' : `${num(porTipo.supuestas)} compras no dicen`} qué
+              alimento {porTipo.supuestas === 1 ? 'es' : 'son'}: la app lo supuso por la fecha. Tócala abajo, en
+              Compras, y dile cuál es.
+            </p>
+          )}
+          <PorTipo lote={lote} alimentos={porTipo} proyeccion={proy} />
         </div>
       )}
 
@@ -246,6 +207,14 @@ export function FichaAlimento({
                   <div className="mt-1 text-sm text-ink-soft tnum">
                     {num(inv.compradoQq, 1)} comprados − {num(inv.consumidoQq + inv.sinAnotarQq, 1)} dados
                   </div>
+                  {porTipo.fases.filter((f) => f.quedaLb >= 5).length > 1 && (
+                    <div className="mt-0.5 text-xs text-ink-faint tnum">
+                      {porTipo.fases
+                        .filter((f) => f.quedaLb >= 5)
+                        .map((f) => `${num(f.quedaLb / LB_POR_QUINTAL, 1)} de ${nombreFase(f.fase)}`)
+                        .join(' · ')}
+                    </div>
+                  )}
                 </div>
                 {activo && inv.existenciaQq > 0 && (
                   <div className="text-right">
@@ -290,7 +259,8 @@ export function FichaAlimento({
                         {num(proy.alimentoPorComprarQuintales, 1)} qq
                       </span>{' '}
                       por comprar
-                      {precioQq ? `, unos ${money(proy.alimentoPorComprarQuintales * precioQq)}` : ''}.
+                      {proy.comprarPorTipo.length === 1 ? ` de ${nombreFase(proy.comprarPorTipo[0].fase).toLowerCase()}` : ''}
+                      {!proy.sinPrecioAlimento ? `, unos ${money(proy.faltaAlimento)}` : ''}.
                     </>
                   ) : proy.sobranteLb >= 50 ? (
                     `alcanza con lo que hay y sobran ${num(proy.sobranteLb / LB_POR_QUINTAL, 1)} qq.`
@@ -312,111 +282,56 @@ export function FichaAlimento({
 
       {agua && <Agua resumen={agua} />}
 
-      {plan && (
-        <div>
-          <Seccion
-            className="mb-3"
-            etiqueta="El plan del ciclo"
-            accion={
-              precioQq ? (
-              <span className="text-xs text-ink-faint tnum">{money(precioQq)} el quintal</span>
-              ) : soloVer ? undefined : (
-                <label className="flex items-center gap-1.5 text-xs text-ink-faint">
-                  Quintal
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  defaultValue={lote.precioQuintal || ''}
-                  onBlur={(e) =>
-                    db.lotes.update(lote.id, { precioQuintal: Number(e.target.value) || undefined })
-                  }
-                  className="h-11 w-24 rounded-xl border border-line bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
-                />
-                </label>
-              )
-            }
+      {!porTipo.partidas.length && !precioQq && !soloVer && activo && (
+        <label className="flex items-center justify-between gap-3 text-sm text-ink-soft">
+          Precio del quintal, si no anotas las compras
+          <input
+            type="number"
+            inputMode="decimal"
+            defaultValue={lote.precioQuintal || ''}
+            onBlur={(e) => db.lotes.update(lote.id, { precioQuintal: Number(e.target.value) || undefined })}
+            className="h-11 w-28 rounded-xl border border-borde bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
           />
-          <Banda className="divide-y divide-line">
-            {plan.fases.map((f) => (
-              <div key={f.nombre} className="flex items-center justify-between px-5 py-2.5 text-sm">
-                <div className="min-w-0">
-                  <div className="font-medium">{f.nombre}</div>
-                  <div className="text-xs text-ink-faint tnum">
-                    {f.desde === f.hasta ? `Día ${f.desde}` : `Días ${f.desde}–${f.hasta}`} ·{' '}
-                    {f.proteinaPct}% PC · {f.kcalKg} kcal/kg
-                  </div>
-                </div>
-                <div className="shrink-0 pl-3 text-right tnum">
-                  <div className="font-display font-semibold">{num(f.quintales, 1)} qq</div>
-                  {f.costo != null && (
-                    <div className="text-xs text-ink-faint">{money(f.costo)}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-            <div className="flex items-center justify-between px-5 py-3 text-sm">
-              <span className="text-ink-faint">Todo el ciclo</span>
-              <span className="tnum">
-                <span className="font-display font-semibold">{num(plan.totalQuintales, 1)} qq</span>
-                {plan.costoTotal != null && (
-                  <span className="text-ink-faint"> · {money(plan.costoTotal)}</span>
-                )}
-              </span>
-            </div>
-            {inv?.completo && activo && (
-              <div className="px-5 py-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-ink-faint">Comprado</span>
-                  <span className="font-display font-semibold tnum">
-                    {num(inv.compradoQq, 1)} de {num(plan.totalQuintales, 1)} qq
-                  </span>
-                </div>
-                <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
-                    style={{ width: `${Math.min(100, (inv.compradoQq / Math.max(0.1, plan.totalQuintales)) * 100)}%` }}
-                  />
-                </div>
-                <div className="mt-1.5 text-xs text-ink-faint tnum">
-                  {inv.faltaComprarQq > 0.05
-                    ? `Faltan ${num(inv.faltaComprarQq, 1)} qq por comprar${inv.costoFaltante != null ? `, unos ${money(inv.costoFaltante)}` : ''}.`
-                    : 'Ya compraste todo lo que pide el plan.'}
-                </div>
-              </div>
-            )}
-          </Banda>
-          {plan.proximoCambio && (
-            <p className="mt-2 text-xs text-ink-faint">
-              Cambia a <span className="font-medium text-ink-soft">{plan.proximoCambio.nombre}</span>{' '}
-              en {plan.proximoCambio.enDias} {plural(plan.proximoCambio.enDias, 'día', 'días')}.
-            </p>
-          )}
-        </div>
+        </label>
       )}
 
       {compras.length > 0 && (
         <div>
           <Seccion className="mb-3" etiqueta="Compras" />
           <Banda className="divide-y divide-line">
-            {compras.map((g) => (
-              <div key={g.id} className="flex items-center justify-between px-5 py-3 text-sm">
-                <div className="min-w-0">
-                  <div className="font-medium">{g.descripcion || 'Alimento'}</div>
-                  <div className="text-xs text-ink-faint tnum">
-                    {fecha(g.fecha)}
-                    {g.cantidadQq ? ` · ${num(g.cantidadQq, 1)} qq` : ' · sin cantidad anotada'}
-                  </div>
-                </div>
-                <div className="shrink-0 pl-3 text-right tnum">
-                  <div className="font-display font-semibold">{money(g.monto)}</div>
-                  {g.cantidadQq ? (
-                    <div className="text-xs text-ink-faint">
-                      {money(g.monto / g.cantidadQq)} / qq
+            {compras.map((g) => {
+              const tipo = faseDeCompra(g)
+              const supuesta = !tipo && porTipo.partidas.find((p) => p.gastoId === g.id)?.supuesta
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  disabled={!anota}
+                  onClick={() => setEditarCompra(g)}
+                  className="flex w-full items-center justify-between px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{g.descripcion || 'Alimento'}</div>
+                    <div className="text-xs text-ink-faint tnum">
+                      {tipo ? (
+                        <span className="font-semibold text-forest-700">{nombreFase(tipo)}</span>
+                      ) : supuesta ? (
+                        <span className="font-semibold text-amber-text">¿Qué alimento es?</span>
+                      ) : null}
+                      {tipo || supuesta ? ' · ' : ''}
+                      {fecha(g.fecha)}
+                      {g.cantidadQq ? ` · ${num(g.cantidadQq, 1)} qq` : ' · sin cantidad anotada'}
                     </div>
-                  ) : null}
-                </div>
-              </div>
-            ))}
+                  </div>
+                  <div className="shrink-0 pl-3 text-right tnum">
+                    <div className="font-display font-semibold">{money(g.monto)}</div>
+                    {g.cantidadQq ? (
+                      <div className="text-xs text-ink-faint">{money(g.monto / g.cantidadQq)} el quintal</div>
+                    ) : null}
+                  </div>
+                </button>
+              )
+            })}
           </Banda>
           {metrics.biomasaLb != null && metrics.biomasaLb > 0 && (
             <p className="mt-2 text-xs text-ink-faint tnum">
@@ -431,7 +346,7 @@ export function FichaAlimento({
 
       {!sinAlimento && anota && (
         <p className="text-xs leading-relaxed text-ink-faint">
-          Anotas el alimento en {unidadAlimento === 'qq' ? 'sacos de 100 lb' : 'libras'}; lo cambias en
+          Anotas el alimento en {unidadAlimento === 'qq' ? 'quintales (qq) de 100 lb' : 'libras'}; lo cambias en
           el registro del día.
         </p>
       )}
@@ -439,10 +354,12 @@ export function FichaAlimento({
       {!soloVer && (
         <>
           <ConteoSheet lote={lote} gastos={gastos} open={contando} onClose={() => setContando(false)} />
+          <GastoSheet lote={lote} open={!!editarCompra} editar={editarCompra} onClose={() => setEditarCompra(undefined)} />
           <RegistroSheet
             lote={lote}
             registros={registros}
             ingresos={ingresos}
+            alimentos={porTipo}
             open={anotando}
             onClose={() => setAnotando(false)}
           />
@@ -451,6 +368,7 @@ export function FichaAlimento({
               lote={lote}
               destinos={destinos}
               sobranQq={Math.max(0, inv?.existenciaQq ?? 0)}
+              fase={[...porTipo.fases].sort((a, b) => b.quedaLb - a.quedaLb)[0]?.fase}
               precioQq={precioQq}
               open={pasando}
               onClose={() => setPasando(false)}
@@ -481,7 +399,7 @@ function SinAlimento({
   onAnotar: () => void
 }) {
   return (
-    <div className="rounded-xl2 border border-amber-line border-l-4 border-l-amber bg-amber-tint p-4">
+    <div className="rounded-xl2 border border-amber-line border-l-4 border-l-amber-400 bg-amber-tint p-4">
       <div className="font-display text-base font-semibold text-amber-text">
         Falta saber cuánto alimento se ha dado
       </div>
@@ -513,6 +431,98 @@ function SinAlimento({
   )
 }
 
+// Cada alimento con lo que se dio, en qué días, lo que queda y lo que falta
+// comprar hasta la venta, a su precio. Contra Cobb se mide solo lo anotado.
+function PorTipo({
+  lote,
+  alimentos,
+  proyeccion,
+}: {
+  lote: Lote
+  alimentos: AlimentoPorTipo
+  proyeccion: Proyeccion | null
+}) {
+  const activo = lote.estado === 'activo'
+  const faltaDe = (f: string) => proyeccion?.comprarPorTipo.find((c) => c.fase === f)
+  const visibles = alimentos.fases.filter(
+    (f) =>
+      f.compradoQq > 0 ||
+      f.dadoLb > 0 ||
+      !!faltaDe(f.fase) ||
+      (activo && (f.fase === alimentos.actual || f.fase === alimentos.siguiente)),
+  )
+  return (
+    <Banda className="divide-y divide-line">
+      {visibles.map((f) => {
+        const anotados = alimentos.dias.filter((d) => d.fase === f.fase && !d.estimado)
+        const realLb = anotados.reduce((a, d) => a + d.lb, 0)
+        const planLb = anotados.reduce((a, d) => a + alimentoDiaEstandarLb(d.dia) * lote.cantidadInicial, 0)
+        const dif = planLb > 0 ? ((realLb - planLb) / planLb) * 100 : 0
+        const notable = anotados.length >= 2 && Math.abs(dif) >= 5
+        const hoy = activo && f.fase === alimentos.actual
+        const falta = faltaDe(f.fase)
+        const desdeCobb = FASES_ALIMENTO.find((x) => x.id === f.fase)?.desde ?? 0
+        return (
+          <div key={f.fase} className={'px-5 py-3 ' + (hoy ? 'bg-forest-50' : '')}>
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  {nombreFase(f.fase)}
+                  {hoy && (
+                    <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-semibold text-forest-700">
+                      Hoy
+                    </span>
+                  )}
+                </div>
+                {f.nombre !== nombreFase(f.fase) && (
+                  <div className="truncate text-xs text-ink-faint">{f.nombre}</div>
+                )}
+              </div>
+              <div className="shrink-0 text-right tnum">
+                <div className="font-display font-semibold">{num(f.dadoLb / LB_POR_QUINTAL, 1)} qq</div>
+                <div className="text-xs text-ink-faint">dados</div>
+              </div>
+            </div>
+            <div className="mt-1 text-xs text-ink-faint tnum">
+              {f.desdeDia != null
+                ? f.desdeDia === f.hastaDia
+                  ? `Día ${f.desdeDia}`
+                  : `Días ${f.desdeDia}–${f.hastaDia}`
+                : `Por la edad, desde el día ${desdeCobb}`}
+              {notable && (
+                <span className={dif > 0 ? 'font-semibold text-clay-text' : 'font-semibold text-forest-600'}>
+                  {' · '}
+                  {dif > 0 ? '▲' : '▼'} {num(Math.abs(dif), 0)}% contra Cobb
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 text-xs text-ink-faint tnum">
+              {f.compradoQq > 0
+                ? `Compraste ${num(f.compradoQq, 1)} · quedan ${num(f.quedaLb / LB_POR_QUINTAL, 1)}`
+                : 'Todavía no lo compras'}
+              {f.precioQq != null ? ` · ${money(f.precioQq)} el quintal` : ''}
+            </div>
+            {falta && (
+              <div className="mt-1 text-sm font-medium tnum">
+                Faltan {num(falta.lb / LB_POR_QUINTAL, 1)} qq por comprar
+                {falta.costo != null ? `: unos ${money(falta.costo)}` : ''}
+              </div>
+            )}
+            {f.compradoQq > 0 && (
+              <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-forest-500"
+                  style={{ width: `${Math.min(100, (f.dadoLb / (f.compradoQq * LB_POR_QUINTAL)) * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </Banda>
+  )
+}
+
 function Agua({ resumen }: { resumen: ResumenAgua }) {
   const [foco, setFoco] = useState<number>()
   const dia = resumen.dias[foco ?? resumen.dias.length - 1]
@@ -539,7 +549,7 @@ function Agua({ resumen }: { resumen: ResumenAgua }) {
             <div
               className={
                 'font-display text-xl font-semibold leading-none tnum ' +
-                (estado === 'normal' ? 'text-forest-600' : 'text-clay-deep')
+                (estado === 'normal' ? 'text-forest-600' : 'text-clay-text')
               }
             >
               {num(dia.litrosPorLb, 2)} L
