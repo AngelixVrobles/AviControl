@@ -26,7 +26,7 @@ export async function sembrar<T>(
       // Con el respaldo al día y lo nuevo ya visto, Inicio no muestra avisos que
       // no son de la prueba.
       localStorage.setItem('avicontrol.settings', JSON.stringify({ ultimoRespaldo: hoyISO(), ...ajustes }))
-      localStorage.setItem('avicontrol.novedades', '1.13')
+      localStorage.setItem('avicontrol.novedades', '1.14')
       // El aviso de instalar la app tampoco: el teléfono de prueba es un iPhone.
       localStorage.setItem('avicontrol.instalar', String(Date.now() + 30 * 86_400_000))
       const f = new Function(`return ${src}`)()
