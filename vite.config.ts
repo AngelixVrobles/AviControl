@@ -31,7 +31,9 @@ export default defineConfig({
       // La app registra el service worker ella misma, para avisar cuando hay
       // una versión nueva en vez de recargar de golpe.
       injectRegister: false,
-      includeAssets: ['icon.svg', 'favicon.svg', 'apple-touch-icon.png'],
+      // El ícono del iPhone no se guarda con la app: el iPhone lo pide al añadirla
+      // a la pantalla de inicio, y una copia vieja guardada le daba el logo de antes.
+      includeAssets: ['icon.svg', 'favicon.svg'],
       workbox: {
         // Las letras van en el paquete y se guardan con la app: abre igual sin
         // internet desde la primera vez.
