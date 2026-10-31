@@ -111,6 +111,10 @@ test('restaurar dice de cuándo es el respaldo y deja volver a lo de antes', asy
   const deshacer = page.getByRole('dialog', { name: 'Volver a lo de antes' })
   await deshacer.getByRole('button', { name: 'Volver', exact: true }).click()
   await expect(deshacer).toBeHidden()
+  // La hoja se cierra antes de que termine de guardarse: recargar la página en
+  // ese momento corta la escritura y se queda lo restaurado. El aviso dice que
+  // ya volvió.
+  await expect(page.getByText('Volvió lo de antes.')).toBeVisible()
   await page.goto('/')
   await expect(page.getByRole('main')).toContainText('El de ahora')
   await expect(page.getByRole('main')).not.toContainText('El del respaldo')
