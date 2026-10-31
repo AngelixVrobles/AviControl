@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { aEdicion, errorPesada, leerPesada, librasDePesada, pesadaNueva, resumenPesada } from './pesada'
+import {
+  aEdicion,
+  avesPorPeso,
+  cuadranLasAves,
+  errorPesada,
+  leerPesada,
+  librasDePesada,
+  pesadaNueva,
+  resumenPesada,
+} from './pesada'
 
 // Las cuatro ventas de una página del cuaderno de la granja, a RD$38 la libra.
 const cuaderno = {
@@ -70,5 +79,22 @@ describe('lo que se escribe en la hoja', () => {
     expect(errorPesada({ vacias: [{ cajas: '6', lb: '94' }], llenas: ['503'], pollosPorCaja: '' })).toBeUndefined()
     // A medio llenar no es un error: falta lo lleno.
     expect(errorPesada({ ...pesadaNueva(), vacias: [{ cajas: '6', lb: '94' }] })).toBeUndefined()
+  })
+})
+
+describe('las aves que se fueron', () => {
+  // 849 lb de pollo: con 7 lb cada uno son 121, casi lo de 12 cajas de 10.
+  it('por el peso, con lo que pesa hoy cada pollo', () => {
+    expect(avesPorPeso(849, 7)).toBe(121)
+    expect(avesPorPeso(849, undefined)).toBeUndefined()
+    expect(avesPorPeso(0, 7)).toBeUndefined()
+  })
+
+  // Si pesan 6.4 lb, 849 lb son 133 pollos: unos 11 por caja, no 10.
+  it('avisa cuando por el peso van más de los que se contaron por caja', () => {
+    expect(cuadranLasAves(120, avesPorPeso(849, 6.4))).toBe('mas')
+    expect(cuadranLasAves(120, 121)).toBeUndefined()
+    expect(cuadranLasAves(120, 108)).toBe('menos')
+    expect(cuadranLasAves(undefined, 121)).toBeUndefined()
   })
 })

@@ -5,6 +5,9 @@ import type { Pesada } from '../db/schema'
 // veces que haga falta, y lo que se cobra son las libras llenas menos las de
 // las cajas. 503 + 534 llenas, menos 94 + 94 vacías: 849 lb de pollo.
 
+/** Los pollos que casi siempre van en cada caja del pollero. */
+export const POLLOS_POR_CAJA = 10
+
 // Lo que se va escribiendo en la hoja: texto, porque una casilla a medio
 // escribir («94.») todavía no es un número.
 export interface PesadaEnEdicion {
@@ -102,4 +105,22 @@ export function errorPesada(e: PesadaEnEdicion): string | undefined {
   if (p.llenas.length && resumenPesada(p).neto <= 0)
     return 'Las cajas con pollo pesan menos que las vacías: revisa los números.'
   return undefined
+}
+
+// Cuántos pollos se fueron, por lo que pesaron. Casi todas las cajas llevan 10,
+// pero hay polleros que las sobrecargan y no siempre se cuenta: las libras de
+// pollo entre lo que pesa hoy cada uno lo dicen igual. Sin un pesaje no se
+// estima: la curva sola puede errar por mucho.
+export function avesPorPeso(netoLb: number, pesoAveLb: number | undefined): number | undefined {
+  if (!(netoLb > 0) || pesoAveLb == null || !(pesoAveLb > 0)) return undefined
+  return Math.round(netoLb / pesoAveLb)
+}
+
+// Si las dos cuentas no cuadran: con 12 cajas de 10 son 120, y si por el peso
+// salen 133, parece que las sobrecargaron. Un 8 % de diferencia es casi un
+// pollo por caja; menos que eso cabe en lo que yerra el peso estimado.
+export function cuadranLasAves(porCajas: number | undefined, porPeso: number | undefined): 'mas' | 'menos' | undefined {
+  if (!porCajas || !porPeso) return undefined
+  const r = porPeso / porCajas
+  return r >= 1.08 ? 'mas' : r <= 0.92 ? 'menos' : undefined
 }

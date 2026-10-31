@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { clsx } from 'clsx'
 import { num, numCorto } from '../lib/format'
-import { errorPesada, leerPesada, resumenPesada, type PesadaEnEdicion } from '../lib/pesada'
+import { cuadranLasAves, errorPesada, leerPesada, resumenPesada, type PesadaEnEdicion } from '../lib/pesada'
 import { IconChevron, IconClose } from './icons'
 import { Input } from './ui'
 
@@ -13,6 +14,7 @@ export function PesadaPorCajas({
   onCambio,
   onQuitar,
   pista,
+  children,
 }: {
   valor: PesadaEnEdicion
   onCambio: (v: PesadaEnEdicion) => void
@@ -20,6 +22,8 @@ export function PesadaPorCajas({
   onQuitar: () => void
   /** Lo que se sabe de las cajas de este comprador. */
   pista?: string
+  /** Lo que va debajo de las libras: en «Venta», las aves que se fueron. */
+  children?: ReactNode
 }) {
   // La fila recién agregada recibe el dedo: se pesa y se escribe sin buscarla.
   const [nueva, setNueva] = useState<string>()
@@ -170,30 +174,147 @@ export function PesadaPorCajas({
         </p>
       )}
 
-      {r.cajas > 0 && (
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="text-sm text-ink-soft">
-            Pollos por caja
-            <span className="block text-xs text-ink-faint">
-              {r.aves != null
-                ? `${num(r.cajas)} cajas × ${num(p.pollosPorCaja!)}: ${num(r.aves)} aves`
-                : 'Si los contaste, salen las aves'}
-            </span>
-          </span>
-          <div className="w-20 shrink-0">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={valor.pollosPorCaja}
-              onChange={(e) => onCambio({ ...valor, pollosPorCaja: e.target.value })}
-              aria-label="Pollos por caja"
-              className="text-center"
-            />
-          </div>
-        </div>
-      )}
+      {children}
     </section>
+  )
+}
+
+export type FuenteAves = 'cajas' | 'peso' | 'mano'
+
+// Cuántas aves se fueron. Casi todas las cajas llevan 10 pollos, pero hay
+// polleros que las sobrecargan y no siempre se cuentan: por el peso, con lo que
+// pesa hoy cada pollo, sale la otra cuenta, y si no cuadran se dice. El dinero
+// no cambia —se cobra por libra—, pero las aves que quedan en el galpón sí.
+export function AvesDeLaPesada({
+  cajas,
+  pollosPorCaja,
+  onPollosPorCaja,
+  porCajas,
+  porPeso,
+  netoLb,
+  pesoAveLb,
+  diasDesdePeso,
+  arreglado,
+  elegida,
+  onElegir,
+}: {
+  cajas: number
+  pollosPorCaja: string
+  onPollosPorCaja: (t: string) => void
+  porCajas?: number
+  porPeso?: number
+  netoLb: number
+  /** Lo que pesa hoy cada pollo: en pie, o arreglado si se vende así. */
+  pesoAveLb?: number
+  diasDesdePeso?: number
+  arreglado: boolean
+  elegida: FuenteAves
+  onElegir: (f: 'cajas' | 'peso') => void
+}) {
+  if (!(cajas > 0) && porPeso == null) return null
+  const aviso = cuadranLasAves(porCajas, porPeso)
+  const ppc = Number(pollosPorCaja)
+  // Los que van por caja según el peso, en entero —«unos 15»—, salvo que
+  // redondeado dé lo mismo que se dijo: con 5 por caja, 5.4 no es «unos 5».
+  const porCajaPorPeso = porPeso != null && cajas > 0 ? porPeso / cajas : undefined
+  const porCajaTexto =
+    porCajaPorPeso == null
+      ? ''
+      : Math.round(porCajaPorPeso) !== ppc
+        ? num(Math.round(porCajaPorPeso))
+        : numCorto(porCajaPorPeso, 1)
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-ink-soft">Aves que se fueron</span>
+        {cajas > 0 && (
+          <span className="flex items-center gap-2 text-sm text-ink-soft">
+            <span className="w-16 shrink-0">
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={pollosPorCaja}
+                onChange={(e) => onPollosPorCaja(e.target.value)}
+                aria-label="Pollos por caja"
+                className="px-2 text-center"
+              />
+            </span>
+            por caja
+          </span>
+        )}
+      </div>
+      <div
+        role="group"
+        aria-label="Cuántas aves se fueron"
+        className={clsx('grid gap-2', porCajas != null && porPeso != null ? 'grid-cols-2' : 'grid-cols-1')}
+      >
+        {porCajas != null && (
+          <OpcionAves
+            activa={elegida === 'cajas'}
+            onClick={() => onElegir('cajas')}
+            valor={`${num(porCajas)} aves`}
+            nota={`${num(cajas)} cajas de ${num(ppc)}`}
+          />
+        )}
+        {porPeso != null && (
+          <OpcionAves
+            activa={elegida === 'peso'}
+            onClick={() => onElegir('peso')}
+            valor={`unas ${num(porPeso)}`}
+            nota="por el peso"
+          />
+        )}
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-ink-faint">
+        {porPeso != null && pesoAveLb != null
+          ? `Por el peso: ${numCorto(netoLb)} lb entre ${numCorto(pesoAveLb, 2)} lb que pesa ${arreglado ? 'arreglado ' : ''}cada pollo${
+              diasDesdePeso != null && diasDesdePeso > 0
+                ? `, por el pesaje de hace ${num(diasDesdePeso)} ${diasDesdePeso === 1 ? 'día' : 'días'}`
+                : ', por el pesaje de hoy'
+            }.`
+          : 'Con un pesaje, la app también las saca por el peso, aunque no se cuenten.'}
+      </p>
+      {aviso === 'mas' && (
+        <p className="mt-1 text-xs font-medium text-amber-text">
+          Por el peso van unos {porCajaTexto} por caja, no {num(ppc)}: parece que las sobrecargaron.
+          {elegida === 'cajas' && ' Si no los contaron, elige «por el peso».'}
+        </p>
+      )}
+      {aviso === 'menos' && (
+        <p className="mt-1 text-xs font-medium text-amber-text">
+          Por el peso salen menos: puede que alguna caja fuera con menos pollos.
+        </p>
+      )}
+      {elegida === 'mano' && <p className="mt-1 text-xs text-ink-faint">Escribiste las aves a mano.</p>}
+    </div>
+  )
+}
+
+function OpcionAves({
+  activa,
+  onClick,
+  valor,
+  nota,
+}: {
+  activa: boolean
+  onClick: () => void
+  valor: string
+  nota: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activa}
+      className={clsx(
+        'min-h-14 rounded-xl border px-3 py-2 text-left transition',
+        activa ? 'border-2 border-forest-500 bg-forest-50 text-ink' : 'border-line bg-paper-raised text-ink-soft',
+      )}
+    >
+      <span className="block font-display text-lg font-semibold leading-tight tnum">{valor}</span>
+      <span className="block text-xs text-ink-faint">{nota}</span>
+    </button>
   )
 }
 

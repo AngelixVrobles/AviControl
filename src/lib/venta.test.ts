@@ -123,6 +123,39 @@ describe('las cajas de cada pollero', () => {
     const p = preciosDeVenta(ventas)
     expect(p.cajasDe.get('nenel')).toEqual({ lbPorCaja: 15.5, pollosPorCaja: 10 })
     expect(p.cajasDe.has('ana')).toBe(false)
+    expect(p.pollosPorCaja).toBe(10)
+  })
+
+  // Nenel sobrecarga: la última vez fueron 13 por caja. Los demás siguen en 10,
+  // y un pollero nuevo también.
+  it('el que sobrecarga queda con lo suyo, y la granja sigue con lo de siempre', () => {
+    const conCajas = (id: number, dias: number, comprador: string, pollosPorCaja: number) =>
+      ingreso({
+        id,
+        fecha: hace(dias),
+        comprador,
+        pesoLb: 538,
+        monto: 20444,
+        precioLb: 38,
+        pesada: { vacias: [{ cajas: 4, lb: 62 }], llenas: [600], pollosPorCaja },
+      })
+    const p = preciosDeVenta([
+      ...ventas,
+      conCajas(3, 1, 'Nenel', 13),
+      conCajas(4, 3, 'Tito', 10),
+      conCajas(5, 4, 'tito', 12),
+    ])
+    expect(p.cajasDe.get('nenel')?.pollosPorCaja).toBe(13)
+    expect(p.cajasDe.get('tito')?.pollosPorCaja).toBe(10)
+    // Nenel, solo con sus 13, no mueve lo de la granja.
+    expect(p.pollosPorCaja).toBe(10)
+    expect(preciosDeVenta([conCajas(3, 1, 'Nenel', 13)]).pollosPorCaja).toBe(10)
+    // Si casi todos ponen 12, la granja va en 12.
+    const doce = [conCajas(6, 1, 'Lalo', 12), conCajas(7, 2, 'Pepe', 12)]
+    expect(preciosDeVenta([...ventas, ...doce]).pollosPorCaja).toBe(12)
+    // Dos con 12 y dos con 10 empatan: gana la menor.
+    expect(preciosDeVenta([...ventas, ...doce, conCajas(8, 3, 'Tito', 10)]).pollosPorCaja).toBe(10)
+    expect(preciosDeVenta([]).pollosPorCaja).toBe(10)
   })
 
   // Quien vende por cajas sigue igual: la hoja abre con la pesada puesta.
