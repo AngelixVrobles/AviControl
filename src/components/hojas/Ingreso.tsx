@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { db, type Aplicacion, type Gasto, type Ingreso, type Lote, type Registro } from '../../db/schema'
 import { Button, DangerButton, Field, Input, Select, Sheet } from '../ui'
 import { confirmar, toast } from '../confirm'
-import { diasEntre, fecha as fechaCorta, hoyISO, money, num, plural } from '../../lib/format'
+import { diasEntre, fecha as fechaCorta, hoyISO, money, num, numCorto, plural } from '../../lib/format'
 import { useCompradores, useModoVenta, usePreciosDeVenta, useSettings } from '../../lib/hooks'
 import { cobradoDe, pendienteDe } from '../../lib/cobros'
 import type { LoteMetrics } from '../../lib/metrics'
@@ -17,6 +17,16 @@ import { RINDE_ARREGLADO_PCT } from '../../lib/standards'
 import { Interruptor } from '../Socios'
 import { useEnvio } from '../useEnvio'
 import { ComoSalioElPollo, DatosDePago, PreciosUsados } from '../Venta'
+import { BotonPesada, PesadaPorCajas } from '../Pesada'
+import {
+  aEdicion,
+  errorPesada,
+  leerPesada,
+  librasDePesada,
+  pesadaNueva,
+  resumenPesada,
+  type PesadaEnEdicion,
+} from '../../lib/pesada'
 import { AvisoRetiro } from './AvisoRetiro'
 
 export function IngresoSheet({
@@ -66,6 +76,11 @@ export function IngresoSheet({
   // El comprador cuyo precio se puso solo: si se sigue escribiendo y ya no es
   // él («Ana» → «Ana María»), vuelve el precio de siempre.
   const [deComprador, setDeComprador] = useState<string>()
+  // La pesada por cajas, si se pesó así: las libras salen de ella.
+  const [pesada, setPesada] = useState<PesadaEnEdicion | null>(null)
+  const [pesadaTocada, setPesadaTocada] = useState(false)
+  // Las aves que salen de las cajas no pisan las que se escribieron a mano.
+  const [avesTocadas, setAvesTocadas] = useState(false)
   const settings = useSettings()
   const modo = useModoVenta()
   const precios = usePreciosDeVenta()
@@ -88,7 +103,17 @@ export function IngresoSheet({
     setCredito(!!editar?.credito)
     setAdelanto('')
     setGalponVenta(editar?.galponId ?? '')
+    setPesada(editar?.pesada ? aEdicion(editar.pesada) : null)
+    setPesadaTocada(false)
+    setAvesTocadas(!!editar)
   }, [open, editar, lote.precioVentaLb, modo.arreglado])
+
+  // Quien le vende al pollero por cajas sigue igual: si la última venta se pesó
+  // así, la hoja abre con la pesada puesta.
+  useEffect(() => {
+    if (!open || editar || pesadaTocada || !precios?.porCajas) return
+    setPesada((p) => p ?? pesadaNueva())
+  }, [open, editar, pesadaTocada, precios?.porCajas])
 
   // Con la pollada repartida, de qué galpón salen: vendidas las 350 del galpón
   // 2, ese galpón queda vacío y el espacio del otro sigue igual. Sin decirlo,
@@ -115,10 +140,12 @@ export function IngresoSheet({
         : lote.estado === 'activo' && nAves > maxAves
           ? `Solo hay ${num(maxAves)} ${plural(maxAves, 'ave', 'aves')} en el galpón.`
           : undefined
-  const errorPeso = errorNegativo(pesoLb)
+  const pesadaLeida = pesada ? leerPesada(pesada) : undefined
+  const errPesada = pesada ? errorPesada(pesada) : undefined
+  const errorPeso = pesada ? undefined : errorNegativo(pesoLb)
   const errorPrecio = errorNegativo(precio)
 
-  const lb = Number(pesoLb) || 0
+  const lb = pesadaLeida ? librasDePesada(pesadaLeida) : Number(pesoLb) || 0
   const precioLb = Number(precio) || 0
   const totalAuto = lb > 0 && precioLb > 0 ? Math.round(lb * precioLb) : 0
   const total = modoTotal === 'auto' ? totalAuto : Number(monto) || 0
@@ -131,12 +158,39 @@ export function IngresoSheet({
     recalcular(lb, p)
   }
 
+  function cambiarPesada(v: PesadaEnEdicion) {
+    setPesada(v)
+    setPesadaTocada(true)
+    const p = leerPesada(v)
+    recalcular(librasDePesada(p), precioLb)
+    const aves = resumenPesada(p).aves
+    if (!avesTocadas && aves) setCantidad(String(aves))
+  }
+  function abrirPesada() {
+    setPesadaTocada(true)
+    setPesada({ ...pesadaNueva(), pollosPorCaja: cajasDel?.pollosPorCaja ? String(cajasDel.pollosPorCaja) : '' })
+  }
+  // Sin la pesada, el peso que dio se queda escrito.
+  function quitarPesada() {
+    setPesadaTocada(true)
+    if (lb > 0) setPesoLb(String(lb))
+    setPesada(null)
+  }
+
   // Los precios que ya se usaron vendiendo así, para tocarlos.
   const usados = precios?.recientes[arreglado ? 'arreglado' : 'pie'] ?? []
 
   // Cada quien paga su precio: al elegir un comprador de antes, en una venta
   // nueva, sale el precio que se le puso la última vez.
   const previo = comprador.trim() ? precios?.porComprador.get(comprador.trim().toLowerCase()) : undefined
+  // Sus cajas pesan casi lo mismo cada vez: si hoy salen muy distintas, se nota.
+  const cajasDel = comprador.trim() ? precios?.cajasDe.get(comprador.trim().toLowerCase()) : undefined
+  const pistaCajas =
+    cajasDel?.lbPorCaja != null
+      ? `Las cajas de ${comprador.trim()} pesaron ${numCorto(cajasDel.lbPorCaja, 1)} lb cada una la última vez${
+          cajasDel.pollosPorCaja ? `, con ${num(cajasDel.pollosPorCaja)} pollos` : ''
+        }.`
+      : undefined
   function elegirComprador(nombre: string) {
     setComprador(nombre)
     if (editar || precioTocado) return
@@ -183,9 +237,11 @@ export function IngresoSheet({
       loteId: lote.id,
       tipo: 'aves' as const,
       cantidad: nAves,
-      pesoLb: pesoLb ? Number(pesoLb) : undefined,
+      pesoLb: pesada ? (lb > 0 ? lb : undefined) : pesoLb ? Number(pesoLb) : undefined,
       precioLb: precioLb > 0 ? precioLb : undefined,
       arreglado: arreglado ? { rindePct: rinde } : undefined,
+      pesada:
+        pesadaLeida && (pesadaLeida.llenas.length > 0 || pesadaLeida.vacias.length > 0) ? pesadaLeida : undefined,
       monto: total,
       fecha,
       comprador: comprador.trim() || undefined,
@@ -293,7 +349,13 @@ export function IngresoSheet({
         <div className="grid grid-cols-2 gap-3">
           <Field
             label="Nº de aves"
-            hint={!editar && lote.estado === 'activo' ? `Tienes ${num(metrics.avesVivas)} vivas` : undefined}
+            hint={
+              !avesTocadas && pesadaLeida && resumenPesada(pesadaLeida).aves
+                ? 'Salen de las cajas'
+                : !editar && lote.estado === 'activo'
+                  ? `Tienes ${num(metrics.avesVivas)} vivas`
+                  : undefined
+            }
             error={errorAves}
           >
             <Input
@@ -301,22 +363,36 @@ export function IngresoSheet({
               inputMode="numeric"
               min={1}
               value={cantidad}
-              onChange={(e) => setCantidad(e.target.value)}
+              onChange={(e) => {
+                setCantidad(e.target.value)
+                setAvesTocadas(true)
+              }}
               aria-invalid={!!errorAves}
             />
           </Field>
-          <Field label={arreglado ? 'Libras arregladas' : 'Peso total (lb)'} error={errorPeso}>
+          <Field
+            label={arreglado ? 'Libras arregladas' : 'Peso total (lb)'}
+            error={errorPeso}
+            hint={pesada ? 'Sale de las cajas' : undefined}
+          >
             <Input
               type="number"
               inputMode="decimal"
               min={0}
-              value={pesoLb}
+              value={pesada ? (lb > 0 ? String(lb) : '') : pesoLb}
+              readOnly={!!pesada}
               onChange={(e) => {
                 setPesoLb(e.target.value)
                 recalcular(Number(e.target.value) || 0, precioLb)
               }}
+              className={pesada ? 'bg-paper-sunken text-ink-soft' : undefined}
             />
           </Field>
+          {pesada ? (
+            <PesadaPorCajas valor={pesada} onCambio={cambiarPesada} onQuitar={quitarPesada} pista={pistaCajas} />
+          ) : (
+            <BotonPesada onClick={abrirPesada} />
+          )}
           <Field label="Precio por libra" error={errorPrecio}>
             <Input
               type="number"
@@ -469,6 +545,7 @@ export function IngresoSheet({
             !!errorPeso ||
             !!errorPrecio ||
             !!errorTotal ||
+            !!errPesada ||
             !!errorFechaDelCiclo(fecha, { fechaInicio: lote.fechaInicio })
           }
           motivo={

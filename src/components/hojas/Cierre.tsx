@@ -4,7 +4,7 @@ import { db, type Aplicacion, type Gasto, type Ingreso, type Lote, type Registro
 import { Button, Field, Input, Select, Sheet } from '../ui'
 import { toast } from '../confirm'
 import { gananciaPorSocio } from '../../lib/sociedad'
-import { diasEntre, hoyISO, money, num, pct, porLb } from '../../lib/format'
+import { diasEntre, hoyISO, money, num, numCorto, pct, porLb } from '../../lib/format'
 import { useCompradores, useModoVenta, usePreciosDeVenta, useSettings } from '../../lib/hooks'
 import type { LoteMetrics } from '../../lib/metrics'
 import { proyectarVenta } from '../../lib/proyeccion'
@@ -15,6 +15,8 @@ import { RINDE_ARREGLADO_PCT } from '../../lib/standards'
 import { precioCorto, precioSugerido, rindeValido } from '../../lib/venta'
 import { useEnvio } from '../useEnvio'
 import { ComoSalioElPollo, DatosDePago, PreciosUsados } from '../Venta'
+import { BotonPesada, PesadaPorCajas } from '../Pesada'
+import { errorPesada, leerPesada, librasDePesada, pesadaNueva, type PesadaEnEdicion } from '../../lib/pesada'
 import { AvisoRetiro } from './AvisoRetiro'
 import { DatoCierre, FilaContraste } from './Contraste'
 
@@ -54,6 +56,9 @@ export function CierreSheet({
   const [precioTocado, setPrecioTocado] = useState(false)
   // El comprador cuyo precio se puso solo, como en «Venta».
   const [deComprador, setDeComprador] = useState<string>()
+  // La pesada por cajas, como en «Venta».
+  const [pesada, setPesada] = useState<PesadaEnEdicion | null>(null)
+  const [pesadaTocada, setPesadaTocada] = useState(false)
   const settings = useSettings()
   const modo = useModoVenta()
   const precios = usePreciosDeVenta()
@@ -74,16 +79,25 @@ export function CierreSheet({
     setComprador('')
     setCredito(false)
     setAdelanto('')
+    setPesada(null)
+    setPesadaTocada(false)
   }, [open, metrics.avesVivas, lote.precioVentaLb, modo.arreglado])
+
+  useEffect(() => {
+    if (!open || pesadaTocada || !precios?.porCajas) return
+    setPesada((p) => p ?? pesadaNueva())
+  }, [open, pesadaTocada, precios?.porCajas])
 
   // Aves enteras y nada negativo: con −2,650 lb a −55 salía un total de
   // +145,750 y el ciclo se cerraba con ese peso.
   const nAves = Math.round(Number(aves) || 0)
-  const lbTotal = Number(pesoTotal) || 0
+  const pesadaLeida = pesada ? leerPesada(pesada) : undefined
+  const errPesada = pesada ? errorPesada(pesada) : undefined
+  const lbTotal = pesadaLeida ? librasDePesada(pesadaLeida) : Number(pesoTotal) || 0
   const precioLb = Number(precio) || 0
   const negativos = {
     aves: errorNegativo(aves),
-    peso: errorNegativo(pesoTotal),
+    peso: pesada ? undefined : errorNegativo(pesoTotal),
     precio: errorNegativo(precio),
     monto: montoTocado ? errorNegativo(monto) : undefined,
   }
@@ -98,6 +112,11 @@ export function CierreSheet({
   const pesoEnPieAve = pesoPorAve != null && arreglado ? pesoPorAve / (rinde / 100) : pesoPorAve
 
   const previo = comprador.trim() ? precios?.porComprador.get(comprador.trim().toLowerCase()) : undefined
+  const cajasDel = comprador.trim() ? precios?.cajasDe.get(comprador.trim().toLowerCase()) : undefined
+  const pistaCajas =
+    cajasDel?.lbPorCaja != null
+      ? `Las cajas de ${comprador.trim()} pesaron ${numCorto(cajasDel.lbPorCaja, 1)} lb cada una la última vez.`
+      : undefined
   function elegirComprador(nombre: string) {
     setComprador(nombre)
     if (precioTocado) return
@@ -171,9 +190,12 @@ export function CierreSheet({
   }
   const contrastes = construirContrastes(snap, real)
   const sobranAves = nAves > metrics.avesVivas
-  const listo = nAves > 0 && !sobranAves && montoFinal > 0 && !hayNegativos && !errorFechaDelCiclo(fecha, lote)
+  const listo =
+    nAves > 0 && !sobranAves && montoFinal > 0 && !hayNegativos && !errPesada && !errorFechaDelCiclo(fecha, lote)
   const motivoCierre = hayNegativos
     ? 'Hay un número negativo.'
+    : errPesada
+      ? errPesada
     : !(nAves > 0)
       ? 'Falta cuántas aves vendiste.'
       : sobranAves
@@ -193,6 +215,8 @@ export function CierreSheet({
         pesoLb: lbTotal || undefined,
         precioLb: precioLb > 0 ? precioLb : undefined,
         arreglado: arreglado ? { rindePct: rinde } : undefined,
+        pesada:
+          pesadaLeida && (pesadaLeida.llenas.length > 0 || pesadaLeida.vacias.length > 0) ? pesadaLeida : undefined,
         monto: montoFinal,
         fecha,
         comprador: comprador.trim() || undefined,
@@ -236,18 +260,42 @@ export function CierreSheet({
             </Field>
             <Field
               label={arreglado ? 'Libras arregladas' : 'Peso total (lb)'}
-              hint={arreglado ? 'Lo que pesaron limpios' : 'El del camión'}
+              hint={pesada ? 'Sale de las cajas' : arreglado ? 'Lo que pesaron limpios' : 'El del camión'}
               error={negativos.peso}
             >
               <Input
                 type="number"
                 inputMode="decimal"
-                value={pesoTotal}
+                value={pesada ? (lbTotal > 0 ? String(lbTotal) : '') : pesoTotal}
+                readOnly={!!pesada}
                 onChange={(e) => setPesoTotal(e.target.value)}
-                className="h-14 text-lg"
+                className={pesada ? 'h-14 bg-paper-sunken text-lg text-ink-soft' : 'h-14 text-lg'}
               />
             </Field>
           </div>
+
+          {pesada ? (
+            <PesadaPorCajas
+              valor={pesada}
+              onCambio={(v) => {
+                setPesada(v)
+                setPesadaTocada(true)
+              }}
+              onQuitar={() => {
+                setPesadaTocada(true)
+                if (lbTotal > 0) setPesoTotal(String(lbTotal))
+                setPesada(null)
+              }}
+              pista={pistaCajas}
+            />
+          ) : (
+            <BotonPesada
+              onClick={() => {
+                setPesadaTocada(true)
+                setPesada(pesadaNueva())
+              }}
+            />
+          )}
 
           {pesoPorAve != null && pesoEnPieAve != null && (
             <div className="flex items-center justify-between gap-3 rounded-xl bg-forest-50 px-4 py-3 text-sm text-forest-700">

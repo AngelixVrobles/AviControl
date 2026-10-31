@@ -1,5 +1,6 @@
 import type { Ingreso, Lote } from '../db/schema'
 import { money } from './format'
+import { resumenPesada } from './pesada'
 import type { Settings } from './settings'
 import { RINDE_ARREGLADO_PCT } from './standards'
 
@@ -64,6 +65,10 @@ export interface PreciosDeVenta {
   recientes: { arreglado: number[]; pie: number[] }
   /** El último precio de cada comprador, por su nombre en minúsculas. */
   porComprador: Map<string, { precio: number; arreglado: boolean }>
+  /** Sus cajas la última vez que se pesaron: cuánto pesa cada una y cuántos pollos llevaba. */
+  cajasDe: Map<string, { lbPorCaja?: number; pollosPorCaja?: number }>
+  /** La última venta se pesó por cajas: la próxima sale igual. */
+  porCajas: boolean
 }
 
 // Cada quien paga su precio: a uno se le vende a 65, a otro a 55, al compadre
@@ -75,15 +80,18 @@ export function preciosDeVenta(ingresos: Ingreso[], max = 4): PreciosDeVenta {
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado - a.creado)
   const recientes = { arreglado: [] as number[], pie: [] as number[] }
   const porComprador = new Map<string, { precio: number; arreglado: boolean }>()
+  const cajasDe = new Map<string, { lbPorCaja?: number; pollosPorCaja?: number }>()
   for (const i of ventas) {
+    const nombre = i.comprador?.trim().toLowerCase()
+    if (nombre && i.pesada && !cajasDe.has(nombre))
+      cajasDe.set(nombre, { lbPorCaja: resumenPesada(i.pesada).lbPorCaja, pollosPorCaja: i.pesada.pollosPorCaja })
     const precio = precioDe(i)
     if (precio == null) continue
     const lista = i.arreglado ? recientes.arreglado : recientes.pie
     if (lista.length < max && !lista.includes(precio)) lista.push(precio)
-    const nombre = i.comprador?.trim().toLowerCase()
     if (nombre && !porComprador.has(nombre)) porComprador.set(nombre, { precio, arreglado: !!i.arreglado })
   }
-  return { recientes, porComprador }
+  return { recientes, porComprador, cajasDe, porCajas: !!ventas[0]?.pesada }
 }
 
 // Lo que vale hoy lo que está en el galpón. Con el precio del ciclo, vendido
