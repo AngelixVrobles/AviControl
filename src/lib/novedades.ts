@@ -3,15 +3,12 @@
 // forma de enterarse. En Ajustes se puede volver a ver.
 
 export const NOVEDADES = {
-  version: '1.14',
+  version: '1.15',
   cosas: [
-    'Cada compra de alimento lleva el nombre del saco —«Mega Broiler Crecimiento»— y la app saca de ahí si es pre-inicio, iniciador, crecimiento o engorde. Si no lo adivina, tocas cuál es.',
-    'Los sacos se dan en orden: se acaba uno y sigue el próximo. Hoy dice qué alimento le estás dando, para cuántos días alcanza y cuál sigue; el registro del día lo trae puesto y lo cambias con «Cambiar».',
-    'Lo que falta por comprar se cuenta del tipo que toca y a lo último que pagaste por él: el engorde ya no sale al precio del pre-inicio. La ficha de Alimento lo junta por tipo.',
-    'Punto de venta compara el mejor día con el día de venta que elegiste, y dice cuánto va de uno a otro.',
-    'Fechas como «3 nov», montos como «156 mil» y el alimento en quintales (qq) en toda la app. La letra más chica es un poco más grande.',
-    'Fuera de Hoy, los avisos del ciclo van en un renglón; Dinero tiene un índice arriba para ir a cada parte.',
-    'La imagen para WhatsApp pone tu granja primero y la ganancia estimada en grande, y el PDF de un ciclo en curso ya no muestra una pérdida que no es.',
+    'La venta al pollero se anota como en el cuaderno: en «Pesar por cajas» pones las cajas vacías por grupos —6 cajas, 94 lb— y cada pesada llena, y la app saca las libras de pollo y el total. Si dices cuántos pollos van por caja, salen las aves.',
+    'La app recuerda cuánto pesan las cajas de cada pollero: si hoy salen muy distintas, se nota. Y si la última venta se pesó por cajas, la próxima abre igual.',
+    'Cada venta dice cuántas cajas fueron, y el Excel lleva lo que pesaron vacías y llenas, para cuadrar con el cuaderno.',
+    'Logo nuevo: el anillo del ciclo, del día 1 a la venta, con el pollito con el que empieza cada pollada.',
   ],
 }
 

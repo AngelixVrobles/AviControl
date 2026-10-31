@@ -228,7 +228,18 @@ export interface Ingreso {
   // el peso en pie que salió del galpón, que es el que cuentan la conversión y
   // el peso por ave.
   arreglado?: { rindePct: number }
+  // Cómo se pesó, si se pesó por cajas: las del pollero, vacías y llenas.
+  pesada?: Pesada
   creado: number
+}
+
+// La pesada como se hace en la granja: el pollero trae sus cajas, se pesan
+// vacías por grupos —6 cajas, 94 lb— y después llenas de pollo, las veces que
+// haga falta. Lo que se cobra son las libras llenas menos las de las cajas.
+export interface Pesada {
+  vacias: { cajas?: number; lb: number }[]
+  llenas: number[]
+  pollosPorCaja?: number
 }
 
 export type CategoriaDeuda = 'estructura' | 'equipo' | 'terreno' | 'otros'

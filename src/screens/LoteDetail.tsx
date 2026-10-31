@@ -13,6 +13,7 @@ import { retiroEn } from "../lib/retiro";
 import { armarCiclo } from "../lib/compartido";
 import { computeArranque, tituloArranque } from "../lib/arranque";
 import { alimentoPorTipo } from "../lib/alimentos";
+import { resumenPesada } from "../lib/pesada";
 import { porGravedad } from "../lib/alerts";
 import { TarjetaArranque } from "../components/Arranque";
 import { useVolver } from "../components/useVolver";
@@ -712,6 +713,9 @@ export function LoteDetail() {
                           {fecha(i.fecha)}
                           {i.cantidad > 0 ? ` · ${num(i.cantidad)} aves` : ""}
                           {i.pesoLb ? ` · ${numCorto(i.pesoLb, 1)} lb${i.arreglado ? " arregladas" : ""}` : ""}
+                          {i.pesada && resumenPesada(i.pesada).cajas > 0
+                            ? ` · ${num(resumenPesada(i.pesada).cajas)} cajas`
+                            : ""}
                         </div>
                       </div>
                       <span className="shrink-0 text-right tnum">

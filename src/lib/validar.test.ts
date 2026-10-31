@@ -90,3 +90,17 @@ describe('el pago de los empleados, lo que viene y la venta arreglada', () => {
     expect(revisarFilas('ingresos', [{ ...ingreso(), precioLb: 'sesenta' }])).toBeDefined()
   })
 })
+
+describe('la pesada por cajas', () => {
+  const pesada = { vacias: [{ cajas: 6, lb: 94 }, { lb: 94 }], llenas: [503, 534], pollosPorCaja: 10 }
+
+  it('pasa con la forma que guarda la app', () => {
+    expect(revisarFilas('ingresos', [ingreso({ pesoLb: 849, precioLb: 38, monto: 32262, pesada })])).toBeUndefined()
+  })
+
+  it('una pesada con libras en letras no pasa', () => {
+    expect(revisarFilas('ingresos', [{ ...ingreso(), pesada: { ...pesada, llenas: ['503', 534] } }])).toBeDefined()
+    expect(revisarFilas('ingresos', [{ ...ingreso(), pesada: { ...pesada, vacias: [{ cajas: 6 }] } }])).toBeDefined()
+    expect(revisarFilas('ingresos', [{ ...ingreso(), pesada: { vacias: [] } }])).toBeDefined()
+  })
+})

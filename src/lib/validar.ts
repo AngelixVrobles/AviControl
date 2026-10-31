@@ -41,6 +41,15 @@ const CADA_PAGO = ['dia', 'semana', 'quincena', 'mes', 'ciclo', 'ave']
 const esEmpleados = (v: unknown) =>
   v == null || (esObjeto(v) && esNum(v.monto) && CADA_PAGO.includes(v.cada as string))
 const esArreglado = (v: unknown) => v == null || (esObjeto(v) && esNum(v.rindePct))
+// La pesada por cajas: con una libra como texto, la venta cobraba «503534».
+const esPesada = (v: unknown) =>
+  v == null ||
+  (esObjeto(v) &&
+    Array.isArray(v.vacias) &&
+    v.vacias.every((g) => esObjeto(g) && esNum(g.lb) && esNumOpc(g.cajas)) &&
+    Array.isArray(v.llenas) &&
+    v.llenas.every(esNum) &&
+    esNumOpc(v.pollosPorCaja))
 
 const FASES_ALIMENTO_ID = ['preinicio', 'iniciador', 'crecimiento', 'engorde']
 const esFaseOpc = (v: unknown) => v == null || FASES_ALIMENTO_ID.includes(v as string)
@@ -80,7 +89,8 @@ const REVISAR: Record<Tabla, (f: Fila) => boolean> = {
     listaDe(i.cobros, esCobro) &&
     esTextoOpc(i.galponId) &&
     esNumOpc(i.precioLb) &&
-    esArreglado(i.arreglado),
+    esArreglado(i.arreglado) &&
+    esPesada(i.pesada),
   pesajes: (p) => esId(p.loteId) && esFecha(p.fecha) && Array.isArray(p.pesos) && p.pesos.every(esNum),
   aplicaciones: (a) => esId(a.loteId) && esFecha(a.fecha) && esTexto(a.nombre),
   deudas: (d) => esTexto(d.concepto) && esNum(d.monto) && esFecha(d.fecha) && listaDe(d.socios, esSocio),

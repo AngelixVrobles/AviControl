@@ -104,6 +104,34 @@ describe('preciosDeVenta', () => {
   })
 })
 
+describe('las cajas de cada pollero', () => {
+  // Nenel trae sus cajas de 15.5 lb y le caben 10 pollos.
+  const ventas = [
+    ingreso({
+      id: 1,
+      fecha: hace(9),
+      comprador: 'Nenel',
+      pesoLb: 387,
+      monto: 14700,
+      precioLb: 38,
+      pesada: { vacias: [{ cajas: 4, lb: 62 }], llenas: [233, 216], pollosPorCaja: 10 },
+    }),
+    ingreso({ id: 2, fecha: hace(2), comprador: 'Ana', pesoLb: 10, monto: 600, precioLb: 60 }),
+  ]
+
+  it('recuerda lo que pesa cada caja y cuántos pollos llevaba', () => {
+    const p = preciosDeVenta(ventas)
+    expect(p.cajasDe.get('nenel')).toEqual({ lbPorCaja: 15.5, pollosPorCaja: 10 })
+    expect(p.cajasDe.has('ana')).toBe(false)
+  })
+
+  // Quien vende por cajas sigue igual: la hoja abre con la pesada puesta.
+  it('si la última venta se pesó por cajas, la próxima también', () => {
+    expect(preciosDeVenta(ventas).porCajas).toBe(false)
+    expect(preciosDeVenta([...ventas, { ...ventas[0], id: 3, fecha: hace(0) }]).porCajas).toBe(true)
+  })
+})
+
 describe('valorHoy', () => {
   const arreglado = { arreglado: true, rinde: 0.75, costoAve: 10 }
 

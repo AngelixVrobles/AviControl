@@ -14,6 +14,7 @@ import { precioDe } from './venta'
 import { alimentoPorTipo, faseDeCompra, nombreFase } from './alimentos'
 import type { FaseId } from './standards'
 import type { Celda, Hoja } from './xlsx'
+import { resumenPesada } from './pesada'
 
 export interface DatosDelCiclo {
   lote: Lote
@@ -126,6 +127,9 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
       'Monto',
       'Cobrado',
       'Falta',
+      'Cajas',
+      'Cajas vacías (lb)',
+      'Cajas con pollo (lb)',
       ...(enVarios ? ['Galpón'] : []),
     ],
     ...porFecha(d.ingresos).map((i) => [
@@ -139,6 +143,10 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
       i.monto,
       redondo(cobradoDe(i)),
       redondo(pendienteDe(i)) || undefined,
+      // La pesada por cajas, para cuadrar con el cuaderno.
+      ...(i.pesada
+        ? ((r) => [r.cajas || undefined, r.tara, r.bruto])(resumenPesada(i.pesada))
+        : [undefined, undefined, undefined]),
       ...(enVarios ? [i.tipo === 'aves' ? galpon(i.galponId) : undefined] : []),
     ]),
   ]
