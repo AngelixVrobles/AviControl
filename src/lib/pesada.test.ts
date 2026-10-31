@@ -10,14 +10,17 @@ import {
   resumenPesada,
 } from './pesada'
 
-// Las cuatro ventas de una página del cuaderno de la granja, a RD$38 la libra.
+// Las cinco ventas de una página del cuaderno de la granja, a RD$38 la libra.
 const cuaderno = {
   // Dos grupos de 6 cajas vacías, 94 lb cada uno; llenas, 503 y 534.
   primera: { vacias: [{ cajas: 6, lb: 94 }, { cajas: 6, lb: 94 }], llenas: [503, 534] },
   // Dos grupos pesados cada uno lleno y vacío: 273 − 45 y 318 − 62.
   pequenaCaja: { vacias: [{ cajas: 4, lb: 45 }, { cajas: 5, lb: 62 }], llenas: [273, 318] },
-  // 4 cajas de 62 lb; llenas en dos pesadas, 233 y 216.
+  // 4 cajas de 62 lb; llenas en dos pesadas, 233 y 216. 387 × 38 da 14,706:
+  // en el cuaderno quedó en 14,700.
   nenel: { vacias: [{ cajas: 4, lb: 62 }], llenas: [233, 216] },
+  // 5 cajas de 57 lb; llenas, 203 y 140.
+  cuarta: { vacias: [{ cajas: 5, lb: 57 }], llenas: [203, 140] },
   // 11 cajas, 3 y 8; llenas en cuatro pesadas.
   ultima: { vacias: [{ cajas: 3, lb: 36 }, { cajas: 8, lb: 92 }], llenas: [209, 211, 215, 142] },
 }
@@ -29,6 +32,8 @@ describe('resumenPesada', () => {
     expect(Math.round(r.neto * 38)).toBe(32262)
     expect(resumenPesada(cuaderno.pequenaCaja).neto * 38).toBe(18392)
     expect(resumenPesada(cuaderno.nenel).neto).toBe(387)
+    expect(resumenPesada(cuaderno.cuarta)).toMatchObject({ cajas: 5, tara: 57, bruto: 343, neto: 286 })
+    expect(resumenPesada(cuaderno.cuarta).neto * 38).toBe(10868)
     expect(resumenPesada(cuaderno.ultima)).toMatchObject({ cajas: 11, tara: 128, bruto: 777, neto: 649 })
     expect(resumenPesada(cuaderno.ultima).neto * 38).toBe(24662)
   })
