@@ -16,7 +16,14 @@ import { precioCorto, precioSugerido, rindeValido } from '../../lib/venta'
 import { useEnvio } from '../useEnvio'
 import { ComoSalioElPollo, DatosDePago, PreciosUsados } from '../Venta'
 import { BotonPesada, PesadaPorCajas } from '../Pesada'
-import { errorPesada, leerPesada, librasDePesada, pesadaNueva, type PesadaEnEdicion } from '../../lib/pesada'
+import {
+  errorPesada,
+  leerPesada,
+  librasDePesada,
+  pesadaNueva,
+  resumenPesada,
+  type PesadaEnEdicion,
+} from '../../lib/pesada'
 import { AvisoRetiro } from './AvisoRetiro'
 import { DatoCierre, FilaContraste } from './Contraste'
 
@@ -205,6 +212,15 @@ export function CierreSheet({
           : undefined
   const reparto = gananciaPorSocio([{ socios: lote.socios, ganancia }])
 
+  // Aquí las aves se saben: lo que llevó cada caja queda como la cuenta de ese
+  // pollero para la próxima venta.
+  function pesadaAGuardar() {
+    if (!pesadaLeida || !(pesadaLeida.llenas.length > 0 || pesadaLeida.vacias.length > 0)) return undefined
+    const cajas = resumenPesada(pesadaLeida).cajas
+    const porCaja = cajas > 0 && nAves > 0 ? Math.round(nAves / cajas) : 0
+    return porCaja > 0 ? { ...pesadaLeida, pollosPorCaja: porCaja } : pesadaLeida
+  }
+
   async function guardar() {
     const quien = recibidoPor !== '' ? Number(recibidoPor) : undefined
     await db.transaction('rw', db.ingresos, db.lotes, async () => {
@@ -215,8 +231,7 @@ export function CierreSheet({
         pesoLb: lbTotal || undefined,
         precioLb: precioLb > 0 ? precioLb : undefined,
         arreglado: arreglado ? { rindePct: rinde } : undefined,
-        pesada:
-          pesadaLeida && (pesadaLeida.llenas.length > 0 || pesadaLeida.vacias.length > 0) ? pesadaLeida : undefined,
+        pesada: pesadaAGuardar(),
         monto: montoFinal,
         fecha,
         comprador: comprador.trim() || undefined,

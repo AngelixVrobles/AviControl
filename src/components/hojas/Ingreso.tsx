@@ -13,16 +13,18 @@ import { retiroEn } from '../../lib/retiro'
 import { galponInicial, nombreDeGalpon } from '../../lib/galpones'
 import { avesPorGalpon, repartido } from '../../lib/reparto'
 import { precioCorto, precioDe, precioSugerido, rindeValido } from '../../lib/venta'
-import { RINDE_ARREGLADO_PCT } from '../../lib/standards'
+import { pesoEstandarLb, RINDE_ARREGLADO_PCT } from '../../lib/standards'
 import { Interruptor } from '../Socios'
 import { useEnvio } from '../useEnvio'
 import { ComoSalioElPollo, DatosDePago, PreciosUsados } from '../Venta'
-import { BotonPesada, PesadaPorCajas } from '../Pesada'
+import { AvesDeLaPesada, BotonPesada, PesadaPorCajas, type FuenteAves } from '../Pesada'
 import {
   aEdicion,
+  avesPorPeso,
   errorPesada,
   leerPesada,
   librasDePesada,
+  POLLOS_POR_CAJA,
   pesadaNueva,
   resumenPesada,
   type PesadaEnEdicion,
@@ -79,8 +81,11 @@ export function IngresoSheet({
   // La pesada por cajas, si se pesó así: las libras salen de ella.
   const [pesada, setPesada] = useState<PesadaEnEdicion | null>(null)
   const [pesadaTocada, setPesadaTocada] = useState(false)
-  // Las aves que salen de las cajas no pisan las que se escribieron a mano.
-  const [avesTocadas, setAvesTocadas] = useState(false)
+  // De dónde salen las aves: de las cajas, del peso, o escritas a mano. Las
+  // que salen de la pesada no pisan las que se escribieron.
+  const [avesDe, setAvesDe] = useState<FuenteAves>('cajas')
+  // Los pollos por caja que se escribieron no los cambia el comprador.
+  const [ppcTocado, setPpcTocado] = useState(false)
   const settings = useSettings()
   const modo = useModoVenta()
   const precios = usePreciosDeVenta()
@@ -105,15 +110,17 @@ export function IngresoSheet({
     setGalponVenta(editar?.galponId ?? '')
     setPesada(editar?.pesada ? aEdicion(editar.pesada) : null)
     setPesadaTocada(false)
-    setAvesTocadas(!!editar)
+    setAvesDe(editar ? 'mano' : 'cajas')
+    setPpcTocado(!!editar)
   }, [open, editar, lote.precioVentaLb, modo.arreglado])
 
   // Quien le vende al pollero por cajas sigue igual: si la última venta se pesó
   // así, la hoja abre con la pesada puesta.
   useEffect(() => {
     if (!open || editar || pesadaTocada || !precios?.porCajas) return
-    setPesada((p) => p ?? pesadaNueva())
-  }, [open, editar, pesadaTocada, precios?.porCajas])
+    const porCaja = String(precios.pollosPorCaja)
+    setPesada((p) => p ?? { ...pesadaNueva(), pollosPorCaja: porCaja })
+  }, [open, editar, pesadaTocada, precios?.porCajas, precios?.pollosPorCaja])
 
   // Con la pollada repartida, de qué galpón salen: vendidas las 350 del galpón
   // 2, ese galpón queda vacío y el espacio del otro sigue igual. Sin decirlo,
@@ -158,17 +165,38 @@ export function IngresoSheet({
     recalcular(lb, p)
   }
 
-  function cambiarPesada(v: PesadaEnEdicion) {
+  // Las aves de la pesada según de dónde se tomen: las cajas por los pollos de
+  // cada una, o las libras entre lo que pesa cada pollo. Si falta una, la otra.
+  function avesSegun(v: PesadaEnEdicion, fuente: FuenteAves): number | undefined {
+    if (fuente === 'mano') return undefined
+    const p = leerPesada(v)
+    const porCajas = resumenPesada(p).aves
+    const porPeso = avesPorPeso(librasDePesada(p), pesoAveVenta)
+    return fuente === 'cajas' ? (porCajas ?? porPeso) : (porPeso ?? porCajas)
+  }
+  function cambiarPesada(v: PesadaEnEdicion, fuente = avesDe) {
     setPesada(v)
     setPesadaTocada(true)
-    const p = leerPesada(v)
-    recalcular(librasDePesada(p), precioLb)
-    const aves = resumenPesada(p).aves
-    if (!avesTocadas && aves) setCantidad(String(aves))
+    recalcular(librasDePesada(leerPesada(v)), precioLb)
+    const n = avesSegun(v, fuente)
+    if (n) setCantidad(String(n))
+  }
+  function elegirAves(fuente: 'cajas' | 'peso') {
+    setAvesDe(fuente)
+    const n = pesada ? avesSegun(pesada, fuente) : undefined
+    if (n) setCantidad(String(n))
+  }
+  // Cambiar los pollos por caja es decir que se cuenta por cajas.
+  function cambiarPollosPorCaja(t: string) {
+    if (!pesada) return
+    setPpcTocado(true)
+    setAvesDe('cajas')
+    cambiarPesada({ ...pesada, pollosPorCaja: t }, 'cajas')
   }
   function abrirPesada() {
     setPesadaTocada(true)
-    setPesada({ ...pesadaNueva(), pollosPorCaja: cajasDel?.pollosPorCaja ? String(cajasDel.pollosPorCaja) : '' })
+    const porCaja = cajasDel?.pollosPorCaja ?? precios?.pollosPorCaja ?? POLLOS_POR_CAJA
+    setPesada({ ...pesadaNueva(), pollosPorCaja: String(porCaja) })
   }
   // Sin la pesada, el peso que dio se queda escrito.
   function quitarPesada() {
@@ -193,8 +221,13 @@ export function IngresoSheet({
       : undefined
   function elegirComprador(nombre: string) {
     setComprador(nombre)
-    if (editar || precioTocado) return
     const clave = nombre.trim().toLowerCase()
+    // Cada pollero con su costumbre: si suele cargar 13 por caja, sale 13; uno
+    // que no se conoce, lo de la granja.
+    const porCaja = precios?.cajasDe.get(clave)?.pollosPorCaja ?? precios?.pollosPorCaja ?? POLLOS_POR_CAJA
+    if (pesada && !ppcTocado && String(porCaja) !== pesada.pollosPorCaja)
+      cambiarPesada({ ...pesada, pollosPorCaja: String(porCaja) })
+    if (editar || precioTocado) return
     const suyo = precios?.porComprador.get(clave)
     if (suyo) {
       setDeComprador(clave)
@@ -217,6 +250,30 @@ export function IngresoSheet({
   // de la granja.
   const rinde =
     editar?.arreglado?.rindePct ?? (rindeValido(settings.rindePct) ? settings.rindePct : RINDE_ARREGLADO_PCT)
+  // Lo que pesa cada pollo el día de la venta, por el último pesaje y la curva
+  // del lote: con eso salen las aves por el peso. Sin pesajes no se estima.
+  const pesoVivoAve =
+    metrics.pesoEstimadoLb == null
+      ? undefined
+      : fecha === hoyISO()
+        ? metrics.pesoEstimadoLb
+        : pesoEstandarLb(diasEntre(lote.fechaInicio, fecha)) * metrics.factorCurva
+  const pesoAveVenta = pesoVivoAve != null && arreglado ? pesoVivoAve * (rinde / 100) : pesoVivoAve
+  const resumenP = pesadaLeida ? resumenPesada(pesadaLeida) : undefined
+  const porCajasP = resumenP?.aves
+  const porPesoP = pesadaLeida ? avesPorPeso(lb, pesoAveVenta) : undefined
+  // La cuenta que está puesta: la que se eligió, o la otra si esa falta.
+  const avesElegidas: FuenteAves =
+    avesDe === 'mano'
+      ? 'mano'
+      : avesDe === 'cajas'
+        ? porCajasP != null
+          ? 'cajas'
+          : 'peso'
+        : porPesoP != null
+          ? 'peso'
+          : 'cajas'
+  const avesDeLaPesada = avesDe !== 'mano' && (avesElegidas === 'cajas' ? porCajasP : porPesoP) != null
   const dio = Math.min(Number(adelanto) || 0, total)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && (!!editar || dio < total)
@@ -231,6 +288,16 @@ export function IngresoSheet({
   // 65, sube lo que falta.
   const faltaAhora = Math.max(0, total - yaCobrado)
 
+  // Lo que se guarda de pollos por caja es lo que de verdad llevaron: si las
+  // aves salieron del peso o se escribieron, las aves entre las cajas. Así el
+  // pollero que sobrecarga queda con su cuenta para la próxima venta.
+  function pesadaAGuardar() {
+    if (!pesadaLeida || !(pesadaLeida.llenas.length > 0 || pesadaLeida.vacias.length > 0)) return undefined
+    const cajas = resumenP?.cajas ?? 0
+    const porCaja = cajas > 0 && nAves > 0 ? Math.round(nAves / cajas) : 0
+    return avesElegidas !== 'cajas' && porCaja > 0 ? { ...pesadaLeida, pollosPorCaja: porCaja } : pesadaLeida
+  }
+
   async function guardar() {
     const quien = recibidoPor !== '' ? Number(recibidoPor) : undefined
     const datos = {
@@ -240,8 +307,7 @@ export function IngresoSheet({
       pesoLb: pesada ? (lb > 0 ? lb : undefined) : pesoLb ? Number(pesoLb) : undefined,
       precioLb: precioLb > 0 ? precioLb : undefined,
       arreglado: arreglado ? { rindePct: rinde } : undefined,
-      pesada:
-        pesadaLeida && (pesadaLeida.llenas.length > 0 || pesadaLeida.vacias.length > 0) ? pesadaLeida : undefined,
+      pesada: pesadaAGuardar(),
       monto: total,
       fecha,
       comprador: comprador.trim() || undefined,
@@ -350,8 +416,10 @@ export function IngresoSheet({
           <Field
             label="Nº de aves"
             hint={
-              !avesTocadas && pesadaLeida && resumenPesada(pesadaLeida).aves
-                ? 'Salen de las cajas'
+              avesDeLaPesada
+                ? avesElegidas === 'peso'
+                  ? 'Salen del peso'
+                  : 'Salen de las cajas'
                 : !editar && lote.estado === 'activo'
                   ? `Tienes ${num(metrics.avesVivas)} vivas`
                   : undefined
@@ -365,7 +433,7 @@ export function IngresoSheet({
               value={cantidad}
               onChange={(e) => {
                 setCantidad(e.target.value)
-                setAvesTocadas(true)
+                setAvesDe('mano')
               }}
               aria-invalid={!!errorAves}
             />
@@ -389,7 +457,26 @@ export function IngresoSheet({
             />
           </Field>
           {pesada ? (
-            <PesadaPorCajas valor={pesada} onCambio={cambiarPesada} onQuitar={quitarPesada} pista={pistaCajas} />
+            <PesadaPorCajas
+              valor={pesada}
+              onCambio={(v) => cambiarPesada(v)}
+              onQuitar={quitarPesada}
+              pista={pistaCajas}
+            >
+              <AvesDeLaPesada
+                cajas={resumenP?.cajas ?? 0}
+                pollosPorCaja={pesada.pollosPorCaja}
+                onPollosPorCaja={cambiarPollosPorCaja}
+                porCajas={porCajasP}
+                porPeso={porPesoP}
+                netoLb={lb}
+                pesoAveLb={pesoAveVenta}
+                diasDesdePeso={metrics.diasDesdePeso}
+                arreglado={arreglado}
+                elegida={avesElegidas}
+                onElegir={elegirAves}
+              />
+            </PesadaPorCajas>
           ) : (
             <BotonPesada onClick={abrirPesada} />
           )}

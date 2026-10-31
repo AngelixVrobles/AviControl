@@ -1,6 +1,6 @@
 import type { Ingreso, Lote } from '../db/schema'
 import { money } from './format'
-import { resumenPesada } from './pesada'
+import { POLLOS_POR_CAJA, resumenPesada } from './pesada'
 import type { Settings } from './settings'
 import { RINDE_ARREGLADO_PCT } from './standards'
 
@@ -69,6 +69,8 @@ export interface PreciosDeVenta {
   cajasDe: Map<string, { lbPorCaja?: number; pollosPorCaja?: number }>
   /** La última venta se pesó por cajas: la próxima sale igual. */
   porCajas: boolean
+  /** Los pollos por caja de costumbre en la granja: 10, o lo que ponga la mayoría de los polleros. */
+  pollosPorCaja: number
 }
 
 // Cada quien paga su precio: a uno se le vende a 65, a otro a 55, al compadre
@@ -81,17 +83,33 @@ export function preciosDeVenta(ingresos: Ingreso[], max = 4): PreciosDeVenta {
   const recientes = { arreglado: [] as number[], pie: [] as number[] }
   const porComprador = new Map<string, { precio: number; arreglado: boolean }>()
   const cajasDe = new Map<string, { lbPorCaja?: number; pollosPorCaja?: number }>()
+  // Cuántos polleros van con cada cuenta de pollos por caja, cada uno con la
+  // suya de la última vez; una venta sin nombre cuenta sola.
+  const cuentas = new Map<number, number>()
   for (const i of ventas) {
     const nombre = i.comprador?.trim().toLowerCase()
-    if (nombre && i.pesada && !cajasDe.has(nombre))
-      cajasDe.set(nombre, { lbPorCaja: resumenPesada(i.pesada).lbPorCaja, pollosPorCaja: i.pesada.pollosPorCaja })
+    if (i.pesada && !(nombre && cajasDe.has(nombre))) {
+      const ppc = i.pesada.pollosPorCaja
+      if (nombre) cajasDe.set(nombre, { lbPorCaja: resumenPesada(i.pesada).lbPorCaja, pollosPorCaja: ppc })
+      if (ppc) cuentas.set(ppc, (cuentas.get(ppc) ?? 0) + 1)
+    }
     const precio = precioDe(i)
     if (precio == null) continue
     const lista = i.arreglado ? recientes.arreglado : recientes.pie
     if (lista.length < max && !lista.includes(precio)) lista.push(precio)
     if (nombre && !porComprador.has(nombre)) porComprador.set(nombre, { precio, arreglado: !!i.arreglado })
   }
-  return { recientes, porComprador, cajasDe, porCajas: !!ventas[0]?.pesada }
+  // Lo de la granja: 10 por caja, salvo que más polleros vayan con otra cuenta,
+  // y al menos dos: el que sobrecarga, solo, no la mueve; si casi todos ponen
+  // 12, va en 12. Si empatan, la menor: el que sobrecarga pone más, no menos.
+  let pollosPorCaja = POLLOS_POR_CAJA
+  let polleros = cuentas.get(POLLOS_POR_CAJA) ?? 0
+  for (const [ppc, n] of cuentas)
+    if (n >= 2 && (n > polleros || (n === polleros && ppc < pollosPorCaja))) {
+      pollosPorCaja = ppc
+      polleros = n
+    }
+  return { recientes, porComprador, cajasDe, porCajas: !!ventas[0]?.pesada, pollosPorCaja }
 }
 
 // Lo que vale hoy lo que está en el galpón. Con el precio del ciclo, vendido
