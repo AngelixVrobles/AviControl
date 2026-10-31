@@ -10,11 +10,14 @@ import { alimentoEn, fecha, hoyISO, money, num, pct, plural } from "../../lib/fo
 import { LB_POR_QUINTAL } from "../../lib/standards";
 import { nombreFase, type AlimentoPorTipo } from "../../lib/alimentos";
 import { confirmar, toast } from "../../components/confirm";
+import { cuadrarVentas } from "../../db/cuadre";
 import { Banda, Seccion } from "../../components/ui";
 
 // Se vendieron todas las aves con «Venta», o no queda ninguna: el ciclo sigue
 // abierto y pedía el registro del día. Aquí se cierra con la fecha de la última
 // venta, sin proyección que guardar: con el galpón vacío ya no hay qué proyectar.
+// Las ventas con aves estimadas se cuadran con los pollos que salieron, como en
+// cualquier cierre: si se estimaron de más, aquí se ajustan.
 export function CerrarSinAves({
   lote,
   metrics,
@@ -39,9 +42,12 @@ export function CerrarSinAves({
       confirmar: "Cerrar el ciclo",
     });
     if (!ok) return;
-    await db.lotes.update(lote.id, {
-      estado: "cerrado",
-      fechaCierre: ultima ?? hoyISO(),
+    await db.transaction("rw", db.ingresos, db.lotes, async () => {
+      await cuadrarVentas(lote, metrics.bajas);
+      await db.lotes.update(lote.id, {
+        estado: "cerrado",
+        fechaCierre: ultima ?? hoyISO(),
+      });
     });
     toast(`Ciclo cerrado · ${money(metrics.ganancia)}`);
   }

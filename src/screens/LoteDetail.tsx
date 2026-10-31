@@ -41,6 +41,7 @@ import {
   ActionButton,
   CierreSheet,
   CobroSheet,
+  CuadreSheet,
   ComoVendesSheet,
   DiaVentaSheet,
   EmpleadosSheet,
@@ -62,6 +63,7 @@ type SheetKind =
   | "gasto"
   | "ingreso"
   | "cierre"
+  | "cuadre"
   | "lote"
   | "cobro"
   | "empleados"
@@ -161,6 +163,10 @@ export function LoteDetail() {
   const positivo = metrics.ganancia >= 0;
   // Activo con el galpón vacío: en vez de los botones del día, cerrar el ciclo.
   const vacio = lote.estado === "activo" && sinAves(metrics);
+  // Ya se vendió y la app todavía cree que quedan pollos: si salió el último,
+  // las aves de las ventas se cuadran con las que salieron.
+  const puedeCuadrar =
+    lote.estado === "activo" && !vacio && metrics.vendidas > 0 && !lote.compartido;
   // Un ciclo que mandó un socio se mira y no se toca: lo lleva él.
   const soloVer = !!lote.compartido;
   const arranque = computeArranque(lote, registros, metrics.dias);
@@ -711,7 +717,7 @@ export function LoteDetail() {
                         </div>
                         <div className="text-xs text-ink-faint tnum">
                           {fecha(i.fecha)}
-                          {i.cantidad > 0 ? ` · ${num(i.cantidad)} aves` : ""}
+                          {i.cantidad > 0 ? ` · ${i.avesEstimadas ? "unas " : ""}${num(i.cantidad)} aves` : ""}
                           {i.pesoLb ? ` · ${numCorto(i.pesoLb, 1)} lb${i.arreglado ? " arregladas" : ""}` : ""}
                           {i.pesada && resumenPesada(i.pesada).cajas > 0
                             ? ` · ${num(resumenPesada(i.pesada).cajas)} cajas`
@@ -731,6 +737,19 @@ export function LoteDetail() {
                     </button>
                   ))}
               </Banda>
+              {/* Las ventas por libras casi nunca se cuentan: cuando sale el
+                  último pollo, la app cuadra sus aves con las que salieron. */}
+              {puedeCuadrar && ingresos.some((i) => i.tipo === "aves" && i.avesEstimadas) && (
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-xs leading-relaxed text-ink-faint">
+                    Las aves que dicen «unas» son estimadas. Cuando salga el último pollo, la app las
+                    cuadra por sus libras.
+                  </p>
+                  <Button variant="soft" className="shrink-0 px-4 py-2 text-sm" onClick={() => abrir("cuadre")}>
+                    Ya no quedan pollos
+                  </Button>
+                </div>
+              )}
             </>
           )}
 
@@ -812,11 +831,18 @@ export function LoteDetail() {
                   Le llega un archivo que abre en su AviControl, en Ajustes: ve todo el ciclo,
                   sin poder cambiarlo.
                 </p>
-                <div className="flex justify-center">
+                <div className="flex flex-wrap justify-center">
                   {lote.estado === "activo" ? (
-                    <Button variant="ghost" onClick={() => abrir("cierre")}>
-                      Vender y cerrar ciclo
-                    </Button>
+                    <>
+                      <Button variant="ghost" onClick={() => abrir("cierre")}>
+                        Vender y cerrar ciclo
+                      </Button>
+                      {puedeCuadrar && (
+                        <Button variant="ghost" onClick={() => abrir("cuadre")}>
+                          Ya no quedan pollos
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <Button variant="ghost" onClick={reabrir}>
                       Reabrir ciclo
@@ -850,6 +876,15 @@ export function LoteDetail() {
             aplicaciones={aplicaciones}
             open={sheet === "cierre"}
             onClose={() => setSheet(null)}
+            onSinPollos={() => setSheet("cuadre")}
+          />
+          <CuadreSheet
+            lote={lote}
+            metrics={metrics}
+            ingresos={ingresos}
+            open={sheet === "cuadre"}
+            onClose={() => setSheet(null)}
+            onAnotarBajas={() => abrir("registro")}
           />
           <PesajeSheet
             lote={lote}

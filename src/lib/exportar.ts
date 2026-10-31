@@ -127,6 +127,7 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
       'Monto',
       'Cobrado',
       'Falta',
+      'Aves estimadas',
       'Cajas',
       'Cajas vacías (lb)',
       'Cajas con pollo (lb)',
@@ -143,6 +144,8 @@ export function hojasDelCiclo(d: DatosDelCiclo, granja: string, galpones: Galpon
       i.monto,
       redondo(cobradoDe(i)),
       redondo(pendienteDe(i)) || undefined,
+      // Las que no se contaron: de las cajas, del peso o cuadradas al cerrar.
+      i.tipo === 'aves' && i.avesEstimadas ? 'Sí' : undefined,
       // La pesada por cajas, para cuadrar con el cuaderno.
       ...(i.pesada
         ? ((r) => [r.cajas || undefined, r.tara, r.bruto])(resumenPesada(i.pesada))

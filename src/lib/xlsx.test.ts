@@ -125,8 +125,29 @@ describe('la venta pesada por cajas', () => {
       'Granja',
     )
     const ventas = hojas.find((h) => h.nombre === 'Ventas')!
-    expect(ventas.filas[0].slice(-3)).toEqual(['Cajas', 'Cajas vacías (lb)', 'Cajas con pollo (lb)'])
+    expect(ventas.filas[0].slice(-4)).toEqual(['Aves estimadas', 'Cajas', 'Cajas vacías (lb)', 'Cajas con pollo (lb)'])
     expect(ventas.filas[1].slice(-3)).toEqual([12, 188, 1037])
+  })
+
+  it('dice qué ventas llevan las aves estimadas, sin contar', () => {
+    const l = lote()
+    const ingresos = [
+      ingreso({ id: 1, cantidad: 120, pesoLb: 849, monto: 32262, avesEstimadas: true }),
+      ingreso({ id: 2, cantidad: 40, pesoLb: 387, monto: 14700 }),
+    ]
+    const m = computeMetrics(l, [], [], ingresos)
+    const hojas = hojasDelCiclo(
+      { lote: l, registros: [], pesajes: [], gastos: [], ingresos, aplicaciones: [], entregas: [], metrics: m },
+      'Granja',
+    )
+    const ventas = hojas.find((h) => h.nombre === 'Ventas')!
+    const col = ventas.filas[0].indexOf('Aves estimadas')
+    expect(ventas.filas.slice(1).map((f) => [f[4], f[col]])).toEqual(
+      expect.arrayContaining([
+        [120, 'Sí'],
+        [40, undefined],
+      ]),
+    )
   })
 })
 
