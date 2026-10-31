@@ -29,7 +29,10 @@ import {
   resumenPesada,
   type PesadaEnEdicion,
 } from '../../lib/pesada'
+import { avesQueSalieron, cuadrarAves } from '../../lib/cuadre'
+import { cuadrarVentas } from '../../db/cuadre'
 import { AvisoRetiro } from './AvisoRetiro'
+import { AvisoCuadre } from './Cuadre'
 
 export function IngresoSheet({
   lote,
@@ -70,6 +73,9 @@ export function IngresoSheet({
   const [fecha, setFecha] = useState(hoyISO())
   const [recibidoPor, setRecibidoPor] = useState('')
   const [cerrar, setCerrar] = useState(true)
+  // La venta que no se lleva todas las que la app cree que quedan, pero con la
+  // que se acaban los pollos: las que faltan se cuadran y el ciclo se cierra.
+  const [seAcaban, setSeAcaban] = useState(false)
   const [galponVenta, setGalponVenta] = useState('')
   // Arreglado, las libras son las del pollo limpio y el precio el de esa libra.
   const [arreglado, setArreglado] = useState(false)
@@ -86,6 +92,8 @@ export function IngresoSheet({
   const [avesDe, setAvesDe] = useState<FuenteAves>('cajas')
   // Los pollos por caja que se escribieron no los cambia el comprador.
   const [ppcTocado, setPpcTocado] = useState(false)
+  // Las aves que se escribieron en esta hoja se contaron.
+  const [avesEscritas, setAvesEscritas] = useState(false)
   const settings = useSettings()
   const modo = useModoVenta()
   const precios = usePreciosDeVenta()
@@ -104,6 +112,7 @@ export function IngresoSheet({
     setFecha(editar?.fecha ?? hoyISO())
     setRecibidoPor(editar?.recibidoPor != null ? String(editar.recibidoPor) : '')
     setCerrar(true)
+    setSeAcaban(false)
     setComprador(editar?.comprador ?? '')
     setCredito(!!editar?.credito)
     setAdelanto('')
@@ -112,6 +121,7 @@ export function IngresoSheet({
     setPesadaTocada(false)
     setAvesDe(editar ? 'mano' : 'cajas')
     setPpcTocado(!!editar)
+    setAvesEscritas(false)
   }, [open, editar, lote.precioVentaLb, modo.arreglado])
 
   // Quien le vende al pollero por cajas sigue igual: si la última venta se pesó
@@ -136,17 +146,6 @@ export function IngresoSheet({
   const nAves = Math.round(Number(cantidad) || 0)
   const vendeTodo =
     !editar && lote.estado === 'activo' && metrics.avesVivas > 0 && nAves >= metrics.avesVivas
-  // No se venden aves que no hay, ni menos de cero: una venta de −200 aves
-  // «creaba» aves en el galpón. Al corregir, las de esta venta vuelven a contar.
-  const maxAves = metrics.avesVivas + (editar?.tipo === 'aves' ? editar.cantidad : 0)
-  const errorAves =
-    cantidad === ''
-      ? undefined
-      : nAves < 0
-        ? 'No puede ser negativo.'
-        : lote.estado === 'activo' && nAves > maxAves
-          ? `Solo hay ${num(maxAves)} ${plural(maxAves, 'ave', 'aves')} en el galpón.`
-          : undefined
   const pesadaLeida = pesada ? leerPesada(pesada) : undefined
   const errPesada = pesada ? errorPesada(pesada) : undefined
   const errorPeso = pesada ? undefined : errorNegativo(pesoLb)
@@ -274,6 +273,52 @@ export function IngresoSheet({
           ? 'peso'
           : 'cajas'
   const avesDeLaPesada = avesDe !== 'mano' && (avesElegidas === 'cajas' ? porCajasP : porPesoP) != null
+  // Las aves no se contaron si salieron de la pesada, o si al corregir la venta
+  // no se tocaron y ya eran estimadas: al cerrar el ciclo se cuadran.
+  const avesEstimadas = avesDeLaPesada || (!!editar?.avesEstimadas && !avesEscritas && avesDe === 'mano')
+
+  // Si con esta venta se vacía el galpón, las ventas con aves estimadas se
+  // cuadran con los pollos que salieron, según sus libras. Por eso la última
+  // puede llevarse más de los que la app creía que quedaban, o menos y cerrar
+  // igual: la diferencia se reparte entre las estimadas.
+  const quedarian = metrics.avesVivas - nAves
+  const salieron = avesQueSalieron(lote, metrics.bajas)
+  // Solo al final: lo que la app cree que queda después de esta venta es lo
+  // que no se contó, un poco de lo que salió. Con 3,000 en el galpón no se
+  // pregunta si se acabaron.
+  const puedeAcabar =
+    !editar && lote.estado === 'activo' && nAves > 0 && quedarian > 0 && quedarian <= salieron * 0.25
+  const ventasAlCerrar: Ingreso[] =
+    vendeTodo || puedeAcabar
+      ? [
+          ...otrasVentas.filter((i) => i.tipo === 'aves'),
+          {
+            id: 0,
+            tipo: 'aves',
+            cantidad: nAves,
+            pesoLb: lb > 0 ? lb : undefined,
+            arreglado: arreglado ? { rindePct: rinde } : undefined,
+            avesEstimadas,
+            monto: total,
+            fecha,
+            creado: 0,
+          },
+        ]
+      : []
+  const cuadreAlCerrar = ventasAlCerrar.length ? cuadrarAves(lote, ventasAlCerrar, salieron) : undefined
+  const cuadraOtras = !!cuadreAlCerrar?.cantidades.some((c, k) => c !== ventasAlCerrar[k].cantidad)
+  const cierraConEsta = vendeTodo ? cerrar : puedeAcabar && seAcaban && !!cuadreAlCerrar
+  // No se venden aves que no hay, ni menos de cero: una venta de −200 aves
+  // «creaba» aves en el galpón. Al corregir, las de esta venta vuelven a contar.
+  const maxAves = metrics.avesVivas + (editar?.tipo === 'aves' ? editar.cantidad : 0)
+  const errorAves =
+    cantidad === ''
+      ? undefined
+      : nAves < 0
+        ? 'No puede ser negativo.'
+        : lote.estado === 'activo' && nAves > maxAves && !(cierraConEsta && cuadreAlCerrar)
+          ? `Solo hay ${num(maxAves)} ${plural(maxAves, 'ave', 'aves')} en el galpón.`
+          : undefined
   const dio = Math.min(Number(adelanto) || 0, total)
   // Si lo que dio al llevarse el pollo cubre todo, no fue a crédito.
   const aCredito = credito && (!!editar || dio < total)
@@ -308,6 +353,7 @@ export function IngresoSheet({
       precioLb: precioLb > 0 ? precioLb : undefined,
       arreglado: arreglado ? { rindePct: rinde } : undefined,
       pesada: pesadaAGuardar(),
+      avesEstimadas: avesEstimadas || undefined,
       monto: total,
       fecha,
       comprador: comprador.trim() || undefined,
@@ -361,7 +407,7 @@ export function IngresoSheet({
               ? `Venta corregida · ${faltaAhora >= 1 ? `faltan ${money(faltaAhora)}` : 'ya pagó todo'}`
               : `Venta corregida · ${money(datos.monto)}`,
       )
-    } else if (vendeTodo && cerrar) {
+    } else if (cierraConEsta) {
       // Lo que la app proyectaba se guarda antes de que la venta deje el galpón
       // vacío: después ya no hay forma de reconstruirlo. Si el ciclo ya se había
       // cerrado una vez, se queda lo de entonces: tomado con 50 aves, decía que
@@ -370,6 +416,7 @@ export function IngresoSheet({
       const cierre = lote.cierre ?? snapshotCierre(metrics, proyeccion, diasEntre(lote.fechaInicio, fecha))
       await db.transaction('rw', db.ingresos, db.lotes, async () => {
         await db.ingresos.add({ ...datos, creado: Date.now() })
+        await cuadrarVentas(lote, metrics.bajas)
         await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: fecha, cierre })
       })
       toast(`Ciclo cerrado · ${money(metrics.ingresos + datos.monto - metrics.costos)}`)
@@ -434,6 +481,7 @@ export function IngresoSheet({
               onChange={(e) => {
                 setCantidad(e.target.value)
                 setAvesDe('mano')
+                setAvesEscritas(true)
               }}
               aria-invalid={!!errorAves}
             />
@@ -615,12 +663,37 @@ export function IngresoSheet({
             <div>
               <div className="font-display text-base font-semibold">Cerrar el ciclo con esta venta</div>
               <div className="text-xs text-ink-faint">
-                Salen las últimas {num(metrics.avesVivas)} aves. Si te falta un gasto, lo anotas
-                después de reabrirlo.
+                {nAves > metrics.avesVivas && cuadreAlCerrar
+                  ? `Por las cuentas quedaban ${num(metrics.avesVivas)}: las de más se descuentan de las ventas con aves estimadas, según sus libras.`
+                  : `Salen las últimas ${num(metrics.avesVivas)} aves.${cuadraOtras ? ' Las ventas con aves estimadas se cuadran por sus libras.' : ''}`}{' '}
+                Si te falta un gasto, lo anotas después de reabrirlo.
               </div>
             </div>
             <Interruptor activo={cerrar} />
           </button>
+        )}
+        {puedeAcabar && cuadreAlCerrar && (
+          <button
+            type="button"
+            onClick={() => setSeAcaban((v) => !v)}
+            aria-pressed={seAcaban}
+            className="flex w-full items-center justify-between gap-3 rounded-xl2 border border-line bg-paper-raised p-4 text-left"
+          >
+            <div>
+              <div className="font-display text-base font-semibold">Con esta venta se acaban los pollos</div>
+              <div className="text-xs text-ink-faint">
+                Por las cuentas quedarían {num(quedarian)}. Si ya no queda ninguno, se reparten entre las
+                ventas con aves estimadas, según sus libras, y el ciclo se cierra.
+                {seAcaban && cuadreAlCerrar.pesoAveLb != null
+                  ? ` Salieron ${num(salieron)} pollos en ventas, de ${numCorto(cuadreAlCerrar.pesoAveLb, 2)} lb en pie cada uno.`
+                  : ''}
+              </div>
+            </div>
+            <Interruptor activo={seAcaban} />
+          </button>
+        )}
+        {cierraConEsta && cuadreAlCerrar && (cuadraOtras || nAves !== metrics.avesVivas) && (
+          <AvisoCuadre lote={lote} metrics={metrics} pesoAveLb={cuadreAlCerrar.pesoAveLb} fecha={fecha} />
         )}
         <Button
           block
@@ -644,7 +717,7 @@ export function IngresoSheet({
           }
           onClick={enviar(guardar)}
         >
-          {editar ? 'Guardar cambios' : vendeTodo && cerrar ? 'Guardar y cerrar el ciclo' : 'Guardar venta'}
+          {editar ? 'Guardar cambios' : cierraConEsta ? 'Guardar y cerrar el ciclo' : 'Guardar venta'}
         </Button>
         {editar && <DangerButton onClick={eliminar}>Eliminar</DangerButton>}
       </div>

@@ -230,6 +230,9 @@ export interface Ingreso {
   arreglado?: { rindePct: number }
   // Cómo se pesó, si se pesó por cajas: las del pollero, vacías y llenas.
   pesada?: Pesada
+  // Las aves no se contaron: salieron de las cajas, del peso o de las que
+  // quedaban en el galpón. Al cerrar el ciclo se cuadran por sus libras.
+  avesEstimadas?: boolean
   creado: number
 }
 
