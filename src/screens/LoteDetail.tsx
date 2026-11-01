@@ -144,6 +144,13 @@ export function LoteDetail() {
     alertas,
   } = data;
   const alertasEnOrden = [...alertas].sort(porGravedad);
+  // El historial del ciclo: los días anotados y las ventas, lo más nuevo
+  // primero. Las ventas solo salían en Dinero, y quien vendía por cajas
+  // buscaba la venta aquí, donde mira lo que ha pasado, y no la encontraba.
+  const historial = [
+    ...registros.map((r) => ({ tipo: "dia" as const, fecha: r.fecha, creado: r.creado, r })),
+    ...ingresos.map((i) => ({ tipo: "venta" as const, fecha: i.fecha, creado: i.creado, i })),
+  ].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado - a.creado);
   // Dinero, con el ciclo en curso, es la pestaña más larga: el índice lleva a
   // cada parte sin tener que bajar buscándola.
   const indiceDinero: [string, string][] =
@@ -425,7 +432,7 @@ export function LoteDetail() {
           <FaseActual lote={lote} gastos={gastos} metrics={metrics} alimentos={alimentos} />
 
           <Seccion className="mb-3 mt-8" etiqueta="Historial" />
-          {registros.length === 0 ? (
+          {historial.length === 0 ? (
             <p className="rounded-xl2 border border-dashed border-line bg-paper-raised/60 px-6 py-12 text-center text-sm text-ink-faint">
               Sin registros aún. Toca “Registrar día” para empezar.
             </p>
@@ -433,70 +440,86 @@ export function LoteDetail() {
             <>
               {!soloVer && (
                 <p className="mb-3 text-xs text-ink-faint">
-                  Toca un día para corregirlo.
+                  Toca un día o una venta para corregirlo.
                 </p>
               )}
               <Banda className="divide-y divide-line">
-                {[...registros]
-                  .reverse()
+                {historial
                   .slice(0, todoHistorial ? undefined : 5)
-                  .map((r) => (
-                    <button
-                      key={r.id}
-                      disabled={soloVer}
-                      onClick={() => {
-                        setEditRegistro(r);
-                        setEditGasto(undefined);
-                        setEditIngreso(undefined);
-                        setSheet("registro");
-                      }}
-                      className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
-                    >
-                      {/* A 320 px las cifras se partían en «15-/oct» y «35/°C»:
-                          cada una va entera, y si no caben bajan de línea. */}
-                      <span className="shrink-0 whitespace-nowrap font-medium">
-                        {fecha(r.fecha)}
-                        {r.soloPeso && (
-                          <span className="ml-2 text-xs font-normal text-amber-text">
-                            solo pesaje
-                          </span>
-                        )}
-                      </span>
-                      <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 whitespace-nowrap text-ink-soft tnum">
-                        {r.pesoPromedio != null && (
-                          <span>{num(r.pesoPromedio, 2)} lb</span>
-                        )}
-                        {r.alimentoLb > 0 && (
-                          <span className="text-ink-faint">
-                            {alimentoEn(r.alimentoLb, settings.unidadAlimento)}
-                          </span>
-                        )}
-                        {r.tempMaxC != null && (
-                          <span
-                            className={
-                              conCalor(juicioDe(lote, r))
-                                ? "font-medium text-clay-text"
-                                : "text-ink-faint"
-                            }
-                          >
-                            {num(r.tempMaxC)} °C
-                          </span>
-                        )}
-                        {r.mortalidad > 0 && (
-                          <span className="text-ink-soft">
-                            {num(r.mortalidad)} {plural(r.mortalidad, "baja", "bajas")}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                  .map((h) => {
+                    if (h.tipo === "venta")
+                      return (
+                        <FilaVenta
+                          key={`v${h.i.id}`}
+                          i={h.i}
+                          soloVer={soloVer}
+                          onClick={() => {
+                            setEditIngreso(h.i);
+                            setEditRegistro(undefined);
+                            setEditGasto(undefined);
+                            setSheet("ingreso");
+                          }}
+                        />
+                      );
+                    const r = h.r;
+                    return (
+                      <button
+                        key={`d${r.id}`}
+                        disabled={soloVer}
+                        onClick={() => {
+                          setEditRegistro(r);
+                          setEditGasto(undefined);
+                          setEditIngreso(undefined);
+                          setSheet("registro");
+                        }}
+                        className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
+                      >
+                        {/* A 320 px las cifras se partían en «15-/oct» y «35/°C»:
+                            cada una va entera, y si no caben bajan de línea. */}
+                        <span className="shrink-0 whitespace-nowrap font-medium">
+                          {fecha(r.fecha)}
+                          {r.soloPeso && (
+                            <span className="ml-2 text-xs font-normal text-amber-text">
+                              solo pesaje
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 whitespace-nowrap text-ink-soft tnum">
+                          {r.pesoPromedio != null && (
+                            <span>{num(r.pesoPromedio, 2)} lb</span>
+                          )}
+                          {r.alimentoLb > 0 && (
+                            <span className="text-ink-faint">
+                              {alimentoEn(r.alimentoLb, settings.unidadAlimento)}
+                            </span>
+                          )}
+                          {r.tempMaxC != null && (
+                            <span
+                              className={
+                                conCalor(juicioDe(lote, r))
+                                  ? "font-medium text-clay-text"
+                                  : "text-ink-faint"
+                              }
+                            >
+                              {num(r.tempMaxC)} °C
+                            </span>
+                          )}
+                          {r.mortalidad > 0 && (
+                            <span className="text-ink-soft">
+                              {num(r.mortalidad)} {plural(r.mortalidad, "baja", "bajas")}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
               </Banda>
-              {!todoHistorial && registros.length > 5 && (
+              {!todoHistorial && historial.length > 5 && (
                 <button
                   onClick={() => setTodoHistorial(true)}
                   className="mt-2 w-full py-2 text-center text-sm font-medium text-forest-600"
                 >
-                  Ver los {num(registros.length)} registros
+                  Ver todo el historial ({num(historial.length)})
                 </button>
               )}
             </>
@@ -999,5 +1022,46 @@ function IndiceDinero({ partes }: { partes: [string, string][] }) {
         </button>
       ))}
     </nav>
+  );
+}
+
+// Una venta en el historial: la fecha, a quién, las cajas o las libras, y lo
+// que entró. Se toca para corregirla, como en Dinero.
+function FilaVenta({
+  i,
+  soloVer,
+  onClick,
+}: {
+  i: Ingreso;
+  soloVer: boolean;
+  onClick: () => void;
+}) {
+  const cajas = i.pesada ? resumenPesada(i.pesada).cajas : 0;
+  const falta = pendienteDe(i);
+  return (
+    <button
+      disabled={soloVer}
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left text-sm transition active:bg-paper-sunken disabled:active:bg-transparent"
+    >
+      <span className="shrink-0 whitespace-nowrap font-medium">
+        {fecha(i.fecha)}
+        <span className="ml-2 text-xs font-normal text-forest-600">
+          {i.tipo === "aves" ? "venta" : "ingreso"}
+        </span>
+      </span>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 whitespace-nowrap text-ink-soft tnum">
+        {i.comprador?.trim() && <span className="truncate">{i.comprador.trim()}</span>}
+        {cajas > 0 ? (
+          <span className="text-ink-faint">
+            {num(cajas)} {plural(cajas, "caja", "cajas")}
+          </span>
+        ) : i.pesoLb ? (
+          <span className="text-ink-faint">{numCorto(i.pesoLb, 1)} lb</span>
+        ) : null}
+        <span className="font-medium text-forest-600">+{money(i.monto)}</span>
+        {falta >= 1 && <span className="text-amber-text">faltan {money(falta)}</span>}
+      </div>
+    </button>
   );
 }
