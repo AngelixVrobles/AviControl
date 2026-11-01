@@ -54,6 +54,11 @@ test('la venta al pollero se pesa por cajas, como en el cuaderno', async ({ page
   await hoja.getByRole('button', { name: 'Guardar venta' }).click()
   await expect(hoja).toBeHidden()
 
+  // Sale en el historial del ciclo, con los días: ahí la busca el productor.
+  const enHistorial = page.getByRole('main').getByRole('button', { name: /venta[\s\S]*Rafa/ })
+  await expect(enHistorial).toContainText('12 cajas')
+  await expect(enHistorial).toContainText('32,262')
+
   // La venta dice sus cajas, y al corregirla la pesada sigue ahí.
   await page.goto(`/lotes/${id}?t=dinero`)
   await expect(page.getByRole('main')).toContainText('12 cajas')
