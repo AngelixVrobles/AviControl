@@ -8,6 +8,16 @@ export interface SocioBalance {
   /** Lo que pagó de su bolsillo: los pollitos y los gastos, o su parte de lo común. */
   aporte: number
   /**
+   * Lo que de verdad puso en el ciclo: lo que pagó, más lo que les dio a los
+   * otros para sus compras, menos lo que ellos le dieron para las suyas.
+   */
+  puso: number
+  /** Lo que tiene en la mano por el ciclo: lo cobrado de las ventas y lo del reparto. */
+  tiene: number
+  /** Lo que les dio a los otros, o le dieron, para ir parejos con los gastos. */
+  entregadoGastos: number
+  recibidoGastos: number
+  /**
    * Lo que le entró de las ventas. Mientras el ciclo sigue lo guarda para
    * repartirlo al cerrar: no cuenta como dinero que ya recuperó.
    */
@@ -91,6 +101,20 @@ function leerAcuerdo(fr: number[]): string {
   return fr.map((f) => Math.round(f * 100)).join('/')
 }
 
+// Mientras el ciclo sigue, lo que se dan los socios es para ir parejos con los
+// gastos: «José compró el alimento y le di la mitad». Al cerrar, lo que se dan
+// es el reparto del dinero de las ventas. La cuenta final es la misma, pero no
+// se lee igual: la mitad que se le dio al otro para sus compras es parte de lo
+// que uno puso, y la pantalla decía que había puesto solo lo que compró él.
+export function esParaGastos(
+  lote: Pick<Lote, 'estado' | 'fechaCierre'>,
+  e: Pick<EntregaSocio, 'fecha' | 'paraGastos'>,
+): boolean {
+  if (lote.estado !== 'cerrado') return true
+  if (e.paraGastos != null) return e.paraGastos
+  return !!lote.fechaCierre && e.fecha < lote.fechaCierre
+}
+
 export function computeLiquidacion(
   lote: Lote,
   gastos: Gasto[],
@@ -106,6 +130,8 @@ export function computeLiquidacion(
   const cobrado = socios.map(() => 0)
   const entregado = socios.map(() => 0)
   const recibido = socios.map(() => 0)
+  const entregadoGastos = socios.map(() => 0)
+  const recibidoGastos = socios.map(() => 0)
   const valido = (i: number) => Number.isInteger(i) && i >= 0 && i < socios.length
 
   const repartir = (destino: number[], monto: number, quien: number | undefined) => {
@@ -128,6 +154,10 @@ export function computeLiquidacion(
     if (!valido(e.de) || !valido(e.a) || e.de === e.a || !(e.monto > 0)) continue
     entregado[e.de] += e.monto
     recibido[e.a] += e.monto
+    if (esParaGastos(lote, e)) {
+      entregadoGastos[e.de] += e.monto
+      recibidoGastos[e.a] += e.monto
+    }
     movido += e.monto
   }
 
@@ -141,13 +171,18 @@ export function computeLiquidacion(
   const balances: SocioBalance[] = socios.map((s, i) => {
     const corresponde = fr[i] * m.ganancia
     const leTocaPoner = fr[i] * m.costos
-    const ajuste = alCierre
-      ? corresponde - (cobrado[i] + recibido[i] - aporte[i] - entregado[i])
-      : aporte[i] + entregado[i] - recibido[i] - leTocaPoner
+    const puso = aporte[i] + entregadoGastos[i] - recibidoGastos[i]
+    const tiene = cobrado[i] + (recibido[i] - recibidoGastos[i]) - (entregado[i] - entregadoGastos[i])
+    // Al cerrar: lo que puso más su ganancia, contra lo que tiene en la mano.
+    const ajuste = alCierre ? corresponde + puso - tiene : puso - leTocaPoner
     return {
       nombre: nombreSocio(s, i),
       pct: fr[i] * 100,
       aporte: aporte[i],
+      puso,
+      tiene,
+      entregadoGastos: entregadoGastos[i],
+      recibidoGastos: recibidoGastos[i],
       cobrado: cobrado[i],
       entregado: entregado[i],
       recibido: recibido[i],

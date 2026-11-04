@@ -274,6 +274,10 @@ export interface EntregaSocio {
   a: number
   monto: number
   nota?: string
+  // Para ir parejos con los gastos mientras el ciclo sigue —la mitad de lo que
+  // compró el otro— o del reparto del dinero de las ventas al cerrar. Las de
+  // antes no lo dicen: cuenta la fecha contra el cierre.
+  paraGastos?: boolean
   creado: number
 }
 

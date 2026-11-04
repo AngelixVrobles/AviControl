@@ -7,7 +7,7 @@ import type { EntregaSocio, Gasto, Ingreso, Lote, Registro } from "../../db/sche
 import type { LoteMetrics } from "../../lib/metrics";
 import { proyectarVenta } from "../../lib/proyeccion";
 import { pesoObjetivoDe } from "../../lib/lote";
-import { computeLiquidacion, esYo, fraseEntrega, nombreSocio, type SocioBalance, type Traspaso } from "../../lib/sociedad";
+import { computeLiquidacion, esParaGastos, esYo, fraseEntrega, nombreSocio, type SocioBalance, type Traspaso } from "../../lib/sociedad";
 import { fecha, money, num, pct, porLb } from "../../lib/format";
 import type { Settings } from "../../lib/settings";
 import { modoVenta } from "../../lib/venta";
@@ -73,7 +73,7 @@ export function Sociedad({
   // espera, y se dice para que nadie pida lo que todavía no se cobra.
   const nota =
     (liq.conVentas
-      ? `Cada uno recupera lo que puso y se queda con su parte de la ganancia, ${liq.acuerdo}.`
+      ? `Cada uno recupera lo que puso y se queda con su parte de la ganancia, ${liq.acuerdo}: quien guarda el dinero de las ventas le pasa a los otros lo suyo.`
       : `Lo que ha puesto cada uno, para seguir ${liq.acuerdo} con los gastos.${
           liq.ingresos > 0
             ? ` Lo vendido hasta hoy (${money(liq.ingresos)}) no entra en esta cuenta: lo guarda quien lo cobró y se reparte al cerrar el ciclo.`
@@ -110,15 +110,25 @@ export function Sociedad({
         L.push(`Vendido hasta hoy: ${money(liq!.ingresos)} (se reparte al cerrar el ciclo)`);
     }
     for (const s of liq!.socios) {
-      L.push("", `${s.nombre} (${pct(s.pct, 0)})`, `  Puso: ${money(s.aporte)}`);
+      const desglose = [
+        s.entregadoGastos > 0 && `pagó ${money(s.aporte)} y dio ${money(s.entregadoGastos)} para las compras de los socios`,
+        s.recibidoGastos > 0 && `pagó ${money(s.aporte)}, menos ${money(s.recibidoGastos)} que le dieron los socios`,
+      ].filter(Boolean);
+      L.push(
+        "",
+        `${s.nombre} (${pct(s.pct, 0)})`,
+        `  Puso: ${money(s.puso)}${desglose.length ? ` (${desglose.join("; ")})` : ""}`,
+      );
       if (liq!.conVentas) L.push(`  Cobró de las ventas: ${money(s.cobrado)}`);
       else {
         L.push(`  Le toca poner: ${money(s.leTocaPoner)}`);
         if (s.cobrado >= 1)
           L.push(`  Guarda de las ventas: ${money(s.cobrado)} (se reparte al cerrar)`);
       }
-      if (s.recibido > 0) L.push(`  Recibió de los socios: ${money(s.recibido)}`);
-      if (s.entregado > 0) L.push(`  Entregó a los socios: ${money(s.entregado)}`);
+      const recibioReparto = s.recibido - s.recibidoGastos;
+      const entregoReparto = s.entregado - s.entregadoGastos;
+      if (recibioReparto > 0) L.push(`  Recibió de los socios: ${money(recibioReparto)}`);
+      if (entregoReparto > 0) L.push(`  Entregó a los socios: ${money(entregoReparto)}`);
       if (liq!.conVentas)
         L.push(
           `  ${s.corresponde >= 0 ? "Su ganancia" : "Su pérdida"}: ${money(s.corresponde)}`,
@@ -251,6 +261,11 @@ export function Sociedad({
                     </span>
                     <span className="block text-xs text-ink-faint tnum">
                       {fecha(e.fecha)}
+                      {lote.estado === "cerrado"
+                        ? esParaGastos(lote, e)
+                          ? " · para los gastos"
+                          : " · del reparto"
+                        : ""}
                       {e.nota ? ` · ${e.nota}` : ""}
                     </span>
                   </span>
@@ -313,24 +328,42 @@ function CuentaSocio({
     s.recibido > 0 && `${t("recibiste", "recibió")} ${money(s.recibido)} de ${otros}`,
     s.entregado > 0 && `${t("entregaste", "entregó")} ${money(s.entregado)} a ${otros}`,
   ].filter(Boolean);
+  // Al cerrar, lo que se dieron para los gastos va con lo que puso cada uno, y
+  // lo del reparto con lo que tiene: «puso RD$42,000» no contaba la mitad que
+  // le dio al socio de cada compra.
+  const comoPuso = [
+    s.entregadoGastos > 0 &&
+      `${t("pagaste", "pagó")} ${money(s.aporte)} y ${t("le diste", "le dio")} ${money(s.entregadoGastos)} a ${otros} para sus compras`,
+    s.recibidoGastos > 0 &&
+      `${t("pagaste", "pagó")} ${money(s.aporte)}, menos ${money(s.recibidoGastos)} que ${t("te", "le")} ${otros === "los socios" ? "dieron" : "dio"} ${otros}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const delReparto = [
+    s.recibido - s.recibidoGastos > 0 &&
+      `${t("recibiste", "recibió")} ${money(s.recibido - s.recibidoGastos)} de ${otros}`,
+    s.entregado - s.entregadoGastos > 0 &&
+      `${t("entregaste", "entregó")} ${money(s.entregado - s.entregadoGastos)} a ${otros}`,
+  ].filter(Boolean);
 
   const renglones = conVentas
     ? [
         {
           label: t("Te toca", "Le toca"),
-          valor: s.aporte + s.corresponde,
+          valor: s.puso + s.corresponde,
           detalle:
             s.corresponde >= 0
-              ? `${t("pusiste", "puso")} ${money(s.aporte)} + ${money(s.corresponde)} de ganancia`
-              : `${t("pusiste", "puso")} ${money(s.aporte)} − ${money(-s.corresponde)} de pérdida`,
+              ? `${t("pusiste", "puso")} ${money(s.puso)} + ${money(s.corresponde)} de ganancia`
+              : `${t("pusiste", "puso")} ${money(s.puso)} − ${money(-s.corresponde)} de pérdida`,
+          extra: comoPuso,
         },
         {
           label: t("Ya tienes", "Ya tiene"),
-          valor: s.cobrado + s.recibido - s.entregado,
+          valor: s.tiene,
           detalle:
             [
               s.cobrado > 0 && `${t("cobraste", "cobró")} ${money(s.cobrado)} de ventas`,
-              ...movimientos,
+              ...delReparto,
             ]
               .filter(Boolean)
               .join(" · ") || t("no has cobrado nada", "no ha cobrado nada"),
@@ -346,7 +379,7 @@ function CuentaSocio({
         },
         {
           label: t("Has puesto", "Ha puesto"),
-          valor: s.aporte + s.entregado - s.recibido,
+          valor: s.puso,
           detalle: movimientos.length
             ? [`${t("pagaste", "pagó")} ${money(s.aporte)}`, ...movimientos].join(" · ")
             : "en pollitos y gastos",
@@ -410,6 +443,9 @@ function CuentaSocio({
             <div className="min-w-0">
               <div className="text-sm text-ink-soft">{r.label}</div>
               <div className="text-xs text-ink-faint tnum">{r.detalle}</div>
+              {"extra" in r && r.extra && (
+                <div className="text-xs text-ink-faint tnum">{r.extra}</div>
+              )}
             </div>
             <div className="shrink-0 font-display font-semibold tnum">
               {money(r.valor)}

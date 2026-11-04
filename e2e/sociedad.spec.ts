@@ -38,3 +38,38 @@ test('lo cobrado de las ventas no se rebaja de lo que el socio debe por los gast
   await expect(hoja).toBeHidden()
   await expect(main).toContainText('Van parejos')
 })
+
+// Al cerrar, la mitad que uno le dio al socio de cada compra es parte de lo que
+// puso: decía «puso RD$42,000» y no contaba los RD$49,913 que le dio a José.
+test('al cerrar, lo que se dieron para los gastos cuenta en lo que puso cada uno', async ({ page }) => {
+  const id = await sembrar(page, async ({ db, hoy, sumarDias }) => {
+    const inicio = sumarDias(hoy, -44)
+    const cierre = sumarDias(hoy, -2)
+    const loteId = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada con José',
+      fechaInicio: inicio,
+      fechaCierre: cierre,
+      cantidadInicial: 1000,
+      costoInicial: 42000,
+      costoInicialPagadoPor: 0,
+      estado: 'cerrado',
+      pesoObjetivoLb: 5.5,
+      socios: [
+        { nombre: 'Angelix', pct: 50 },
+        { nombre: 'José Amado', pct: 50 },
+      ],
+      creado: Date.now(),
+    })) as number
+    await db.gastos.add({ loteId, categoria: 'alimento', monto: 151808, pagadoPor: 1, fecha: sumarDias(inicio, 5), creado: Date.now() })
+    await db.ingresos.add({ loteId, tipo: 'aves', cantidad: 900, pesoLb: 5000, monto: 193701, recibidoPor: 0, fecha: cierre, creado: Date.now() })
+    await db.entregas.add({ loteId, fecha: sumarDias(inicio, 10), de: 0, a: 1, monto: 49913, creado: Date.now() })
+    return loteId
+  })
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText('puso RD$91,913')
+  await expect(main).toContainText('pagó RD$42,000 y le dio RD$49,913 a José Amado para sus compras')
+  await expect(main).toContainText('pagó RD$151,808, menos RD$49,913 que le dio Angelix')
+  await expect(main).toContainText('para los gastos')
+})
