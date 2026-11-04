@@ -188,6 +188,61 @@ describe('entregas entre socios', () => {
   })
 })
 
+// La pollada de Angelix y José Amado, mitad y mitad. Angelix pagó los pollitos
+// (42,000) y José casi todo lo demás (151,808); de cada compra de José, Angelix
+// le iba dando la mitad y lo anotaba (49,913 en todo). Las ventas las cobró
+// casi todas Angelix y las guardó: 193,701. Al cerrar, la pantalla decía que
+// Angelix había puesto 42,000, como si no contaran las mitades que le dio.
+describe('lo que se dan los socios para los gastos', () => {
+  const sociedad = [
+    { nombre: 'Angelix', pct: 50 },
+    { nombre: 'José Amado', pct: 50 },
+  ]
+  const l = lote({
+    socios: sociedad,
+    costoInicial: 42000,
+    costoInicialPagadoPor: 0,
+    estado: 'cerrado',
+    fechaInicio: '2026-09-01',
+    fechaCierre: '2026-10-20',
+  })
+  const gastos = [gasto({ monto: 151808, pagadoPor: 1, fecha: '2026-09-10' })]
+  const ventas = [
+    ingreso({ monto: 193701, recibidoPor: 0, fecha: '2026-10-20' }),
+    ingreso({ id: 2, monto: 10, recibidoPor: 1, fecha: '2026-10-20' }),
+    // Falta por cobrar: no lo tiene nadie.
+    ingreso({ id: 3, monto: 1190, credito: true, cobros: [], fecha: '2026-10-20' }),
+  ]
+  const mitades = [
+    entrega({ de: 0, a: 1, monto: 30000, fecha: '2026-09-15' }),
+    entrega({ id: 2, de: 0, a: 1, monto: 19913, fecha: '2026-10-05' }),
+  ]
+
+  it('la mitad que se le dio al otro para sus compras es parte de lo que uno puso', () => {
+    const { liq } = liquidar(l, gastos, ventas, mitades)
+    const [angelix, jose] = liq.socios
+    expect(angelix).toMatchObject({ aporte: 42000, puso: 91913, tiene: 193701, entregadoGastos: 49913 })
+    expect(jose).toMatchObject({ aporte: 151808, puso: 101895, tiene: 10, recibidoGastos: 49913 })
+    // La cuenta no cambia: Angelix guarda lo de José de las ventas.
+    expect(liq.traspasos).toEqual([{ de: 'Angelix', a: 'José Amado', deIdx: 0, aIdx: 1, monto: 101242 }])
+  })
+
+  it('lo que se entrega después de cerrar es el reparto, no lo que se puso', () => {
+    const reparto = entrega({ id: 3, de: 0, a: 1, monto: 101242, fecha: '2026-10-22' })
+    const { liq } = liquidar(l, gastos, ventas, [...mitades, reparto])
+    expect(liq.socios[0]).toMatchObject({ puso: 91913, tiene: 193701 - 101242 })
+    expect(liq.traspasos).toHaveLength(0)
+    // La que se anotó como del reparto lo sigue siendo aunque tenga fecha de antes.
+    const marcada = { ...reparto, fecha: '2026-10-01', paraGastos: false }
+    expect(liquidar(l, gastos, ventas, [...mitades, marcada]).liq.socios[0].puso).toBe(91913)
+  })
+
+  it('con el ciclo en curso todo lo que se dan es para los gastos', () => {
+    const { liq } = liquidar({ ...l, estado: 'activo', fechaCierre: undefined }, gastos, [], mitades)
+    expect(liq.socios.map((s) => s.puso)).toEqual([91913, 101895])
+  })
+})
+
 describe('fraseEntrega', () => {
   it('a «Yo» la app le habla de tú', () => {
     expect(fraseEntrega('Yo', 'Socio')).toEqual(['Le entregas ', ' a Socio'])

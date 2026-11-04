@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { db, type EntregaSocio, type Gasto, type Ingreso, type Lote } from '../../db/schema'
 import { Button, DangerButton, Field, Input, Segmentado, Select, Sheet } from '../ui'
 import { confirmar, toast } from '../confirm'
-import { computeLiquidacion, fraseEntrega, nombreSocio } from '../../lib/sociedad'
+import { computeLiquidacion, esParaGastos, fraseEntrega, nombreSocio } from '../../lib/sociedad'
 import { hoyISO, money } from '../../lib/format'
 import type { LoteMetrics } from '../../lib/metrics'
 import { errorFechaFutura } from '../../lib/lote'
@@ -81,7 +81,10 @@ export function EntregaSheet({
   }
 
   async function guardar() {
-    const datos = { loteId: lote.id, fecha, de, a, monto: valor, nota: nota.trim() || undefined }
+    // Con el ciclo en curso es para los gastos; cerrado, del reparto. La que se
+    // corrige sigue siendo lo que era.
+    const paraGastos = editar ? (editar.paraGastos ?? esParaGastos(lote, editar)) : lote.estado !== 'cerrado'
+    const datos = { loteId: lote.id, fecha, de, a, monto: valor, nota: nota.trim() || undefined, paraGastos }
     if (editar) await db.entregas.update(editar.id, datos)
     else await db.entregas.add({ ...datos, creado: Date.now() })
     toast(
