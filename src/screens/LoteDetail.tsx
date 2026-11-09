@@ -562,7 +562,11 @@ export function LoteDetail() {
               lote={lote}
               metrics={metrics}
               gastos={gastos}
+              ingresos={ingresos}
               onGasto={() => abrir("gasto")}
+              onDia={() => abrir("registro")}
+              onVenta={() => abrir("ingreso")}
+              onCiclo={() => abrir("lote")}
             />
           )}
           {/* La cifra grande va sola arriba y las otras dos debajo: lado a lado,
@@ -993,6 +997,16 @@ export function LoteDetail() {
               primeraFecha: [registros[0]?.fecha, pesajes[0]?.fecha, aplicaciones[0]?.fecha]
                 .filter((f): f is string => !!f)
                 .sort()[0],
+              // El cierre no puede quedar antes del último día, pesaje o venta.
+              ultimaFecha: [
+                registros[registros.length - 1]?.fecha,
+                pesajes[pesajes.length - 1]?.fecha,
+                aplicaciones[aplicaciones.length - 1]?.fecha,
+                ...ingresos.filter((i) => i.tipo === "aves").map((i) => i.fecha),
+              ]
+                .filter((f): f is string => !!f)
+                .sort()
+                .at(-1),
               salidas:
                 registros.reduce((a, r) => a + (r.mortalidad ?? 0) + (r.descarte ?? 0), 0) +
                 metrics.vendidas,

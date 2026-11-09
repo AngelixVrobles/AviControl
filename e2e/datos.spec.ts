@@ -161,3 +161,49 @@ test('borrar un ciclo con alimento pasado deja los sacos donde están', async ({
   expect(r.sinC).toEqual([{ qq: 10, monto: 20000, traspaso: false }])
   expect(r.quedan).toBe(1)
 })
+
+// El primer ciclo se cerró en la app semanas después de vender: decía que duró
+// 64 días, y las aves no daban con las que entraron. Se corrige sin reabrirlo:
+// la fecha de cierre, y las aves que faltaban se reparten en las ventas.
+test('un ciclo cerrado que dice que duró 64 días se corrige: el cierre y las aves', async ({ page }) => {
+  const { id, venta } = await sembrar(page, async ({ db, hoy, sumarDias }) => {
+    const inicio = sumarDias(hoy, -70)
+    const venta = sumarDias(inicio, 42)
+    const id = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'El primero',
+      fechaInicio: inicio,
+      fechaCierre: sumarDias(inicio, 64),
+      cantidadInicial: 500,
+      costoInicial: 20000,
+      estado: 'cerrado',
+      pesoObjetivoLb: 5.5,
+      creado: Date.now(),
+    })) as number
+    const registros = []
+    for (let d = 1; d <= 41; d++)
+      registros.push({ loteId: id, fecha: sumarDias(inicio, d), mortalidad: d <= 10 ? 1 : 0, descarte: 0, alimentoLb: 20 + d * 5, creado: Date.now() })
+    await db.registros.bulkAdd(registros)
+    await db.ingresos.add({ loteId: id, tipo: 'aves', cantidad: 400, pesoLb: 2700, monto: 102600, fecha: venta, creado: Date.now() })
+    return { id, venta }
+  })
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText('64 días')
+
+  // Entraron 500 y murieron 10: salieron 490, no 400.
+  await expect(main).toContainText('Las aves no cuadran')
+  await expect(main).toContainText('faltan 90 por salir en ventas')
+  await main.getByRole('button', { name: 'Cuadrar' }).click()
+  await expect(main).not.toContainText('Las aves no cuadran')
+  await expect(main).toContainText('unas 490 aves')
+
+  // El cierre fue el día de la venta.
+  await main.getByRole('button', { name: 'Fechas y pollitos' }).click()
+  const hoja = page.getByRole('dialog', { name: 'Corregir el ciclo' })
+  await hoja.getByLabel('Fecha de cierre').fill(venta)
+  await expect(hoja).toContainText('Duró 42 días.')
+  await hoja.getByRole('button', { name: /^Guardar/ }).click()
+  await expect(hoja).toBeHidden()
+  await expect(main).toContainText('42 días')
+})

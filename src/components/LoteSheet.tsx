@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db, type Lote, type Socio } from '../db/schema'
 import { borrarCiclo } from '../db/ciclo'
-import { enumerar, fecha, money, num, sumarDias } from '../lib/format'
+import { diasEntre, enumerar, fecha, money, num, sumarDias } from '../lib/format'
 import { useSettings } from '../lib/hooks'
 import { galponDe, galponesOcupados, galponInicial, nombreDeGalpon, nombresGalpones } from '../lib/galpones'
 import { repartido } from '../lib/reparto'
@@ -79,6 +79,9 @@ function FormLote({
   const sociosAntes = lote.socios?.length ?? 0
   const [nombre, setNombre] = useState(lote.nombre)
   const [fechaInicio, setFechaInicio] = useState(lote.fechaInicio)
+  // Cerrado, el día en que salió el último pollo también se corrige.
+  const cerrado = lote.estado === 'cerrado'
+  const [fechaCierre, setFechaCierre] = useState(lote.fechaCierre ?? '')
   const [cantidad, setCantidad] = useState(String(lote.cantidadInicial))
   const [costo, setCosto] = useState(aTexto(lote.costoInicial))
   const [precioQuintal, setPrecioQuintal] = useState(aTexto(lote.precioQuintal))
@@ -112,7 +115,12 @@ function FormLote({
   const costoNum = Number(costo) || 0
   const pesoNum = Number(pesoVenta) || 0
   const errores = erroresLote(
-    { fechaInicio, cantidad: cantidadNum, muertosLlegada: Number(muertosLlegada) || 0 },
+    {
+      fechaInicio,
+      cantidad: cantidadNum,
+      muertosLlegada: Number(muertosLlegada) || 0,
+      ...(cerrado ? { fechaCierre } : {}),
+    },
     limites,
   )
   const negativos = {
@@ -124,6 +132,7 @@ function FormLote({
   }
   const valido =
     !errores.fechaInicio &&
+    !errores.fechaCierre &&
     !errores.cantidad &&
     !errores.muertosLlegada &&
     !Object.values(negativos).some(Boolean)
@@ -188,6 +197,16 @@ function FormLote({
       await db.lotes.update(lote.id, {
         nombre: nombre.trim() || lote.nombre,
         fechaInicio,
+        // Con el cierre corregido, lo que se guardó al cerrar dice el día de
+        // venta que fue.
+        ...(cerrado && fechaCierre
+          ? {
+              fechaCierre,
+              cierre: lote.cierre
+                ? { ...lote.cierre, diaVenta: diasEntre(fechaInicio, fechaCierre) }
+                : undefined,
+            }
+          : {}),
         cantidadInicial: cantidadNum,
         costoInicial: costoNum,
         precioQuintal: Number(precioQuintal) > 0 ? Number(precioQuintal) : undefined,
@@ -249,6 +268,25 @@ function FormLote({
             aria-invalid={!!errores.fechaInicio}
           />
         </Field>
+        {cerrado && (
+          <Field
+            label="Fecha de cierre"
+            error={errores.fechaCierre}
+            hint={
+              fechaInicio && fechaCierre && !errores.fechaCierre
+                ? `Duró ${num(diasEntre(fechaInicio, fechaCierre))} días.`
+                : 'El día en que salió el último pollo.'
+            }
+          >
+            <Input
+              type="date"
+              value={fechaCierre}
+              min={fechaInicio}
+              onChange={(e) => setFechaCierre(e.target.value)}
+              aria-invalid={!!errores.fechaCierre}
+            />
+          </Field>
+        )}
         <Field label="Nº de pollitos" error={errores.cantidad}>
           <Input
             type="number"
@@ -424,7 +462,11 @@ function FormLote({
           block
           disabled={!valido || ocupado}
           motivo={
-            errores.fechaInicio ?? errores.cantidad ?? errores.muertosLlegada ?? (!valido ? 'Hay un número negativo.' : undefined)
+            errores.fechaInicio ??
+            errores.fechaCierre ??
+            errores.cantidad ??
+            errores.muertosLlegada ??
+            (!valido ? 'Hay un número negativo.' : undefined)
           }
           onClick={enviar(guardar)}
         >
