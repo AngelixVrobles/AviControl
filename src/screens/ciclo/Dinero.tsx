@@ -15,6 +15,7 @@ import { gananciaPorSocio } from "../../lib/sociedad";
 import { diasEntre, fecha, hoyISO, money, num, numCompacto, pct, plural, porLb } from "../../lib/format";
 import { faltaEmpleados } from "../../lib/porPagar";
 import { anotarPagoEmpleados } from "../../db/empleados";
+import { avesQueSalieron, cuadrarAves } from "../../lib/cuadre";
 import { toast } from "../../components/confirm";
 import { LB_POR_QUINTAL } from "../../lib/standards";
 import type { ModoVenta } from "../../lib/venta";
@@ -537,20 +538,29 @@ function FilaDato({
   );
 }
 
-// Un ciclo cerrado se corrige sin reabrirlo: el gasto que faltó —el pago del
-// empleado, el camión— se anota y «Cómo salió» y la sociedad se ponen al día.
-// Si el pago de los empleados quedó sin anotar, se dice cuánto y se anota con
-// un toque: daba RD$1,093 de ganancia donde hubo una pérdida de RD$13,907.
+// Un ciclo cerrado se corrige sin reabrirlo, para que quede como fue: las
+// fechas —un ciclo cerrado en la app semanas después de vender decía que duró
+// 64 días—, el día, la venta o el gasto que faltó, y las aves, si las que
+// llegaron no dan con las que murieron y se vendieron. Si el pago de los
+// empleados quedó sin anotar, se dice cuánto y se anota con un toque.
 export function CorregirCierre({
   lote,
   metrics,
   gastos,
+  ingresos,
   onGasto,
+  onDia,
+  onVenta,
+  onCiclo,
 }: {
   lote: Lote;
   metrics: LoteMetrics;
   gastos: Gasto[];
+  ingresos: Ingreso[];
   onGasto: () => void;
+  onDia: () => void;
+  onVenta: () => void;
+  onCiclo: () => void;
 }) {
   if (lote.estado !== "cerrado") return null;
   const cierre = lote.fechaCierre ?? hoyISO();
@@ -561,9 +571,37 @@ export function CorregirCierre({
     metrics.vendidas,
   );
 
+  // Las aves: las que entraron contra las que murieron y se vendieron.
+  const salieron = avesQueSalieron(lote, metrics.bajas);
+  const sinCuadrar = salieron - metrics.vendidas;
+  const ventas = ingresos
+    .filter((i) => i.tipo === "aves")
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.creado - b.creado);
+  const cuadre =
+    sinCuadrar !== 0
+      ? (cuadrarAves(lote, ventas, salieron) ??
+        // Las ventas de antes no dicen si sus aves se contaron: se reparten
+        // entre todas las que tienen libras.
+        cuadrarAves(
+          lote,
+          ventas.map((v) => ({ ...v, avesEstimadas: true })),
+          salieron,
+        ))
+      : undefined;
+
   async function anotarPago() {
     await anotarPagoEmpleados(lote, falta, cierre);
     toast(`Pago de empleados anotado · ${money(falta)}`);
+  }
+
+  async function cuadrar() {
+    if (!cuadre) return;
+    await db.transaction("rw", db.ingresos, async () => {
+      for (const [k, v] of ventas.entries())
+        if (cuadre.cantidades[k] !== v.cantidad)
+          await db.ingresos.update(v.id, { cantidad: cuadre.cantidades[k], avesEstimadas: true });
+    });
+    toast(`Aves cuadradas · salieron ${num(salieron)} en ventas`);
   }
 
   return (
@@ -582,12 +620,53 @@ export function CorregirCierre({
           </button>
         </div>
       )}
-      <Button variant="soft" block onClick={onGasto}>
-        Anotar un gasto que faltó
-      </Button>
-      <p className="text-center text-xs text-ink-faint">
-        El ciclo sigue cerrado: la cuenta se corrige sola. Las ventas y los días se corrigen tocándolos.
-      </p>
+      {sinCuadrar !== 0 && (
+        <div className="flex items-center gap-3 rounded-xl2 border border-amber-line border-l-4 border-l-amber-400 bg-amber-tint p-4">
+          <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-text">
+            Las aves no cuadran: de las que entraron y no murieron{" "}
+            {sinCuadrar > 0
+              ? `faltan ${num(sinCuadrar)} por salir en ventas.`
+              : `salieron ${num(-sinCuadrar)} de más en ventas.`}{" "}
+            {cuadre
+              ? "Si se fueron en las ventas, se reparten por sus libras; si murieron, anótalas en el día."
+              : "Corrige las aves de las ventas, o anota las bajas en el día."}
+          </p>
+          {cuadre && (
+            <button
+              onClick={cuadrar}
+              className="h-11 shrink-0 rounded-full bg-forest-600 px-4 text-sm font-semibold text-paper-raised transition active:scale-[0.97]"
+            >
+              Cuadrar
+            </button>
+          )}
+        </div>
+      )}
+      <div className="rounded-xl2 border border-line bg-paper-raised p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="font-display text-base font-semibold">Corregir el ciclo</div>
+          <div className="text-xs text-ink-faint tnum">
+            {fecha(lote.fechaInicio)} – {fecha(cierre)} · {num(metrics.dias)} días
+          </div>
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-ink-faint">
+          Sigue cerrado: lo que corrijas pone al día «Cómo salió» y la sociedad. Los días y las ventas
+          anotados se corrigen tocándolos.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Button variant="soft" className="px-3 text-sm" onClick={onCiclo}>
+            Fechas y pollitos
+          </Button>
+          <Button variant="soft" className="px-3 text-sm" onClick={onGasto}>
+            Gasto que faltó
+          </Button>
+          <Button variant="soft" className="px-3 text-sm" onClick={onDia}>
+            Día que faltó
+          </Button>
+          <Button variant="soft" className="px-3 text-sm" onClick={onVenta}>
+            Venta que faltó
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

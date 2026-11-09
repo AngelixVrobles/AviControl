@@ -110,12 +110,14 @@ export function RegistroSheet({
   // Un día no puede tener dos registros: si ya está anotado, la hoja lo trae y
   // lo corrige. Duplicarlo sumaba el alimento dos veces, y de ahí salían mal el
   // FCA, el costo por libra y la existencia del galpón.
+  // En un ciclo cerrado, el día que faltó es de antes del cierre.
+  const tope = topeDelCiclo(lote)
   useEffect(() => {
     if (!open) return
-    const f = editar?.fecha ?? hoyISO()
+    const f = editar?.fecha ?? tope
     setFecha(f)
     cargar(editar ?? registrosRef.current.find((r) => r.fecha === f))
-  }, [open, editar, cargar])
+  }, [open, editar, cargar, tope])
 
   // Corrigiendo un día, cambiarle la fecha lo mueve con sus números: antes se
   // vaciaba todo y al guardar quedaba en cero. En un día nuevo, si la fecha ya

@@ -59,6 +59,8 @@ export function errorFechaFutura(f: string, hoy = hoyISO()): string | undefined 
 export interface LimitesLote {
   /** Lo primero que se anotó del galpón: el inicio no puede quedar después. */
   primeraFecha?: string
+  /** Lo último que se anotó del galpón —un día, un pesaje, una venta—: el cierre no puede quedar antes. */
+  ultimaFecha?: string
   /** Las aves que ya salieron: bajas, descartes y vendidas. */
   salidas: number
   fechaCierre?: string
@@ -68,17 +70,30 @@ export interface LimitesLote {
 // primer registro deja días negativos, y menos pollitos de los que ya salieron
 // deja el galpón con aves de menos.
 export function erroresLote(
-  datos: { fechaInicio: string; cantidad: number; muertosLlegada?: number },
+  datos: { fechaInicio: string; cantidad: number; muertosLlegada?: number; fechaCierre?: string },
   limites: LimitesLote,
-): { fechaInicio?: string; cantidad?: string; muertosLlegada?: string } {
-  const out: { fechaInicio?: string; cantidad?: string; muertosLlegada?: string } = {}
+): { fechaInicio?: string; cantidad?: string; muertosLlegada?: string; fechaCierre?: string } {
+  const out: { fechaInicio?: string; cantidad?: string; muertosLlegada?: string; fechaCierre?: string } = {}
   const doa = datos.muertosLlegada ?? 0
+  // El cierre que se está escribiendo, o el que tiene.
+  const cierre = datos.fechaCierre ?? limites.fechaCierre
   if (!datos.fechaInicio) out.fechaInicio = 'Pon el día en que llegaron los pollitos.'
   else if (datos.fechaInicio > hoyISO()) out.fechaInicio = 'Esa fecha todavía no llega.'
-  else if (limites.fechaCierre && datos.fechaInicio > limites.fechaCierre)
-    out.fechaInicio = `El ciclo cerró el ${fecha(limites.fechaCierre)}.`
+  else if (cierre && datos.fechaInicio > cierre) out.fechaInicio = `El ciclo cerró el ${fecha(cierre)}.`
   else if (limites.primeraFecha && datos.fechaInicio > limites.primeraFecha)
     out.fechaInicio = `Hay datos anotados desde el ${fecha(limites.primeraFecha)}.`
+
+  // El cierre de un ciclo cerrado se corrige: un ciclo que se cerró en la app
+  // semanas después de vender decía que duró 64 días. No puede quedar antes de
+  // lo último que se anotó, ni del inicio, ni después de hoy.
+  if (datos.fechaCierre != null) {
+    if (!datos.fechaCierre) out.fechaCierre = 'Pon el día en que salió el último pollo.'
+    else if (datos.fechaCierre > hoyISO()) out.fechaCierre = 'Esa fecha todavía no llega.'
+    else if (datos.fechaInicio && datos.fechaCierre < datos.fechaInicio)
+      out.fechaCierre = 'No puede ser antes de que llegaran los pollitos.'
+    else if (limites.ultimaFecha && datos.fechaCierre < limites.ultimaFecha)
+      out.fechaCierre = `Hay datos anotados hasta el ${fecha(limites.ultimaFecha)}.`
+  }
 
   if (!(datos.cantidad > 0)) out.cantidad = 'Pon cuántos pollitos recibiste.'
   else if (doa >= datos.cantidad) out.muertosLlegada = 'Son más de los pollitos que recibiste.'

@@ -8,7 +8,7 @@ import { cobradoDe, pendienteDe } from '../../lib/cobros'
 import type { LoteMetrics } from '../../lib/metrics'
 import { proyectarVenta } from '../../lib/proyeccion'
 import { snapshotCierre } from '../../lib/cierre'
-import { errorFechaDelCiclo, errorNegativo, pesoObjetivoDe } from '../../lib/lote'
+import { errorFechaDelCiclo, errorNegativo, pesoObjetivoDe, topeDelCiclo } from '../../lib/lote'
 import { retiroEn } from '../../lib/retiro'
 import { galponInicial, nombreDeGalpon } from '../../lib/galpones'
 import { avesPorGalpon, repartido } from '../../lib/reparto'
@@ -100,6 +100,8 @@ export function IngresoSheet({
   const modo = useModoVenta()
   const precios = usePreciosDeVenta()
 
+  // En un ciclo cerrado, la venta que faltó es de antes del cierre.
+  const tope = topeDelCiclo(lote)
   useEffect(() => {
     if (!open) return
     setArreglado(editar ? !!editar.arreglado : modo.arreglado)
@@ -111,7 +113,7 @@ export function IngresoSheet({
     setPrecio(inicial ? String(inicial) : '')
     setMonto(editar ? String(editar.monto) : '')
     setModoTotal(editar ? 'guardado' : 'auto')
-    setFecha(editar?.fecha ?? hoyISO())
+    setFecha(editar?.fecha ?? tope)
     setRecibidoPor(editar?.recibidoPor != null ? String(editar.recibidoPor) : '')
     setCerrar(true)
     setSeAcaban(false)
@@ -124,7 +126,7 @@ export function IngresoSheet({
     setAvesDe(editar ? 'mano' : 'cajas')
     setPpcTocado(!!editar)
     setAvesEscritas(false)
-  }, [open, editar, lote.precioVentaLb, modo.arreglado])
+  }, [open, editar, lote.precioVentaLb, modo.arreglado, tope])
 
   // Quien le vende al pollero por cajas sigue igual: si la última venta se pesó
   // así, la hoja abre con la pesada puesta.

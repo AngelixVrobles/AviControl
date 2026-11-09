@@ -67,6 +67,19 @@ describe('diaVentaDe', () => {
 describe('erroresLote', () => {
   const limites = { primeraFecha: '2026-03-05', salidas: 40 }
 
+  // El primer ciclo se cerró en la app semanas después de vender: decía que
+  // duró 64 días. El cierre se corrige, pero no antes de lo último anotado.
+  it('el cierre de un ciclo cerrado se corrige, sin quedar antes de lo anotado', () => {
+    const cerrado = { ...limites, ultimaFecha: '2026-04-12', fechaCierre: '2026-05-04' }
+    const base = { fechaInicio: '2026-03-01', cantidad: 1000 }
+    expect(erroresLote({ ...base, fechaCierre: '2026-04-12' }, cerrado)).toEqual({})
+    expect(erroresLote({ ...base, fechaCierre: '2026-04-10' }, cerrado).fechaCierre).toMatch(/hasta el/)
+    expect(erroresLote({ ...base, fechaCierre: '2026-02-20' }, cerrado).fechaCierre).toMatch(/antes de que llegaran/)
+    expect(erroresLote({ ...base, fechaCierre: '2999-01-01' }, cerrado).fechaCierre).toMatch(/todavía no llega/)
+    // El inicio se mide contra el cierre que se está escribiendo.
+    expect(erroresLote({ fechaInicio: '2026-04-20', cantidad: 1000, fechaCierre: '2026-04-15' }, { salidas: 0 }).fechaInicio).toMatch(/cerró/)
+  })
+
   it('deja guardar lo que no rompe nada', () => {
     expect(erroresLote({ fechaInicio: '2026-03-01', cantidad: 1000 }, limites)).toEqual({})
     expect(erroresLote({ fechaInicio: '2026-03-05', cantidad: 40 }, limites)).toEqual({})
