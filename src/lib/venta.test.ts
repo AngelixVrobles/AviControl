@@ -8,6 +8,7 @@ import {
   precioPromedio,
   preciosDeVenta,
   valorHoy,
+  ventasPorPrecio,
 } from './venta'
 import { hace, ingreso } from '../test/fixtures'
 
@@ -162,6 +163,30 @@ describe('las cajas de cada pollero', () => {
   it('si la última venta se pesó por cajas, la próxima también', () => {
     expect(preciosDeVenta(ventas).porCajas).toBe(false)
     expect(preciosDeVenta([...ventas, { ...ventas[0], id: 3, fecha: hace(0) }]).porCajas).toBe(true)
+  })
+})
+
+// Al camión a 38 la libra en pie; a la gente, por unidad a 300 o arreglado a
+// 65 la libra: cuántos pollos salieron a cada precio.
+describe('ventasPorPrecio', () => {
+  it('junta las ventas por forma de cobrar y precio', () => {
+    const ventas = [
+      ingreso({ id: 1, cantidad: 500, pesoLb: 2750, precioLb: 38, monto: 104500 }),
+      ingreso({ id: 2, cantidad: 402, pesoLb: 2199, precioLb: 38, monto: 83562 }),
+      ingreso({ id: 3, cantidad: 30, monto: 9000 }),
+      ingreso({ id: 4, cantidad: 10, monto: 3004 }),
+      ingreso({ id: 5, cantidad: 20, pesoLb: 90, precioLb: 65, monto: 5850, arreglado: { rindePct: 75 } }),
+      ingreso({ id: 6, tipo: 'otros', cantidad: 0, monto: 2000 }),
+    ]
+    expect(ventasPorPrecio(ventas)).toEqual([
+      { forma: 'pie', precio: 38, ventas: 2, aves: 902, lb: 4949, monto: 188062 },
+      { forma: 'unidad', precio: 300, ventas: 2, aves: 40, lb: 0, monto: 12004 },
+      { forma: 'arreglado', precio: 65, ventas: 1, aves: 20, lb: 90, monto: 5850 },
+    ])
+  })
+
+  it('sin ventas de aves no hay grupos', () => {
+    expect(ventasPorPrecio([ingreso({ tipo: 'otros', monto: 500 })])).toEqual([])
   })
 })
 

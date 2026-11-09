@@ -53,7 +53,7 @@ import {
 } from "../components/sheets";
 import { CerrarSinAves, FaseActual, GuiaDelDia } from "./ciclo/Hoy";
 import { Desvio, Diagnostico, GridCrecimiento, Muestreo } from "./ciclo/Crecimiento";
-import { ComoSalio, CorregirCierre, PrecioMinimo, PuntoOptimo } from "./ciclo/Dinero";
+import { ComoSalio, CorregirCierre, PrecioMinimo, PuntoOptimo, VentasPorPrecio } from "./ciclo/Dinero";
 import { Sociedad } from "./ciclo/Sociedad";
 import { GananciaEstimada } from "./ciclo/Estimado";
 
@@ -726,6 +726,7 @@ export function LoteDetail() {
           {ingresos.length > 0 && (
             <>
               <Seccion id="d-ventas" className="mb-3 mt-8 scroll-mt-20" etiqueta="Ventas" />
+              <VentasPorPrecio ingresos={ingresos} />
               {!soloVer && (
                 <p className="mb-3 text-xs text-ink-faint">
                   Toca una para corregirla.
