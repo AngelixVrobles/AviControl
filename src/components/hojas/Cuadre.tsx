@@ -1,4 +1,6 @@
-import { db, type Ingreso, type Lote } from '../../db/schema'
+import { db, type Gasto, type Ingreso, type Lote } from '../../db/schema'
+import { anotarPagoEmpleados } from '../../db/empleados'
+import { faltaEmpleados } from '../../lib/porPagar'
 import { Banda, Button, Sheet } from '../ui'
 import { toast } from '../confirm'
 import { diasEntre, fecha as fechaCorta, hoyISO, money, num, numCorto, plural } from '../../lib/format'
@@ -14,6 +16,7 @@ import { useEnvio } from '../useEnvio'
 export function CuadreSheet({
   lote,
   metrics,
+  gastos,
   ingresos,
   open,
   onClose,
@@ -21,6 +24,7 @@ export function CuadreSheet({
 }: {
   lote: Lote
   metrics: LoteMetrics
+  gastos: Gasto[]
   ingresos: Ingreso[]
   open: boolean
   onClose: () => void
@@ -42,13 +46,16 @@ export function CuadreSheet({
         .filter((x) => x.antes !== x.despues)
     : []
   const ultima = ventas[ventas.length - 1]?.fecha
+  const cierre = ultima ?? hoyISO()
+  const pagoFalta = faltaEmpleados(lote, gastos, diasEntre(lote.fechaInicio, cierre), salieron)
 
   async function cuadrar() {
-    await db.transaction('rw', db.ingresos, db.lotes, async () => {
+    await db.transaction('rw', db.ingresos, db.lotes, db.gastos, async () => {
       for (const { v, despues } of cambian) await db.ingresos.update(v.id, { cantidad: despues, avesEstimadas: true })
-      await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: ultima ?? hoyISO() })
+      await anotarPagoEmpleados(lote, pagoFalta, cierre)
+      await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: cierre })
     })
-    toast(`Ciclo cerrado · ${money(metrics.ganancia)}`)
+    toast(`Ciclo cerrado · ${money(metrics.ganancia - pagoFalta)}`)
     onClose()
   }
 
@@ -97,8 +104,9 @@ export function CuadreSheet({
               Cuadrar y cerrar el ciclo
             </Button>
             <p className="text-center text-xs leading-relaxed text-ink-faint">
-              Se cierra con la fecha de la última venta. Si te falta un gasto, lo anotas después de
-              reabrirlo.
+              Se cierra con la fecha de la última venta.
+              {pagoFalta >= 1 ? ` Se anota lo que falta del pago de los empleados: ${money(pagoFalta)}.` : ''} Si te
+              falta un gasto, lo puedes anotar después.
             </p>
           </>
         ) : (

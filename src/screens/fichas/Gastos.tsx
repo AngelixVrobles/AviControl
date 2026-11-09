@@ -5,7 +5,7 @@ import type { LoteMetrics } from '../../lib/metrics'
 import { fecha, money, num, pct, porLb } from '../../lib/format'
 import { categoriaLabel } from '../../lib/labels'
 import { AnimatedNumber } from '../../components/AnimatedNumber'
-import { Banda, Seccion } from '../../components/ui'
+import { Banda, Button, Seccion } from '../../components/ui'
 import { GastoSheet } from '../../components/sheets'
 import { Vacio } from './Vacio'
 
@@ -165,6 +165,21 @@ export function FichaGastos({
             </button>
           ))}
         </Banda>
+        {/* Con el ciclo cerrado tampoco había cómo anotar el gasto que faltó:
+            el pago del empleado, el camión. La cuenta del cierre se corrige sola. */}
+        {!soloVer && (
+          <Button
+            variant="soft"
+            block
+            className="mt-3"
+            onClick={() => {
+              setEditar(undefined)
+              setAbierta(true)
+            }}
+          >
+            {lote.estado === 'cerrado' ? 'Anotar un gasto que faltó' : 'Anotar un gasto'}
+          </Button>
+        )}
       </div>
 
       {!soloVer && <GastoSheet lote={lote} open={abierta} onClose={() => setAbierta(false)} editar={editar} />}

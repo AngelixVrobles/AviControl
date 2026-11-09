@@ -187,3 +187,40 @@ test('el día de venta se cambia y la ganancia estimada va hasta ese día', asyn
   await page.goto('/ajustes')
   await expect(page.getByLabel('Día de venta, en días')).toHaveValue('42')
 })
+
+// Al empleado se le paga por pollada y no se anotó: el ciclo cerró con RD$1,093
+// de ganancia donde, con los RD$15,000 del empleado, hubo una pérdida. Con el
+// ciclo cerrado se anota el pago que falta, y también cualquier otro gasto.
+test('un ciclo cerrado anota el pago del empleado que faltaba y cualquier gasto', async ({ page }) => {
+  const id = await sembrar(page, async ({ db, hoy, sumarDias }) => {
+    const inicio = sumarDias(hoy, -44)
+    const cierre = sumarDias(hoy, -2)
+    const loteId = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada cerrada',
+      fechaInicio: inicio,
+      fechaCierre: cierre,
+      cantidadInicial: 1000,
+      costoInicial: 40000,
+      estado: 'cerrado',
+      pesoObjetivoLb: 5.5,
+      empleados: { monto: 15000, cada: 'ciclo' },
+      creado: Date.now(),
+    })) as number
+    await db.gastos.add({ loteId, categoria: 'alimento', monto: 150000, fecha: sumarDias(inicio, 5), creado: Date.now() })
+    await db.ingresos.add({ loteId, tipo: 'aves', cantidad: 902, pesoLb: 4949, monto: 191093, fecha: cierre, creado: Date.now() })
+    return loteId
+  })
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText('RD$1,093')
+  await expect(main).toContainText('Falta anotar el pago de los empleados: RD$15,000')
+  await main.getByRole('button', { name: 'Anotarlo' }).click()
+  await expect(main).toContainText('−RD$13,907')
+  await expect(main).not.toContainText('Falta anotar el pago de los empleados')
+
+  // Cualquier otro gasto que faltó también se anota, sin reabrir el ciclo.
+  await main.getByRole('button', { name: 'Anotar un gasto que faltó' }).click()
+  const hoja = page.getByRole('dialog')
+  await expect(hoja).toBeVisible()
+})

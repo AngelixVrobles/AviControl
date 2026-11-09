@@ -6,11 +6,14 @@ import { db, type Gasto, type Ingreso, type Lote } from "../../db/schema";
 import type { LoteMetrics } from "../../lib/metrics";
 import { computeGuiaDia } from "../../lib/guia";
 import { computeInventarioAlimento, computePlanAlimento } from "../../lib/plan";
-import { alimentoEn, fecha, hoyISO, money, num, pct, plural } from "../../lib/format";
+import { alimentoEn, diasEntre, fecha, hoyISO, money, num, pct, plural } from "../../lib/format";
 import { LB_POR_QUINTAL } from "../../lib/standards";
 import { nombreFase, type AlimentoPorTipo } from "../../lib/alimentos";
 import { confirmar, toast } from "../../components/confirm";
 import { cuadrarVentas } from "../../db/cuadre";
+import { anotarPagoEmpleados } from "../../db/empleados";
+import { faltaEmpleados } from "../../lib/porPagar";
+import { avesQueSalieron } from "../../lib/cuadre";
 import { Banda, Seccion } from "../../components/ui";
 
 // Se vendieron todas las aves con «Venta», o no queda ninguna: el ciclo sigue
@@ -21,11 +24,13 @@ import { Banda, Seccion } from "../../components/ui";
 export function CerrarSinAves({
   lote,
   metrics,
+  gastos,
   ingresos,
   onGasto,
 }: {
   lote: Lote;
   metrics: LoteMetrics;
+  gastos: Gasto[];
   ingresos: Ingreso[];
   onGasto: () => void;
 }) {
@@ -34,22 +39,30 @@ export function CerrarSinAves({
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
   const ultima = ventas[ventas.length - 1]?.fecha;
   const vendio = metrics.vendidas > 0;
+  const cierre = ultima ?? hoyISO();
+  const pagoFalta = faltaEmpleados(
+    lote,
+    gastos,
+    diasEntre(lote.fechaInicio, cierre),
+    avesQueSalieron(lote, metrics.bajas),
+  );
 
   async function cerrar() {
     const ok = await confirmar({
       titulo: "Cerrar el ciclo",
-      mensaje: `${ultima ? `Se cierra con fecha ${fecha(ultima)}, la de la última venta.` : "Se cierra con fecha de hoy."} Si te falta anotar un gasto, puedes hacerlo antes o reabrirlo después.`,
+      mensaje: `${ultima ? `Se cierra con fecha ${fecha(ultima)}, la de la última venta.` : "Se cierra con fecha de hoy."}${pagoFalta >= 1 ? ` Se anota lo que falta del pago de los empleados: ${money(pagoFalta)}.` : ""} Si te falta un gasto, lo puedes anotar después.`,
       confirmar: "Cerrar el ciclo",
     });
     if (!ok) return;
-    await db.transaction("rw", db.ingresos, db.lotes, async () => {
+    await db.transaction("rw", db.ingresos, db.lotes, db.gastos, async () => {
       await cuadrarVentas(lote, metrics.bajas);
+      await anotarPagoEmpleados(lote, pagoFalta, cierre);
       await db.lotes.update(lote.id, {
         estado: "cerrado",
-        fechaCierre: ultima ?? hoyISO(),
+        fechaCierre: cierre,
       });
     });
-    toast(`Ciclo cerrado · ${money(metrics.ganancia)}`);
+    toast(`Ciclo cerrado · ${money(metrics.ganancia - pagoFalta)}`);
   }
 
   return (

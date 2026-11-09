@@ -51,12 +51,13 @@ export function GastoSheet({
     setCategoria(editar?.categoria ?? 'alimento')
     setMonto(editar ? String(editar.monto) : '')
     setQuintales(editar?.cantidadQq != null ? String(editar.cantidadQq) : '')
-    setFecha(editar?.fecha ?? hoyISO())
+    // En un ciclo cerrado, el gasto que faltó es de cuando se cerró, no de hoy.
+    setFecha(editar?.fecha ?? (lote.estado === 'cerrado' && lote.fechaCierre ? lote.fechaCierre : hoyISO()))
     setDescripcion(editar?.descripcion ?? '')
     setPagadoPor(editar?.pagadoPor != null ? String(editar.pagadoPor) : '')
     setFase(editar?.fase)
     setFaseTocada(!!editar?.fase)
-  }, [open, editar])
+  }, [open, editar, lote.estado, lote.fechaCierre])
 
   const faseElegida = faseTocada ? fase : faseDeNombre(descripcion)
 
