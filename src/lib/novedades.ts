@@ -3,13 +3,11 @@
 // forma de enterarse. En Ajustes se puede volver a ver.
 
 export const NOVEDADES = {
-  version: '1.16',
+  version: '1.17',
   cosas: [
-    'El estimado de cada pollada aprende de tus polladas cerradas: si tu granja vende al 76 % del peso Cobb, un pesaje de los 28 días ya no se estira con la curva hasta la venta. Usa todos los pesajes, no solo el último, y le cree más a los que tienen más aves.',
-    'El peso al vender y la ganancia salen con su rango —«entre 5.5 y 6.6 lb», «puede quedar entre…»—, 8 de cada 10 veces, en Dinero.',
-    'La app dice cuántas aves pesar según lo desparejo del lote, cuándo —unos 3 días antes de vender— y cómo escogerlas, y cuánto se afina el estimado con eso.',
-    'Al cerrar, lo que falta del pago de los empleados se anota como gasto: la ganancia del cierre es la de verdad.',
-    'Un ciclo cerrado se corrige sin reabrirlo: «Anotar un gasto que faltó» en Dinero, y si quedó sin anotar el pago de los empleados, se anota con un toque.',
+    'Un ciclo cerrado se corrige completo, sin reabrirlo: en «Corregir el ciclo» también va la fecha de cierre —el que decía que duró 64 días queda con lo que duró—, y en Dinero se anotan el día, la venta o el gasto que faltaron.',
+    'Si en un ciclo cerrado las aves no dan —las que entraron contra las que murieron y se vendieron—, la app lo dice, y con «Cuadrar» las que faltan se reparten en las ventas según sus libras.',
+    'En Dinero, «A cada precio»: cuántos pollos se vendieron a cada precio —al camión por libra, a la gente por unidad o arreglado— y lo que dejó cada uno.',
   ],
 }
 

@@ -146,3 +146,35 @@ test('si el pollero sobrecarga las cajas, las aves salen por el peso', async ({ 
   await otra.getByLabel('Comprador').fill('Tito')
   await expect(otra.getByLabel('Pollos por caja')).toHaveValue('10')
 })
+
+// Al camión se le vende por libra más barato que a la gente que se lleva uno
+// o dos por unidad: la app dice cuántos pollos salieron a cada precio.
+test('Dinero dice cuántos pollos se vendieron a cada precio', async ({ page }) => {
+  const id = await sembrar(page, async ({ db, hoy, sumarDias }) => {
+    const inicio = sumarDias(hoy, -44)
+    const id = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada vendida',
+      fechaInicio: inicio,
+      cantidadInicial: 1000,
+      costoInicial: 40000,
+      estado: 'activo',
+      pesoObjetivoLb: 5.5,
+      precioVentaLb: 38,
+      creado: Date.now(),
+    })) as number
+    const venta = (cantidad: number, extra: Record<string, unknown>) =>
+      db.ingresos.add({ loteId: id, tipo: 'aves', cantidad, fecha: sumarDias(inicio, 42), creado: Date.now(), ...extra } as never)
+    await venta(500, { pesoLb: 2750, precioLb: 38, monto: 104500 })
+    await venta(402, { pesoLb: 2199, precioLb: 38, monto: 83562 })
+    await venta(40, { monto: 12000 })
+    return id
+  })
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText('A cada precio')
+  await expect(main).toContainText('RD$38 la libra en pie')
+  await expect(main).toContainText('902 aves (96%) · 4,949 lb · 2 ventas')
+  await expect(main).toContainText('RD$300 cada pollo')
+  await expect(main).toContainText('40 aves (4%) · 1 venta')
+})

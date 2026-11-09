@@ -50,6 +50,44 @@ export function precioDe(i: Pick<Ingreso, 'precioLb' | 'monto' | 'pesoLb'>): num
   return i.pesoLb && i.pesoLb > 0 && i.monto > 0 ? Math.round((i.monto / i.pesoLb) * 100) / 100 : undefined
 }
 
+// Cuántos pollos se vendieron a cada precio: al camión o al pollero se le
+// vende por libra más barato que a la persona que se lleva uno o dos, y eso
+// cambia lo que deja la pollada. Cada grupo es una forma de cobrar —por libra
+// en pie, por libra arreglada o por pollo, sin pesar— y un precio.
+export type FormaDeCobro = 'pie' | 'arreglado' | 'unidad'
+
+export interface VentasAUnPrecio {
+  forma: FormaDeCobro
+  /** Por libra, o por pollo si se cobró por unidad. */
+  precio: number
+  ventas: number
+  aves: number
+  /** Las libras que se cobraron; por unidad, ninguna. */
+  lb: number
+  monto: number
+}
+
+export function ventasPorPrecio(ingresos: Ingreso[]): VentasAUnPrecio[] {
+  const grupos = new Map<string, VentasAUnPrecio>()
+  for (const i of ingresos) {
+    if (i.tipo !== 'aves' || !(i.monto > 0)) continue
+    const pesada = (i.pesoLb ?? 0) > 0
+    const forma: FormaDeCobro = pesada ? (i.arreglado ? 'arreglado' : 'pie') : 'unidad'
+    const crudo = pesada ? precioDe(i) : i.cantidad > 0 ? i.monto / i.cantidad : undefined
+    if (crudo == null) continue
+    // Por libra, a centavos; por pollo, a pesos: 300 y 300.4 son el mismo precio.
+    const precio = forma === 'unidad' ? Math.round(crudo) : Math.round(crudo * 100) / 100
+    const clave = `${forma}|${precio}`
+    const g = grupos.get(clave) ?? { forma, precio, ventas: 0, aves: 0, lb: 0, monto: 0 }
+    g.ventas++
+    g.aves += Math.max(0, i.cantidad)
+    g.lb += pesada ? i.pesoLb! : 0
+    g.monto += i.monto
+    grupos.set(clave, g)
+  }
+  return [...grupos.values()].sort((a, b) => b.aves - a.aves || b.monto - a.monto)
+}
+
 // A cómo ha salido la libra en las ventas pesadas que se vendieron igual,
 // arregladas o en pie: el precio de cada comprador pesa por sus libras.
 export function precioPromedio(ingresos: Ingreso[], arreglado: boolean): number | undefined {

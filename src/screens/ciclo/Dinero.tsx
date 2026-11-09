@@ -18,7 +18,7 @@ import { anotarPagoEmpleados } from "../../db/empleados";
 import { avesQueSalieron, cuadrarAves } from "../../lib/cuadre";
 import { toast } from "../../components/confirm";
 import { LB_POR_QUINTAL } from "../../lib/standards";
-import type { ModoVenta } from "../../lib/venta";
+import { precioCorto, ventasPorPrecio, type ModoVenta } from "../../lib/venta";
 import { useSettings } from "../../lib/hooks";
 import { AnimatedNumber } from "../../components/AnimatedNumber";
 import { Banda, Button, Seccion } from "../../components/ui";
@@ -667,6 +667,45 @@ export function CorregirCierre({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Cuántos pollos salieron a cada precio: al camión por libra, a la gente por
+// unidad o arreglado, más caro. Es la cuenta de lo que de verdad se cobró, y
+// dice qué parte de las aves se fue a cada precio.
+export function VentasPorPrecio({ ingresos }: { ingresos: Ingreso[] }) {
+  const grupos = ventasPorPrecio(ingresos);
+  if (!grupos.length) return null;
+  const aves = grupos.reduce((a, g) => a + g.aves, 0);
+  const forma = (g: (typeof grupos)[number]) =>
+    g.forma === "unidad"
+      ? `${precioCorto(g.precio)} cada pollo`
+      : `${precioCorto(g.precio)} la libra${g.forma === "arreglado" ? " arreglada" : " en pie"}`;
+  return (
+    <div className="mb-4">
+      <div className="mb-2 text-xs font-medium text-ink-faint">A cada precio</div>
+      <Banda className="divide-y divide-line">
+        {grupos.map((g) => (
+          <div
+            key={`${g.forma}${g.precio}`}
+            className="flex items-center justify-between gap-3 px-5 py-3 text-sm"
+          >
+            <div className="min-w-0">
+              <div className="font-medium">{forma(g)}</div>
+              <div className="text-xs text-ink-faint tnum">
+                {num(g.aves)} {plural(g.aves, "ave", "aves")}
+                {aves > 0 && grupos.length > 1 ? ` (${pct((g.aves / aves) * 100, 0)})` : ""}
+                {g.lb > 0 ? ` · ${num(Math.round(g.lb))} lb` : ""} · {num(g.ventas)}{" "}
+                {plural(g.ventas, "venta", "ventas")}
+              </div>
+            </div>
+            <span className="shrink-0 font-display font-semibold text-forest-600 tnum">
+              {money(g.monto)}
+            </span>
+          </div>
+        ))}
+      </Banda>
     </div>
   );
 }

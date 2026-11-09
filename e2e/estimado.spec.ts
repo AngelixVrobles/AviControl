@@ -220,7 +220,7 @@ test('un ciclo cerrado anota el pago del empleado que faltaba y cualquier gasto'
   await expect(main).not.toContainText('Falta anotar el pago de los empleados')
 
   // Cualquier otro gasto que faltó también se anota, sin reabrir el ciclo.
-  await main.getByRole('button', { name: 'Anotar un gasto que faltó' }).click()
+  await main.getByRole('button', { name: 'Gasto que faltó' }).click()
   const hoja = page.getByRole('dialog')
   await expect(hoja).toBeVisible()
 })
