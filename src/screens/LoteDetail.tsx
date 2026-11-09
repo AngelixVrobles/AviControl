@@ -53,7 +53,7 @@ import {
 } from "../components/sheets";
 import { CerrarSinAves, FaseActual, GuiaDelDia } from "./ciclo/Hoy";
 import { Desvio, Diagnostico, GridCrecimiento, Muestreo } from "./ciclo/Crecimiento";
-import { ComoSalio, PrecioMinimo, PuntoOptimo } from "./ciclo/Dinero";
+import { ComoSalio, CorregirCierre, PrecioMinimo, PuntoOptimo } from "./ciclo/Dinero";
 import { Sociedad } from "./ciclo/Sociedad";
 import { GananciaEstimada } from "./ciclo/Estimado";
 
@@ -359,6 +359,7 @@ export function LoteDetail() {
         <CerrarSinAves
           lote={lote}
           metrics={metrics}
+          gastos={gastos}
           ingresos={ingresos}
           onGasto={() => abrir("gasto")}
         />
@@ -556,6 +557,14 @@ export function LoteDetail() {
         <div className="animate-rise">
           {indiceDinero.length > 0 && <IndiceDinero partes={indiceDinero} />}
           <ComoSalio lote={lote} metrics={metrics} ingresos={ingresos} />
+          {!soloVer && (
+            <CorregirCierre
+              lote={lote}
+              metrics={metrics}
+              gastos={gastos}
+              onGasto={() => abrir("gasto")}
+            />
+          )}
           {/* La cifra grande va sola arriba y las otras dos debajo: lado a lado,
               a 320 px se cortaban en «RD$74,2…» y «RD$1,37…». */}
           <Banda className={clsx("mt-5 overflow-hidden", cerrado && "hidden")}>
@@ -904,6 +913,7 @@ export function LoteDetail() {
           <CuadreSheet
             lote={lote}
             metrics={metrics}
+            gastos={gastos}
             ingresos={ingresos}
             open={sheet === "cuadre"}
             onClose={() => setSheet(null)}

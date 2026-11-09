@@ -12,12 +12,15 @@ import { resultadoCiclo, type Contraste } from "../../lib/cierre";
 import { analizarPuntoOptimo } from "../../lib/optimo";
 import { pesoObjetivoDe } from "../../lib/lote";
 import { gananciaPorSocio } from "../../lib/sociedad";
-import { fecha, money, num, numCompacto, pct, plural, porLb } from "../../lib/format";
+import { diasEntre, fecha, hoyISO, money, num, numCompacto, pct, plural, porLb } from "../../lib/format";
+import { faltaEmpleados } from "../../lib/porPagar";
+import { anotarPagoEmpleados } from "../../db/empleados";
+import { toast } from "../../components/confirm";
 import { LB_POR_QUINTAL } from "../../lib/standards";
 import type { ModoVenta } from "../../lib/venta";
 import { useSettings } from "../../lib/hooks";
 import { AnimatedNumber } from "../../components/AnimatedNumber";
-import { Banda, Seccion } from "../../components/ui";
+import { Banda, Button, Seccion } from "../../components/ui";
 import { GraficaLineas } from "../../components/chart";
 
 export function ComoSalio({
@@ -530,6 +533,61 @@ function FilaDato({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+// Un ciclo cerrado se corrige sin reabrirlo: el gasto que faltó —el pago del
+// empleado, el camión— se anota y «Cómo salió» y la sociedad se ponen al día.
+// Si el pago de los empleados quedó sin anotar, se dice cuánto y se anota con
+// un toque: daba RD$1,093 de ganancia donde hubo una pérdida de RD$13,907.
+export function CorregirCierre({
+  lote,
+  metrics,
+  gastos,
+  onGasto,
+}: {
+  lote: Lote;
+  metrics: LoteMetrics;
+  gastos: Gasto[];
+  onGasto: () => void;
+}) {
+  if (lote.estado !== "cerrado") return null;
+  const cierre = lote.fechaCierre ?? hoyISO();
+  const falta = faltaEmpleados(
+    lote,
+    gastos,
+    diasEntre(lote.fechaInicio, cierre),
+    metrics.vendidas,
+  );
+
+  async function anotarPago() {
+    await anotarPagoEmpleados(lote, falta, cierre);
+    toast(`Pago de empleados anotado · ${money(falta)}`);
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      {falta >= 1 && (
+        <div className="flex items-center gap-3 rounded-xl2 border border-amber-line border-l-4 border-l-amber-400 bg-amber-tint p-4">
+          <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-text">
+            Falta anotar el pago de los empleados:{" "}
+            <span className="font-semibold tnum">{money(falta)}</span>. Sin eso, la ganancia sale de más.
+          </p>
+          <button
+            onClick={anotarPago}
+            className="h-11 shrink-0 rounded-full bg-forest-600 px-4 text-sm font-semibold text-paper-raised transition active:scale-[0.97]"
+          >
+            Anotarlo
+          </button>
+        </div>
+      )}
+      <Button variant="soft" block onClick={onGasto}>
+        Anotar un gasto que faltó
+      </Button>
+      <p className="text-center text-xs text-ink-faint">
+        El ciclo sigue cerrado: la cuenta se corrige sola. Las ventas y los días se corrigen tocándolos.
+      </p>
     </div>
   );
 }

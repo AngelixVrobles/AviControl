@@ -31,6 +31,8 @@ import {
 } from '../../lib/pesada'
 import { avesQueSalieron, cuadrarAves } from '../../lib/cuadre'
 import { cuadrarVentas } from '../../db/cuadre'
+import { anotarPagoEmpleados } from '../../db/empleados'
+import { faltaEmpleados } from '../../lib/porPagar'
 import { AvisoRetiro } from './AvisoRetiro'
 import { AvisoCuadre } from './Cuadre'
 
@@ -308,6 +310,10 @@ export function IngresoSheet({
   const cuadreAlCerrar = ventasAlCerrar.length ? cuadrarAves(lote, ventasAlCerrar, salieron) : undefined
   const cuadraOtras = !!cuadreAlCerrar?.cantidades.some((c, k) => c !== ventasAlCerrar[k].cantidad)
   const cierraConEsta = vendeTodo ? cerrar : puedeAcabar && seAcaban && !!cuadreAlCerrar
+  // Al cerrar, lo que falta del pago de los empleados entra como gasto.
+  const pagoFalta = cierraConEsta
+    ? faltaEmpleados(lote, gastos, diasEntre(lote.fechaInicio, fecha), salieron)
+    : 0
   // No se venden aves que no hay, ni menos de cero: una venta de −200 aves
   // «creaba» aves en el galpón. Al corregir, las de esta venta vuelven a contar.
   const maxAves = metrics.avesVivas + (editar?.tipo === 'aves' ? editar.cantidad : 0)
@@ -414,12 +420,13 @@ export function IngresoSheet({
       // el pollo costaba RD$690 la libra.
       const proyeccion = proyectarVenta(lote, registros, gastos, metrics, pesoObjetivoDe(lote), modo)
       const cierre = lote.cierre ?? snapshotCierre(metrics, proyeccion, diasEntre(lote.fechaInicio, fecha))
-      await db.transaction('rw', db.ingresos, db.lotes, async () => {
+      await db.transaction('rw', db.ingresos, db.lotes, db.gastos, async () => {
         await db.ingresos.add({ ...datos, creado: Date.now() })
         await cuadrarVentas(lote, metrics.bajas)
+        await anotarPagoEmpleados(lote, pagoFalta, fecha)
         await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: fecha, cierre })
       })
-      toast(`Ciclo cerrado · ${money(metrics.ingresos + datos.monto - metrics.costos)}`)
+      toast(`Ciclo cerrado · ${money(metrics.ingresos + datos.monto - metrics.costos - pagoFalta)}`)
     } else {
       await db.ingresos.add({ ...datos, creado: Date.now() })
       toast(
@@ -666,7 +673,7 @@ export function IngresoSheet({
                 {nAves > metrics.avesVivas && cuadreAlCerrar
                   ? `Por las cuentas quedaban ${num(metrics.avesVivas)}: las de más se descuentan de las ventas con aves estimadas, según sus libras.`
                   : `Salen las últimas ${num(metrics.avesVivas)} aves.${cuadraOtras ? ' Las ventas con aves estimadas se cuadran por sus libras.' : ''}`}{' '}
-                Si te falta un gasto, lo anotas después de reabrirlo.
+                Si te falta un gasto, lo puedes anotar después.
               </div>
             </div>
             <Interruptor activo={cerrar} />
@@ -691,6 +698,12 @@ export function IngresoSheet({
             </div>
             <Interruptor activo={seAcaban} />
           </button>
+        )}
+        {cierraConEsta && pagoFalta >= 1 && (
+          <p className="rounded-xl bg-forest-50 px-4 py-3 text-sm leading-relaxed text-forest-700">
+            Al cerrar se anota lo que falta del pago de los empleados:{' '}
+            <span className="font-semibold tnum">{money(pagoFalta)}</span>.
+          </p>
         )}
         {cierraConEsta && cuadreAlCerrar && (cuadraOtras || nAves !== metrics.avesVivas) && (
           <AvisoCuadre lote={lote} metrics={metrics} pesoAveLb={cuadreAlCerrar.pesoAveLb} fecha={fecha} />

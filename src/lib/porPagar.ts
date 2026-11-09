@@ -48,6 +48,20 @@ export function pagoEmpleados(
   return { total, anotado, falta: Math.max(0, total - anotado) }
 }
 
+/**
+ * Lo que falta pagarles a los empleados al cerrar el ciclo, para anotarlo como
+ * gasto. La ganancia estimada lo contaba y la del cierre no: daba RD$1,093 de
+ * ganancia donde, con los RD$15,000 del empleado, hubo una pérdida de RD$13,907.
+ */
+export function faltaEmpleados(
+  lote: Pick<Lote, 'empleados'>,
+  gastos: Gasto[],
+  diaVenta: number,
+  aves: number,
+): number {
+  return Math.round(pagoEmpleados(lote.empleados, gastos, { diaVenta, aves })?.falta ?? 0)
+}
+
 /** Lo que suman los gastos que ya se sabe que vienen. */
 export const totalPorVenir = (l: Pick<Lote, 'gastosPorVenir'>) =>
   (l.gastosPorVenir ?? []).reduce((a, g) => a + (g.monto > 0 ? g.monto : 0), 0)

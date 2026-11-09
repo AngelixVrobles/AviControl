@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pagoEmpleados, totalPorVenir } from './porPagar'
+import { faltaEmpleados, pagoEmpleados, totalPorVenir } from './porPagar'
 import { gasto } from '../test/fixtures'
 
 describe('pagoEmpleados', () => {
@@ -45,6 +45,26 @@ describe('pagoEmpleados', () => {
 
   it('un pago con una frecuencia que no existe no se estima', () => {
     expect(pagoEmpleados({ monto: 100, cada: 'año' as never }, [], ciclo)).toBeUndefined()
+  })
+})
+
+// Al empleado se le paga por pollada: RD$15,000. Si al cerrar no está anotado,
+// es lo que falta; si ya se anotó una parte, el resto.
+describe('faltaEmpleados', () => {
+  const porPollada = { empleados: { monto: 15000, cada: 'ciclo' as const } }
+
+  it('al cerrar falta todo lo que no se ha anotado como mano de obra', () => {
+    expect(faltaEmpleados(porPollada, [], 42, 902)).toBe(15000)
+    expect(faltaEmpleados(porPollada, [gasto({ categoria: 'mano_obra', monto: 5000 })], 42, 902)).toBe(10000)
+    expect(faltaEmpleados(porPollada, [gasto({ categoria: 'mano_obra', monto: 15000 })], 42, 902)).toBe(0)
+  })
+
+  it('sin empleados no falta nada', () => {
+    expect(faltaEmpleados({}, [], 42, 902)).toBe(0)
+  })
+
+  it('por pollo, lo de las aves que salieron', () => {
+    expect(faltaEmpleados({ empleados: { monto: 10, cada: 'ave' } }, [], 42, 902)).toBe(9020)
   })
 })
 

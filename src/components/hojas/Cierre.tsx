@@ -26,6 +26,8 @@ import {
 } from '../../lib/pesada'
 import { avesQueSalieron, cuadrarAves } from '../../lib/cuadre'
 import { cuadrarVentas } from '../../db/cuadre'
+import { anotarPagoEmpleados } from '../../db/empleados'
+import { faltaEmpleados } from '../../lib/porPagar'
 import { Interruptor } from '../Socios'
 import { AvisoRetiro } from './AvisoRetiro'
 import { AvisoCuadre } from './Cuadre'
@@ -200,7 +202,12 @@ export function CierreSheet({
   const snap = lote.cierre ?? snapshotCierre(metrics, proyeccion, dia)
 
   const ingresoTotal = metrics.ingresos + montoFinal
-  const ganancia = ingresoTotal - metrics.costos
+  // Al cerrar, lo que falta del pago de los empleados entra como gasto: la
+  // ganancia de «Cómo salió» ya lo cuenta.
+  const avesQueSalen = ventasCuadradas.reduce((a, v) => a + v.cantidad, 0)
+  const pagoFalta = parcial ? 0 : faltaEmpleados(lote, gastos, dia, avesQueSalen)
+  const costosAlCerrar = metrics.costos + pagoFalta
+  const ganancia = ingresoTotal - costosAlCerrar
   // Cómo salió todo el ciclo, con las ventas de antes: el costo de todo el
   // ciclo entre las libras de esta venta sola daba RD$85 la libra donde eran 35.
   const todas = librasVendidas(ventasCuadradas, metrics.pesoEstimadoLb)
@@ -216,7 +223,7 @@ export function CierreSheet({
     ingreso: montoFinal,
     ganancia,
     margenPct: ingresoTotal > 0 ? (ganancia / ingresoTotal) * 100 : 0,
-    costoPorLb: todas.lbTotal > 0 ? metrics.costos / todas.lbTotal : undefined,
+    costoPorLb: todas.lbTotal > 0 ? costosAlCerrar / todas.lbTotal : undefined,
     gananciaPorAve: avesDelCiclo > 0 ? ganancia / avesDelCiclo : 0,
   }
   const contrastes = construirContrastes(snap, real)
@@ -247,7 +254,7 @@ export function CierreSheet({
 
   async function guardar() {
     const quien = recibidoPor !== '' ? Number(recibidoPor) : undefined
-    await db.transaction('rw', db.ingresos, db.lotes, async () => {
+    await db.transaction('rw', db.ingresos, db.lotes, db.gastos, async () => {
       await db.ingresos.add({
         loteId: lote.id,
         tipo: 'aves',
@@ -267,6 +274,7 @@ export function CierreSheet({
       })
       if (!parcial) {
         await cuadrarVentas(lote, metrics.bajas)
+        await anotarPagoEmpleados(lote, pagoFalta, fecha)
         await db.lotes.update(lote.id, { estado: 'cerrado', fechaCierre: fecha, cierre: snap })
       }
     })
@@ -506,6 +514,11 @@ export function CierreSheet({
             </div>
             <div className="mt-1.5 text-sm text-ink-soft tnum">
               {money(real.gananciaPorAve)} por ave · margen {pct(real.margenPct)}
+              {pagoFalta >= 1 && (
+                <span className="block text-xs text-ink-faint">
+                  con {money(pagoFalta)} que faltaban del pago de los empleados, que se anotan al cerrar
+                </span>
+              )}
             </div>
             {reparto.socios.length > 0 && (
               <div className="mt-3 divide-y divide-line border-t border-line">
