@@ -1,5 +1,5 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
-import { eficienciaAlimento, type LoteMetrics } from './metrics'
+import { diaParaPesoDe, eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, sumarDias } from './format'
 import { pesoObjetivoDe } from './lote'
 import { precioAlimentoLb } from './precios'
@@ -7,12 +7,7 @@ import { alimentoPorTipo, precioDelDiaLb } from './alimentos'
 import { proyectarVenta } from './proyeccion'
 import { pagoEmpleados, totalPorVenir } from './porPagar'
 import { EN_PIE, type ModoVenta } from './venta'
-import {
-  alimentoDiaEstandarLb,
-  diaParaPeso,
-  mortalidadEsperadaPct,
-  pesoEstandarLb,
-} from './standards'
+import { alimentoDiaEstandarLb, mortalidadEsperadaPct, pesoEstandarLb } from './standards'
 
 export interface PuntoVenta {
   dia: number
@@ -86,7 +81,7 @@ export function analizarPuntoOptimo(
   // toca es vender. Antes el recorrido quedaba vacío y la pestaña se caía.
   const hasta = Math.max(desde, Math.min(56, desde + HORIZONTE_DIAS))
   for (let dia = desde; dia <= hasta; dia++) {
-    const pesoLb = pesoEstandarLb(dia) * m.factorCurva
+    const pesoLb = m.estimador?.pesoEn(dia) ?? pesoEstandarLb(dia) * m.factorCurva
     const bajas = Math.round(
       (m.avesVivas * Math.max(0, mortalidadEsperadaPct(dia) - mortalidadEsperadaPct(desde))) / 100,
     )
@@ -129,7 +124,7 @@ export function analizarPuntoOptimo(
   // El óptimo puro puede caer en un pollo de 8 lb que ningún pollero paga a
   // precio de mercado, así que también se devuelve el mejor día sin pasarse del
   // peso que compra el cliente.
-  const tope = puntos.find((p) => p.dia >= diaParaPeso(objetivoLb, m.factorCurva)) ?? hoy
+  const tope = puntos.find((p) => p.dia >= diaParaPesoDe(m, objetivoLb)) ?? hoy
 
   // Para comparar con el mejor día: antes la pestaña decía «vendes el día 35»
   // en un lado y «te conviene esperar hasta el 40» en otro, sin decir cuánto

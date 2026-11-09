@@ -27,7 +27,8 @@ export function Muestreo({
 }) {
   const aves = metrics.avesVivas;
   const [todos, setTodos] = useState(false);
-  const sugeridas = tamanoMuestra(aves);
+  // Con lo desparejo que salió el último pesaje: más desparejo, más aves.
+  const sugeridas = tamanoMuestra(aves, metrics.estimador ? metrics.estimador.ultimo.cv * 100 : undefined);
   const ultimo = pesajes.length ? pesajes[pesajes.length - 1] : undefined;
   const m = ultimo ? analizarMuestra(ultimo.pesos, aves) : null;
 

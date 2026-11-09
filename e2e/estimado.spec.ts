@@ -224,3 +224,61 @@ test('un ciclo cerrado anota el pago del empleado que faltaba y cualquier gasto'
   const hoja = page.getByRole('dialog')
   await expect(hoja).toBeVisible()
 })
+
+// La pollada anterior vendió al 76 % del Cobb. La que sigue se pesó a los 28
+// días un 7 % arriba de la curva: antes se estiraba ese pesaje hasta la venta
+// y decía 7.76 lb. Ahora el lote se va pareciendo a lo que logra la granja, el
+// peso lleva su rango y la app dice cuántas aves pesar y cuándo para afinarlo.
+test('el estimado aprende de las polladas cerradas y dice su margen y cuántas aves pesar', async ({ page }) => {
+  const id = await sembrar(page, async ({ db, hoy, sumarDias }) => {
+    const i0 = sumarDias(hoy, -100)
+    const c0 = sumarDias(i0, 42)
+    const cerrada = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada de agosto',
+      fechaInicio: i0,
+      fechaCierre: c0,
+      cantidadInicial: 1000,
+      costoInicial: 42000,
+      estado: 'cerrado',
+      pesoObjetivoLb: 5.5,
+      creado: Date.now(),
+    })) as number
+    await db.ingresos.add({ loteId: cerrada, tipo: 'aves', cantidad: 902, pesoLb: 4949, monto: 194900, fecha: c0, creado: Date.now() })
+    const inicio = sumarDias(hoy, -30)
+    const id = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada de octubre',
+      fechaInicio: inicio,
+      cantidadInicial: 1000,
+      costoInicial: 42000,
+      estado: 'activo',
+      pesoObjetivoLb: 5.5,
+      precioVentaLb: 38,
+      diaVenta: 42,
+      creado: Date.now(),
+    })) as number
+    const registros = []
+    for (let d = 1; d <= 29; d++)
+      registros.push({
+        loteId: id,
+        fecha: sumarDias(inicio, d),
+        mortalidad: 1,
+        descarte: 0,
+        alimentoLb: 40 + d * 9,
+        // 3.93 lb es el Cobb del día 28: pesaron un 7 % más.
+        ...(d === 28 ? { pesoPromedio: 4.22 } : {}),
+        creado: Date.now(),
+      })
+    await db.registros.bulkAdd(registros)
+    return id
+  })
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText('Peso al vender')
+  await expect(main).toContainText('6.0 lb')
+  await expect(main).toContainText('de tu pollada cerrada, que vendió al 76% del peso Cobb')
+  await expect(main).toContainText(/Entre 5\.\d y 6\.\d lb, 8 de cada 10 veces/)
+  await expect(main).toContainText(/Para afinarlo, pesa \d+ aves .*3 días antes de vender/)
+  await expect(main).toContainText('Puede quedar entre')
+})

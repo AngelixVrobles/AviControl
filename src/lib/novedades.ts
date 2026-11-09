@@ -3,14 +3,13 @@
 // forma de enterarse. En Ajustes se puede volver a ver.
 
 export const NOVEDADES = {
-  version: '1.15',
+  version: '1.16',
   cosas: [
-    'La venta al pollero se anota como en el cuaderno: en «Pesar por cajas» pones las cajas vacías por grupos —6 cajas, 94 lb— y cada pesada llena, y la app saca las libras de pollo y el total.',
-    'Las aves salen solas: 10 pollos por caja, o los que digas. Y si el lote tiene un pesaje, también por el peso, aunque nadie las cuente: si no cuadran, la app avisa de que sobrecargaron las cajas y eliges con cuál cuenta quedarte.',
-    'La app recuerda cuánto pesan las cajas de cada pollero y cuántos pollos les mete: si hoy salen muy distintas, se nota. Y si la última venta se pesó por cajas, la próxima abre igual.',
-    'Cuando sale el último pollo, la app cuadra las aves: las que salieron de verdad —las que llegaron menos las muertas— se reparten entre las ventas que no se contaron, según sus libras. En la última venta marca «Con esta venta se acaban los pollos», o toca «Ya no quedan pollos» en Dinero.',
-    'Cada venta dice cuántas cajas fueron y si sus aves se estimaron —«unas 120 aves»—, y el Excel lleva lo que pesaron las cajas vacías y llenas, para cuadrar con el cuaderno.',
-    'Logo nuevo: el anillo del ciclo, del día 1 a la venta, con el pollito con el que empieza cada pollada.',
+    'El estimado de cada pollada aprende de tus polladas cerradas: si tu granja vende al 76 % del peso Cobb, un pesaje de los 28 días ya no se estira con la curva hasta la venta. Usa todos los pesajes, no solo el último, y le cree más a los que tienen más aves.',
+    'El peso al vender y la ganancia salen con su rango —«entre 5.5 y 6.6 lb», «puede quedar entre…»—, 8 de cada 10 veces, en Dinero.',
+    'La app dice cuántas aves pesar según lo desparejo del lote, cuándo —unos 3 días antes de vender— y cómo escogerlas, y cuánto se afina el estimado con eso.',
+    'Al cerrar, lo que falta del pago de los empleados se anota como gasto: la ganancia del cierre es la de verdad.',
+    'Un ciclo cerrado se corrige sin reabrirlo: «Anotar un gasto que faltó» en Dinero, y si quedó sin anotar el pago de los empleados, se anota con un toque.',
   ],
 }
 

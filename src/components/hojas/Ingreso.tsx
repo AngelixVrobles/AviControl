@@ -13,7 +13,7 @@ import { retiroEn } from '../../lib/retiro'
 import { galponInicial, nombreDeGalpon } from '../../lib/galpones'
 import { avesPorGalpon, repartido } from '../../lib/reparto'
 import { precioCorto, precioDe, precioSugerido, rindeValido } from '../../lib/venta'
-import { pesoEstandarLb, RINDE_ARREGLADO_PCT } from '../../lib/standards'
+import { RINDE_ARREGLADO_PCT } from '../../lib/standards'
 import { Interruptor } from '../Socios'
 import { useEnvio } from '../useEnvio'
 import { ComoSalioElPollo, DatosDePago, PreciosUsados } from '../Venta'
@@ -253,12 +253,7 @@ export function IngresoSheet({
     editar?.arreglado?.rindePct ?? (rindeValido(settings.rindePct) ? settings.rindePct : RINDE_ARREGLADO_PCT)
   // Lo que pesa cada pollo el día de la venta, por el último pesaje y la curva
   // del lote: con eso salen las aves por el peso. Sin pesajes no se estima.
-  const pesoVivoAve =
-    metrics.pesoEstimadoLb == null
-      ? undefined
-      : fecha === hoyISO()
-        ? metrics.pesoEstimadoLb
-        : pesoEstandarLb(diasEntre(lote.fechaInicio, fecha)) * metrics.factorCurva
+  const pesoVivoAve = metrics.estimador?.pesoEn(diasEntre(lote.fechaInicio, fecha))
   const pesoAveVenta = pesoVivoAve != null && arreglado ? pesoVivoAve * (rinde / 100) : pesoVivoAve
   const resumenP = pesadaLeida ? resumenPesada(pesadaLeida) : undefined
   const porCajasP = resumenP?.aves
