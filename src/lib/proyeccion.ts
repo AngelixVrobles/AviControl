@@ -1,5 +1,5 @@
 import type { Gasto, Lote, Registro } from '../db/schema'
-import { eficienciaAlimento, type LoteMetrics } from './metrics'
+import { diaParaPesoDe, eficienciaAlimento, type LoteMetrics } from './metrics'
 import { diasEntre, hoyISO, sumarDias } from './format'
 import { computeInventarioAlimento } from './plan'
 import { precioAlimentoLb } from './precios'
@@ -10,7 +10,6 @@ import {
   LB_POR_QUINTAL,
   alimentoAcumEstandarLb,
   alimentoDiaEstandarLb,
-  diaParaPeso,
   mortalidadEsperadaPct,
   pesoEstandarLb,
   type FaseId,
@@ -55,6 +54,15 @@ export interface Proyeccion {
   gananciaProyectada?: number
   margenProyectadoPct?: number
   precioEquilibrioLb: number
+  /**
+   * Entre cuánto y cuánto puede pesar cada pollo al vender, con 8 de cada 10
+   * de probabilidad: el margen de los pesajes y de los días que faltan.
+   */
+  pesoVentaRango?: [number, number]
+  /** Lo mismo con la ganancia, si se sabe el precio. */
+  gananciaRango?: [number, number]
+  /** Vendiendo al llegar al peso: entre qué días llegarían. */
+  diaVentaRango?: [number, number]
 }
 
 // Proyecta escalando la curva Cobb al rendimiento real del lote y descontando la
@@ -82,8 +90,9 @@ export function proyectarVenta(
   const fijo = m.diaVentaFijo
   const listo = fijo != null ? m.dias >= fijo : pesoActual >= objetivoLb
 
-  const diaVenta = listo ? m.dias : (fijo ?? diaParaPeso(objetivoLb, m.factorCurva))
-  if (!listo && fijo == null && pesoEstandarLb(diaVenta) * m.factorCurva < objetivoLb) return null
+  const pesoEn = (d: number) => m.estimador?.pesoEn(d) ?? pesoEstandarLb(d) * m.factorCurva
+  const diaVenta = listo ? m.dias : (fijo ?? diaParaPesoDe(m, objetivoLb))
+  if (!listo && fijo == null && pesoEn(diaVenta) < objetivoLb) return null
 
   const fechaEstimada = listo ? hoyISO() : sumarDias(lote.fechaInicio, diaVenta)
   const diasRestantes = diasEntre(hoyISO(), fechaEstimada)
@@ -113,7 +122,7 @@ export function proyectarVenta(
   const pesoVentaLb = listo
     ? pesoActual
     : fijo != null
-      ? Math.max(pesoActual, pesoEstandarLb(fijo) * m.factorCurva)
+      ? Math.max(pesoActual, pesoEn(fijo))
       : objetivoLb
   const lbEnPie = Math.round(avesAlVender * pesoVentaLb)
   const lbVenta = Math.round(lbEnPie * modo.rinde)
@@ -185,6 +194,34 @@ export function proyectarVenta(
       ? (gananciaProyectada! / ingresoProyectado) * 100
       : undefined
 
+  // El margen: con día de venta, en el peso y la ganancia; vendiendo al llegar
+  // al peso, en el día.
+  let pesoVentaRango: [number, number] | undefined
+  let gananciaRango: [number, number] | undefined
+  let diaVentaRango: [number, number] | undefined
+  if (m.estimador) {
+    if (listo || fijo != null) {
+      const [bajo, alto] = m.estimador.rangoEn(listo ? m.dias : diaVenta)
+      pesoVentaRango = [Math.min(bajo, pesoVentaLb), Math.max(alto, pesoVentaLb)]
+      if (gananciaProyectada != null && precio) {
+        const porLibra = avesAlVender * modo.rinde * precio
+        gananciaRango = [
+          gananciaProyectada - (pesoVentaLb - pesoVentaRango[0]) * porLibra,
+          gananciaProyectada + (pesoVentaRango[1] - pesoVentaLb) * porLibra,
+        ]
+      }
+    } else {
+      const primero = (f: (d: number) => number) => {
+        for (let d = Math.max(1, m.dias); d <= 84; d++) if (f(d) >= objetivoLb) return d
+        return 84
+      }
+      diaVentaRango = [
+        primero((d) => m.estimador!.rangoEn(d)[1]),
+        primero((d) => m.estimador!.rangoEn(d)[0]),
+      ]
+    }
+  }
+
   return {
     listo,
     fechaEstimada,
@@ -214,5 +251,8 @@ export function proyectarVenta(
     gananciaProyectada,
     margenProyectadoPct,
     precioEquilibrioLb: lbVenta > 0 ? costoProyectado / lbVenta : 0,
+    pesoVentaRango,
+    gananciaRango,
+    diaVentaRango,
   }
 }

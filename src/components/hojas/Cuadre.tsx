@@ -141,7 +141,8 @@ export function AvisoCuadre({
   pesoAveLb?: number
   fecha: string
 }) {
-  const esperado = pesoEsperadoLb(lote, fecha, metrics.factorCurva)
+  const esperado =
+    metrics.estimador?.pesoEn(diasEntre(lote.fechaInicio, fecha)) ?? pesoEsperadoLb(lote, fecha, metrics.factorCurva)
   const raro = cuadreRaro(pesoAveLb, esperado, metrics.pesoEstimadoLb != null)
   if (!raro || pesoAveLb == null) return null
   return (

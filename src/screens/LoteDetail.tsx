@@ -645,6 +645,7 @@ export function LoteDetail() {
               proyeccion={proyeccion}
               modo={modo}
               onEmpleados={soloVer ? undefined : () => setSheet("empleados")}
+              onPesar={soloVer ? undefined : () => abrir("pesaje")}
               onPorVenir={
                 soloVer
                   ? undefined
@@ -922,6 +923,7 @@ export function LoteDetail() {
           <PesajeSheet
             lote={lote}
             avesVivas={metrics.avesVivas}
+            cvPct={metrics.estimador ? metrics.estimador.ultimo.cv * 100 : undefined}
             open={sheet === "pesaje"}
             onClose={() => setSheet(null)}
             editar={editPesaje}

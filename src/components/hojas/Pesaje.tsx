@@ -14,12 +14,15 @@ import { useEnvio } from '../useEnvio'
 export function PesajeSheet({
   lote,
   avesVivas,
+  cvPct,
   open,
   onClose,
   editar,
 }: {
   lote: Lote
   avesVivas: number
+  /** Lo desparejo que salió el último pesaje: con más desparejo, más aves. */
+  cvPct?: number
   open: boolean
   onClose: () => void
   editar?: Pesaje
@@ -42,7 +45,7 @@ export function PesajeSheet({
 
   const dia = diasEntre(lote.fechaInicio, fecha)
   const muestra = analizarMuestra(pesos, avesVivas)
-  const sugeridas = tamanoMuestra(avesVivas)
+  const sugeridas = tamanoMuestra(avesVivas, cvPct)
   const faltan = muestra ? faltanPorPesar(muestra, avesVivas) : sugeridas
   const stdLb = pesoEstandarLb(dia)
   const valorEntrada = Number(entrada.replace(',', '.'))
@@ -160,8 +163,9 @@ export function PesajeSheet({
             {avesVivas > 0 && (
               <span className="text-forest-700"> ({pct((sugeridas / avesVivas) * 100, 1)} del galpón)</span>
             )}{' '}
-            para que el promedio valga para todas. Tómalas de esquinas distintas, no solo las que se
-            dejan agarrar.
+            para que el promedio valga para todas: así queda a ±3 % del peso de verdad. Tómalas de 5
+            puntos —las esquinas, el centro, junto a comederos y bebederos—, no solo las que se dejan
+            agarrar. Lo que más afina el estimado de la venta es pesar unos 3 días antes de vender.
           </div>
         )}
 

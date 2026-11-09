@@ -1,9 +1,10 @@
-import type { Gasto, Ingreso, Lote, Registro } from '../db/schema'
+import type { Gasto, Ingreso, Lote, Pesaje, Registro } from '../db/schema'
+import { diaParaPesoEstimado, estimarPeso, type EstimadorPeso, type PerfilGranja } from './estimador'
 import { consumoAlimento, type ConsumoAlimento } from './consumo'
 import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
 import { pendienteDe } from './cobros'
 import { diaVentaDe, pesoObjetivoDe } from './lote'
-import { KG_POR_LB, diaParaPeso, fcaEstandar, pesoEstandarLb } from './standards'
+import { KG_POR_LB, diaParaPeso, fcaEstandar } from './standards'
 import { lbEnPieDe } from './venta'
 
 export interface LoteMetrics {
@@ -50,7 +51,15 @@ export interface LoteMetrics {
   costoPorLb?: number
   gananciaPorLb?: number
   iep?: number
+  /** Qué parte del peso Cobb lleva el lote hoy. */
   factorCurva: number
+  /**
+   * El peso del lote día por día, con su margen: los pesajes, y lo que han
+   * logrado las polladas cerradas de la granja.
+   */
+  estimador?: EstimadorPeso
+  /** Lo que la granja logra al vender, de sus polladas cerradas. */
+  perfil?: PerfilGranja
 
   /** El día de venta: el que se fijó, o el día en que llegan al peso de venta. */
   diaObjetivo: number
@@ -70,11 +79,23 @@ export interface LoteMetrics {
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
+/** Lo que el estimado del peso usa además del ciclo: el detalle de los pesajes y lo que logra la granja. */
+export interface DatosDelEstimado {
+  pesajes?: Pesaje[]
+  perfil?: PerfilGranja
+}
+
+/** El día en que se espera que lleguen al peso: por el camino estimado del lote. */
+export function diaParaPesoDe(m: Pick<LoteMetrics, 'estimador' | 'factorCurva'>, objetivoLb: number): number {
+  return m.estimador?.conHistoria ? diaParaPesoEstimado(m.estimador, objetivoLb) : diaParaPeso(objetivoLb, m.factorCurva)
+}
+
 export function computeMetrics(
   lote: Lote,
   registros: Registro[],
   gastos: Gasto[],
   ingresos: Ingreso[],
+  { pesajes, perfil }: DatosDelEstimado = {},
 ): LoteMetrics {
   const dias = lote.fechaCierre
     ? diasEntre(lote.fechaInicio, lote.fechaCierre)
@@ -145,15 +166,15 @@ export function computeMetrics(
 
   // Todo lo que se proyecta se apoya en la curva Cobb escalada al rendimiento
   // real del lote, no en la curva cruda: un lote al 90 % del estándar tarda más
-  // en llegar al peso de venta y hay que decirlo desde el primer pesaje.
-  const factorCurva =
-    pesoPromedioLb != null && ultimoPeso
-      ? pesoPromedioLb / pesoEstandarLb(diasEntre(lote.fechaInicio, ultimoPeso.fecha))
-      : 1
+  // en llegar al peso de venta y hay que decirlo desde el primer pesaje. Con
+  // polladas cerradas, además, el lote se va pareciendo a lo que la granja
+  // logra de verdad, y cada peso lleva su margen.
+  const estimador = estimarPeso(lote, registros, pesajes, perfil)
+  const factorCurva = estimador ? estimador.factorEn(dias) : 1
   // Con un día de venta fijo, el ciclo termina ese día: el pago de los
   // empleados, el alimento y los avisos van hasta ahí.
   const diaVentaFijo = diaVentaDe(lote)
-  const diaObjetivo = diaVentaFijo ?? diaParaPeso(pesoObjetivo, factorCurva)
+  const diaObjetivo = diaVentaFijo ?? diaParaPesoDe({ estimador, factorCurva }, pesoObjetivo)
 
   // Un peso medido envejece: a los tres días ya no es el del galpón. Se proyecta
   // a hoy con la misma curva escalada, porque si no el alimento de esos días se
@@ -161,13 +182,7 @@ export function computeMetrics(
   // salen disparados sin que nada haya pasado.
   const fechaCorte = lote.fechaCierre ?? hoyISO()
   const diasDesdePeso = ultimoPeso ? diasEntre(ultimoPeso.fecha, fechaCorte) : undefined
-  const diaPeso = ultimoPeso ? diasEntre(lote.fechaInicio, ultimoPeso.fecha) : 0
-  const pesoEnDia = (d: number) =>
-    pesoPromedioLb == null
-      ? undefined
-      : d >= diaPeso
-        ? Math.max(pesoPromedioLb, pesoEstandarLb(d) * factorCurva)
-        : pesoEstandarLb(d) * factorCurva
+  const pesoEnDia = (d: number) => estimador?.pesoEn(d)
   const pesoEstimadoLb = pesoEnDia(dias)
 
   // Lo vendido por cabeza, sin pesar, pesaba lo que el lote ese día. Antes
@@ -241,8 +256,8 @@ export function computeMetrics(
       diaVentaEstimado = dias
       fechaVentaEstimada = hoyISO()
     } else {
-      const d = diaParaPeso(pesoObjetivo, factorCurva)
-      if (pesoEstandarLb(d) * factorCurva >= pesoObjetivo) {
+      const d = diaParaPesoDe({ estimador, factorCurva }, pesoObjetivo)
+      if ((pesoEnDia(d) ?? 0) >= pesoObjetivo) {
         diaVentaEstimado = d
         fechaVentaEstimada = sumarDias(lote.fechaInicio, d)
       }
@@ -265,6 +280,8 @@ export function computeMetrics(
     gananciaPorLb,
     iep,
     factorCurva,
+    estimador,
+    perfil,
     diaObjetivo,
     diaVentaFijo,
     diaVentaEstimado,

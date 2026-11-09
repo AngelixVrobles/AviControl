@@ -15,6 +15,20 @@ import { retiroEn, type Retiro } from './retiro'
 import { modoVenta, preciosDeVenta, type ModoVenta } from './venta'
 import { galponInicial } from './galpones'
 import { avesPorGalpon } from './reparto'
+import { cicloAprendido, perfilDeGranja, type CicloAprendido, type PerfilGranja } from './estimador'
+
+// Lo que la granja logra al vender, de sus polladas cerradas: el estimado del
+// peso de la que sigue se acerca a eso. Los ciclos que mandó un socio no son
+// de esta granja y no enseñan.
+async function leerPerfilGranja(): Promise<PerfilGranja | undefined> {
+  const cerrados = (await db.lotes.where('estado').equals('cerrado').toArray()).filter((l) => !l.compartido)
+  const ciclos: CicloAprendido[] = []
+  for (const l of cerrados) {
+    const c = cicloAprendido(l, await db.ingresos.where('loteId').equals(l.id).toArray())
+    if (c) ciclos.push(c)
+  }
+  return perfilDeGranja(ciclos)
+}
 
 // La fecha de hoy, que cambia sola a medianoche y al volver a la app. Las
 // cuentas del ciclo dependen del día: con la app abierta de un día para otro,
@@ -128,7 +142,8 @@ export function useLoteData(id: number | undefined) {
     pesajes.sort((a, b) => a.fecha.localeCompare(b.fecha))
     aplicaciones.sort((a, b) => a.fecha.localeCompare(b.fecha))
     entregas.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.creado - b.creado)
-    const metrics = computeMetrics(lote, registros, gastos, ingresos)
+    const perfil = lote.compartido ? undefined : await leerPerfilGranja()
+    const metrics = computeMetrics(lote, registros, gastos, ingresos, { pesajes, perfil })
     return {
       lote,
       registros,
@@ -163,16 +178,21 @@ export function useResumen(
     )
     const lotes = estado === 'todos' ? todos : todos.filter((l) => l.estado === estado)
     const out: LoteConMetrics[] = []
+    const perfil = await leerPerfilGranja()
     for (const lote of lotes) {
-      const [registros, gastos, ingresos, aplicaciones] = await Promise.all([
+      const [registros, gastos, ingresos, aplicaciones, pesajes] = await Promise.all([
         db.registros.where('loteId').equals(lote.id).toArray(),
         db.gastos.where('loteId').equals(lote.id).toArray(),
         db.ingresos.where('loteId').equals(lote.id).toArray(),
         db.aplicaciones.where('loteId').equals(lote.id).toArray(),
+        db.pesajes.where('loteId').equals(lote.id).toArray(),
       ])
       registros.sort((a, b) => a.fecha.localeCompare(b.fecha))
       aplicaciones.sort((a, b) => a.fecha.localeCompare(b.fecha))
-      const metrics = computeMetrics(lote, registros, gastos, ingresos)
+      const metrics = computeMetrics(lote, registros, gastos, ingresos, {
+        pesajes,
+        perfil: lote.compartido ? undefined : perfil,
+      })
       const modo = modoVenta(settings)
       const precio =
         lote.estado === 'activo'
