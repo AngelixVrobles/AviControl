@@ -210,7 +210,7 @@ export function CierreSheet({
   const ganancia = ingresoTotal - costosAlCerrar
   // Cómo salió todo el ciclo, con las ventas de antes: el costo de todo el
   // ciclo entre las libras de esta venta sola daba RD$85 la libra donde eran 35.
-  const todas = librasVendidas(ventasCuadradas, metrics.pesoEstimadoLb)
+  const todas = librasVendidas(ventasCuadradas, metrics.pesoAlVenderLb ?? metrics.pesoEstimadoLb)
   const avesDelCiclo = ventasCuadradas.reduce((a, v) => a + v.cantidad, 0)
   const real: RealCiclo = {
     diaVenta: dia,

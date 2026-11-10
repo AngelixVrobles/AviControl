@@ -202,7 +202,7 @@ export function LoteDetail() {
   // arreglarlo; sin precio del ciclo, en pie al del mercado.
   const valorEnPie = valorHoy(
     metrics.avesVivas,
-    metrics.pesoEstimadoLb,
+    metrics.pesoAlVenderLb ?? metrics.pesoEstimadoLb,
     lote.precioVentaLb,
     settings.precioMercadoLb,
     modo,

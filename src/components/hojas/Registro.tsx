@@ -605,7 +605,7 @@ function Stepper({ value, onChange, etiqueta }: { value: number; onChange: (v: n
           onChange(limpio === '' ? 0 : Number(limpio))
         }}
         onBlur={() => setTexto(null)}
-        className="h-14 w-full min-w-0 flex-1 rounded-2xl border border-borde bg-paper-raised text-center font-display text-2xl font-semibold tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+        className="h-14 w-full min-w-0 flex-1 rounded-2xl border border-borde bg-paper-raised text-center font-display text-2xl font-semibold tnum outline-none transition focus:border-forest-600 focus:ring-2 focus:ring-forest-200"
       />
       <button
         type="button"

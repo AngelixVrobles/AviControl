@@ -341,7 +341,7 @@ function FilaEquipo({ item, settings }: { item: ItemEquipo; settings: Settings }
                 avesPorEquipo: { ...settings.avesPorEquipo, [tipo]: v > 0 && v !== porDefecto ? v : undefined },
               })
             }}
-            className="h-11 w-14 rounded-lg border border-borde bg-paper-raised px-1 text-center text-sm font-semibold text-ink tnum outline-none focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+            className="h-11 w-14 rounded-lg border border-borde bg-paper-raised px-1 text-center text-sm font-semibold text-ink tnum outline-none focus:border-forest-600 focus:ring-2 focus:ring-forest-200"
           />
           <span>aves · {item.regla}</span>
         </div>
@@ -447,7 +447,7 @@ export function MedidasGalpon({ settings, galpon }: { settings: Settings; galpon
                 ),
               })
             }}
-            className="h-12 w-full rounded-xl border border-borde bg-paper-raised px-4 text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+            className="h-12 w-full rounded-xl border border-borde bg-paper-raised px-4 text-base font-semibold text-ink tnum outline-none transition focus:border-forest-600 focus:ring-2 focus:ring-forest-200"
           />
         </label>
       ))}

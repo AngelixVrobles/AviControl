@@ -256,7 +256,15 @@ function TotalesEnCurso({ lista }: { lista: LoteConMetrics[] }) {
   const invertido = lista.reduce((a, r) => a + r.metrics.costos, 0)
   const vendido = lista.reduce((a, r) => a + r.metrics.ingresos, 0)
   const valorEnPie = lista.reduce(
-    (a, r) => a + valorHoy(r.metrics.avesVivas, r.metrics.pesoEstimadoLb, r.lote.precioVentaLb, precioMercadoLb, modo),
+    (a, r) =>
+      a +
+      valorHoy(
+        r.metrics.avesVivas,
+        r.metrics.pesoAlVenderLb ?? r.metrics.pesoEstimadoLb,
+        r.lote.precioVentaLb,
+        precioMercadoLb,
+        modo,
+      ),
     0,
   )
   const minimo = precioMinimoConjunto(lista.filter((r) => r.precio).map((r) => r.precio!))

@@ -67,21 +67,28 @@ export interface VentasAUnPrecio {
   monto: number
 }
 
+/** Cómo se cobró una venta de aves y a qué precio; sin dinero o sin con qué sacar el precio, nada. */
+export function formaYPrecio(i: Ingreso): { forma: FormaDeCobro; precio: number } | undefined {
+  if (i.tipo !== 'aves' || !(i.monto > 0)) return undefined
+  const pesada = (i.pesoLb ?? 0) > 0
+  const forma: FormaDeCobro = pesada ? (i.arreglado ? 'arreglado' : 'pie') : 'unidad'
+  const crudo = pesada ? precioDe(i) : i.cantidad > 0 ? i.monto / i.cantidad : undefined
+  if (crudo == null) return undefined
+  // Por libra, a centavos; por pollo, a pesos: 300 y 300.4 son el mismo precio.
+  return { forma, precio: forma === 'unidad' ? Math.round(crudo) : Math.round(crudo * 100) / 100 }
+}
+
 export function ventasPorPrecio(ingresos: Ingreso[]): VentasAUnPrecio[] {
   const grupos = new Map<string, VentasAUnPrecio>()
   for (const i of ingresos) {
-    if (i.tipo !== 'aves' || !(i.monto > 0)) continue
-    const pesada = (i.pesoLb ?? 0) > 0
-    const forma: FormaDeCobro = pesada ? (i.arreglado ? 'arreglado' : 'pie') : 'unidad'
-    const crudo = pesada ? precioDe(i) : i.cantidad > 0 ? i.monto / i.cantidad : undefined
-    if (crudo == null) continue
-    // Por libra, a centavos; por pollo, a pesos: 300 y 300.4 son el mismo precio.
-    const precio = forma === 'unidad' ? Math.round(crudo) : Math.round(crudo * 100) / 100
+    const fp = formaYPrecio(i)
+    if (!fp) continue
+    const { forma, precio } = fp
     const clave = `${forma}|${precio}`
     const g = grupos.get(clave) ?? { forma, precio, ventas: 0, aves: 0, lb: 0, monto: 0 }
     g.ventas++
     g.aves += Math.max(0, i.cantidad)
-    g.lb += pesada ? i.pesoLb! : 0
+    g.lb += forma === 'unidad' ? 0 : i.pesoLb!
     g.monto += i.monto
     grupos.set(clave, g)
   }

@@ -338,7 +338,15 @@ function BloqueFinanciero({
   // lleva puesto, cuánto vale hoy lo que está en el galpón y lo que quedaría
   // al vender a tu precio, con lo que falta por pagar.
   const valorEnPie = activos.reduce(
-    (a, r) => a + valorHoy(r.metrics.avesVivas, r.metrics.pesoEstimadoLb, r.lote.precioVentaLb, precioMercado, modo),
+    (a, r) =>
+      a +
+      valorHoy(
+        r.metrics.avesVivas,
+        r.metrics.pesoAlVenderLb ?? r.metrics.pesoEstimadoLb,
+        r.lote.precioVentaLb,
+        precioMercado,
+        modo,
+      ),
     0,
   )
   const estimadas = activos.map((r) => r.precio?.actual?.ganancia)

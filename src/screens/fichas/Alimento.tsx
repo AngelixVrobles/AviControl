@@ -290,7 +290,7 @@ export function FichaAlimento({
             inputMode="decimal"
             defaultValue={lote.precioQuintal || ''}
             onBlur={(e) => db.lotes.update(lote.id, { precioQuintal: Number(e.target.value) || undefined })}
-            className="h-11 w-28 rounded-xl border border-borde bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+            className="h-11 w-28 rounded-xl border border-borde bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-600 focus:ring-2 focus:ring-forest-200"
           />
         </label>
       )}

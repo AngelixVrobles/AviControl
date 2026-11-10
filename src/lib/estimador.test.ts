@@ -21,6 +21,11 @@ const pesado = (dia: number, pesoPromedio: number) => registro(dia, { fecha: enD
 
 // La pollada que cerró: vendió a los 42 días, a 5.49 lb, el 76 % del Cobb.
 const anterior: CicloAprendido = { factor: 5.49 / pesoEstandarLb(42), dia: 42, aves: 902, fechaCierre: '2026-08-15' }
+// La misma, con 40 aves pesadas tres días antes de vender que daban `deMas` de lo que pagó el pollero.
+const conPesaje = (deMas: number): CicloAprendido => ({
+  ...anterior,
+  sesgo: { valor: Math.log(deMas), varianza: 0.1 ** 2 / 40 + 0.03 ** 2 + 0.0003 * 3 + 0.02 ** 2 },
+})
 
 describe('lo que aprende de las polladas cerradas', () => {
   it('a qué parte del Cobb vendió, por lo que pesaron las ventas', () => {
@@ -44,6 +49,50 @@ describe('lo que aprende de las polladas cerradas', () => {
   })
 })
 
+describe('lo que se aparta la báscula de la granja de la del pollero', () => {
+  const cerrado = lote({ fechaInicio: inicio, estado: 'cerrado', fechaCierre: enDia(42) })
+  const venta = ingreso({ cantidad: 902, pesoLb: 4949, monto: 195000, fecha: enDia(42) })
+  // 40 aves pesadas al día 39, que daban 8 % más de lo que pagó el pollero.
+  const pesoDe39 = (4949 / 902 / pesoEstandarLb(42)) * pesoEstandarLb(39) * 1.08
+  const pesos = Array.from({ length: 40 }, (_, k) => pesoDe39 * (1 + 0.17 * ((k + 0.5) / 40 - 0.5)))
+  const pesaje = (dia: number) => ({ id: 1, loteId: 1, fecha: enDia(dia), pesos, creado: 0 })
+
+  it('se aprende del pesaje de poco antes de vender', () => {
+    const c = cicloAprendido(cerrado, [venta], [pesado(39, pesoDe39)], [pesaje(39)])!
+    expect(c.sesgo!.valor).toBeCloseTo(Math.log(1.08), 6)
+    // Uno de tres semanas antes no dice nada de la báscula: el lote cambió.
+    expect(cicloAprendido(cerrado, [venta], [pesado(21, pesoDe39)], [pesaje(21)])!.sesgo).toBeUndefined()
+    // Ni uno que no puede ser.
+    expect(cicloAprendido(cerrado, [venta], [pesado(39, pesoDe39 * 2)])!.sesgo).toBeUndefined()
+  })
+
+  it('con una sola pollada no se le cree todo, y sin ninguna se supone cero', () => {
+    const una = perfilDeGranja([conPesaje(1.08)])!
+    expect(una.sesgo).toBeGreaterThan(0.02)
+    expect(una.sesgo).toBeLessThan(Math.log(1.08))
+    expect(una.sesgoSd).toBeLessThan(0.05)
+    expect(una.ciclosSesgo).toBe(1)
+    const dos = perfilDeGranja([conPesaje(1.08), { ...conPesaje(1.08), fechaCierre: '2026-05-01' }])!
+    expect(dos.sesgo).toBeGreaterThan(una.sesgo)
+    const sin = perfilDeGranja([anterior])!
+    expect(sin.sesgo).toBe(0)
+    expect(sin.sesgoSd).toBeCloseTo(0.05, 6)
+  })
+
+  it('lo que se cobra es lo de la báscula del pollero, y la de la granja sigue al pesaje', () => {
+    const w = pesoEstandarLb(39) * 0.85
+    const registros = [pesado(39, w)]
+    const sinSaber = estimarPeso(l, registros, [pesaje(39)], perfilDeGranja([anterior]))!
+    const sabiendo = estimarPeso(l, registros, [pesaje(39)], perfilDeGranja([conPesaje(1.08)]))!
+    expect(sabiendo.ventaEn(42)).toBeLessThan(sinSaber.ventaEn(42))
+    expect(sabiendo.ventaEn(42)).toBeLessThan(sabiendo.pesoEn(42))
+    expect(Math.abs(sabiendo.pesoEn(39) - w) / w).toBeLessThan(0.02)
+    // Sin polladas cerradas no hay con qué comparar: se cobra lo que pesa.
+    const sinHistoria = estimarPeso(l, registros, [pesaje(39)])!
+    expect(sinHistoria.ventaEn(42)).toBe(sinHistoria.pesoEn(42))
+  })
+})
+
 describe('el peso que van a tener', () => {
   // A los 28 días pesaron 11 % arriba del Cobb, en unas 10 aves.
   const registros = [pesado(28, pesoEstandarLb(28) * 1.11)]
@@ -59,11 +108,11 @@ describe('el peso que van a tener', () => {
   it('con lo que logra la granja, no estira el pesaje dos semanas: se acerca a lo de verdad', () => {
     const e = estimarPeso(l, registros, [], perfilDeGranja([anterior]))!
     expect(e.conHistoria).toBe(true)
-    const peso = e.pesoEn(42)
+    const peso = e.ventaEn(42)
     // Antes decía 7.76 lb; se vendieron a 5.49.
     expect(peso).toBeLessThan(6.5)
     expect(peso).toBeGreaterThan(5.5)
-    const [bajo, alto] = e.rangoEn(42)
+    const [bajo, alto] = e.rangoVentaEn(42)
     expect(bajo).toBeLessThanOrEqual(5.6)
     expect(alto).toBeGreaterThan(peso)
   })
@@ -91,8 +140,11 @@ describe('el peso que van a tener', () => {
     const e = estimarPeso(l, registros, [], perfilDeGranja([anterior]))!
     const ahora = margenRelativo(e, 42)
     const pesando43 = e.margenSiPesa(43, 39, 42)
-    expect(pesando43).toBeLessThan(ahora * 0.65)
+    expect(pesando43).toBeLessThan(ahora * 0.75)
     expect(e.margenSiPesa(10, 39, 42)).toBeGreaterThan(pesando43)
+    // Y más cuando ya sabe lo que se aparta la báscula de la granja.
+    const conBascula = estimarPeso(l, registros, [], perfilDeGranja([conPesaje(1.08)]))!
+    expect(conBascula.margenSiPesa(43, 39, 42)).toBeLessThan(pesando43)
   })
 
   it('los pollos no bajan de peso después del último pesaje', () => {

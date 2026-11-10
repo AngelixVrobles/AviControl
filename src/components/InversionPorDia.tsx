@@ -89,7 +89,7 @@ export function InversionPorDia({
               const v = Math.round(Number(e.target.value))
               if (e.target.value !== '' && v >= 0 && v <= DIA_MAX) setElegido(v)
             }}
-            className="h-8 w-14 rounded-full bg-paper-sunken text-center text-sm font-semibold text-ink tnum outline-none focus:ring-2 focus:ring-forest-100"
+            className="h-8 w-14 rounded-full bg-paper-sunken text-center text-sm font-semibold text-ink tnum outline-none focus:ring-2 focus:ring-forest-200"
           />
         </label>
       </div>

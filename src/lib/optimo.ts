@@ -7,7 +7,8 @@ import { alimentoPorTipo, precioDelDiaLb } from './alimentos'
 import { proyectarVenta } from './proyeccion'
 import { pagoEmpleados, totalPorVenir } from './porPagar'
 import { EN_PIE, type ModoVenta } from './venta'
-import { alimentoDiaEstandarLb, mortalidadEsperadaPct, pesoEstandarLb } from './standards'
+import { alimentoDiaEstandarLb, pesoEstandarLb } from './standards'
+import { bajasQueFaltan } from './ritmoBajas'
 
 export interface PuntoVenta {
   dia: number
@@ -66,6 +67,8 @@ export function analizarPuntoOptimo(
   // vale lo mismo—, pero la ganancia del día de venta queda igual que la de
   // «A cómo vender» en vez de cobrar dos veces esos sacos.
   const p = proyectarVenta(lote, registros, gastos, m, objetivoLb, modo)
+  // Lo que deja cada libra, con lo que la granja suele vender aparte a mejor precio.
+  const precioEfectivo = precioVentaLb * (p?.factorPrecio ?? 1)
   const usadoDelAlmacenLb = p ? Math.min(p.existenciaLb, p.alimentoRestanteLb) : 0
   const porVenir = totalPorVenir(lote)
   // Cada día se paga el alimento que toca ese día —casi siempre engorde—, no
@@ -81,10 +84,8 @@ export function analizarPuntoOptimo(
   // toca es vender. Antes el recorrido quedaba vacío y la pestaña se caía.
   const hasta = Math.max(desde, Math.min(56, desde + HORIZONTE_DIAS))
   for (let dia = desde; dia <= hasta; dia++) {
-    const pesoLb = m.estimador?.pesoEn(dia) ?? pesoEstandarLb(dia) * m.factorCurva
-    const bajas = Math.round(
-      (m.avesVivas * Math.max(0, mortalidadEsperadaPct(dia) - mortalidadEsperadaPct(desde))) / 100,
-    )
+    const pesoLb = m.estimador?.ventaEn(dia) ?? pesoEstandarLb(dia) * m.factorCurva
+    const bajas = bajasQueFaltan(m.avesVivas, m.ritmoBajas, dia - desde)
     const aves = Math.max(0, m.avesVivas - bajas)
     const avesPromedio = (m.avesVivas + aves) / 2
     if (dia > desde) costoCurva += alimentoDiaEstandarLb(dia) * precioDia(dia)
@@ -99,7 +100,7 @@ export function analizarPuntoOptimo(
       aves * modo.costoAve
     const lbEnPie = aves * pesoLb
     const lbVenta = lbEnPie * modo.rinde
-    const ganancia = m.ingresos + lbVenta * precioVentaLb - costo
+    const ganancia = m.ingresos + lbVenta * precioEfectivo - costo
 
     const dLb = previo ? lbVenta - previo.lbVenta : 0
     puntos.push({
@@ -119,7 +120,7 @@ export function analizarPuntoOptimo(
   if (!puntos.length) return null
   const hoy = puntos[0]
   const optimo = puntos.reduce((mejor, p) => (p.ganancia > mejor.ganancia ? p : mejor), hoy)
-  const cruce = puntos.find((p) => p.costoLbMarginal > precioVentaLb)
+  const cruce = puntos.find((p) => p.costoLbMarginal > precioEfectivo)
 
   // El óptimo puro puede caer en un pollo de 8 lb que ningún pollero paga a
   // precio de mercado, así que también se devuelve el mejor día sin pasarse del
