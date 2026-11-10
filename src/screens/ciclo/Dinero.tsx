@@ -206,6 +206,9 @@ export function PrecioMinimo({
     );
 
   const lbPorAve = a.lbVenta / Math.max(1, a.aves);
+  // Las libras como las paga la venta grande: lo que se vende aparte deja más,
+  // y el desglose suma lo mismo que el precio mínimo.
+  const lbCobro = a.lbVenta * a.factorPrecio;
   const arreglada = a.arreglado ? " arreglada" : "";
   // Con ventas hechas, el precio mínimo ya descuenta lo cobrado: el desglose
   // por libra también, si no sumaba RD$93 bajo un mínimo de RD$16.
@@ -224,6 +227,8 @@ export function PrecioMinimo({
               : p.listo
                 ? ", vendiendo ya."
                 : `, vendiendo el ${fecha(p.fechaEstimada)} (día ${p.diaVenta}). ${notaAlimento(p)}`}
+            {p?.aparte &&
+              ` Cuenta que unas ${num(p.aparte.aves)} aves se venden aparte, como en tus polladas cerradas, y dejan ${pct(Math.abs(p.aparte.prima) * 100, 0)} ${p.aparte.prima >= 0 ? "más" : "menos"} que en la venta grande: los precios de aquí son los de la venta grande.`}
           </>
         }
         accion={
@@ -240,7 +245,7 @@ export function PrecioMinimo({
                   precioVentaLb: Math.max(0, Number(e.target.value) || 0) || undefined,
                 })
               }
-              className="h-11 w-20 rounded-xl border border-borde bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+              className="h-11 w-20 rounded-xl border border-borde bg-paper-raised px-2 text-center text-base font-semibold text-ink tnum outline-none transition focus:border-forest-600 focus:ring-2 focus:ring-forest-200"
             />
             /lb
           </label>
@@ -271,10 +276,10 @@ export function PrecioMinimo({
           </div>
         )}
         <div className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink-faint">
-          De cada libra{arreglada} que vendas, {porLb((a.costoAlimento * neto) / a.lbVenta)} son
+          De cada libra{arreglada} que vendas, {porLb((a.costoAlimento * neto) / lbCobro)} son
           alimento ({pct(a.alimentoPctDelCosto, 0)} del costo),{" "}
-          {porLb((a.costoAves * neto) / a.lbVenta)} el pollito y{" "}
-          {porLb((a.costoOtros * neto) / a.lbVenta)} lo demás
+          {porLb((a.costoAves * neto) / lbCobro)} el pollito y{" "}
+          {porLb((a.costoOtros * neto) / lbCobro)} lo demás
           {metrics.ingresos > 0 ? ", ya descontado lo que vendiste" : ""}. Cada {money(1)} de más por
           libra son{" "}
           <span className="font-semibold text-ink-soft">
@@ -326,7 +331,7 @@ export function PrecioMinimo({
           Al vender te sobrarían {num(p.sobranteLb / LB_POR_QUINTAL, 1)} qq (
           {money(p.sobranteValor ?? p.sobranteLb * precioAlim)}). Están en el precio mínimo porque
           ya los pagaste; si los usas en el próximo ciclo, el mínimo de este
-          baja a {porLb(Math.max(0, a.costoNeto - (p.sobranteValor ?? p.sobranteLb * precioAlim)) / a.lbVenta)}.
+          baja a {porLb(Math.max(0, a.costoNeto - (p.sobranteValor ?? p.sobranteLb * precioAlim)) / lbCobro)}.
         </p>
       )}
       {a.actual && (

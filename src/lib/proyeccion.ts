@@ -6,11 +6,12 @@ import { precioAlimentoLb } from './precios'
 import { alimentoFuturo, alimentoPorTipo } from './alimentos'
 import { pagoEmpleados, totalPorVenir } from './porPagar'
 import { EN_PIE, type ModoVenta } from './venta'
+import { bajasQueFaltan } from './ritmoBajas'
+import { mezclaPorVender, type MezclaPorVender } from './mezcla'
 import {
   LB_POR_QUINTAL,
   alimentoAcumEstandarLb,
   alimentoDiaEstandarLb,
-  mortalidadEsperadaPct,
   pesoEstandarLb,
   type FaseId,
 } from './standards'
@@ -33,6 +34,17 @@ export interface Proyeccion {
   /** Lo que valen, a lo que se pagaron, los sacos que sobrarían al vender. */
   sobranteValor?: number
   avesAlVender: number
+  /** Las que se espera que se mueran de aquí a la venta, al ritmo del lote y de la granja. */
+  bajasEsperadas: number
+  /** Las que la granja suele vender aparte, por unidad o arregladas, y cuánto más dejan. */
+  aparte?: MezclaPorVender
+  /**
+   * Cuánto más deja lo que falta por vender que todo al precio del ciclo, por
+   * lo que se vende aparte: 1 si no se vende nada aparte.
+   */
+  factorPrecio: number
+  /** Lo que se espera cobrar por lo que falta, si se sabe el precio. */
+  ingresoPorVender?: number
   pesoVentaLb: number
   lbEnPie: number
   // Las libras que se cobran: las mismas en pie, o las arregladas si el pollo
@@ -83,14 +95,15 @@ export function proyectarVenta(
   const diaUltimo = diasEntre(lote.fechaInicio, ultimo.fecha)
   // El peso de hoy, no el del último pesaje: pesadas a 5.4 lb hace cuatro días,
   // hoy van por 6.3. Antes decía «vender el 14-oct», que ya pasó, y ponía el
-  // precio con un peso que ya no tienen.
-  const pesoActual = m.pesoEstimadoLb ?? ultimo.pesoPromedio!
+  // precio con un peso que ya no tienen. Y el que se cobra, el de la báscula
+  // del pollero: la de la granja suele dar de más.
+  const pesoActual = m.pesoAlVenderLb ?? m.pesoEstimadoLb ?? ultimo.pesoPromedio!
   // Con un día de venta fijo se vende ese día, al peso que lleven; si no, cuando
   // lleguen al peso de venta.
   const fijo = m.diaVentaFijo
   const listo = fijo != null ? m.dias >= fijo : pesoActual >= objetivoLb
 
-  const pesoEn = (d: number) => m.estimador?.pesoEn(d) ?? pesoEstandarLb(d) * m.factorCurva
+  const pesoEn = (d: number) => m.estimador?.ventaEn(d) ?? pesoEstandarLb(d) * m.factorCurva
   const diaVenta = listo ? m.dias : (fijo ?? diaParaPesoDe(m, objetivoLb))
   if (!listo && fijo == null && pesoEn(diaVenta) < objetivoLb) return null
 
@@ -98,13 +111,9 @@ export function proyectarVenta(
   const diasRestantes = diasEntre(hoyISO(), fechaEstimada)
 
   // La mortalidad que falta, sobre las aves que quedan: con 100 aves después
-  // de una venta grande, contarla sobre las 1,000 del inicio mataba 18.
-  const bajasEsperadas = listo
-    ? 0
-    : Math.round(
-        (m.avesVivas * Math.max(0, mortalidadEsperadaPct(diaVenta) - mortalidadEsperadaPct(m.dias))) /
-          100,
-      )
+  // de una venta grande, contarla sobre las 1,000 del inicio mataba 18. Al
+  // ritmo de este lote y de la granja, no al de cualquiera.
+  const bajasEsperadas = listo ? 0 : bajasQueFaltan(m.avesVivas, m.ritmoBajas, diaVenta - m.dias)
   const avesAlVender = Math.max(0, m.avesVivas - bajasEsperadas)
 
   // El alimento que falta sale de la curva de consumo (que se dispara al final
@@ -186,8 +195,15 @@ export function proyectarVenta(
   const costoRestante = faltaAlimento + faltaEmpleados + faltaPorVenir + faltaArreglo
   const costoProyectado = m.costos + costoRestante
 
+  // Lo que falta se cobra como vende la granja: casi todo al precio del ciclo,
+  // y lo que suele vender aparte, a lo que lo vende.
   const precio = lote.precioVentaLb
-  const ingresoProyectado = precio ? m.ingresos + lbVenta * precio : undefined
+  const ventaAparte = precio
+    ? mezclaPorVender(m.perfil?.mezcla, m.vendidas, m.vendidasAparte, avesAlVender)
+    : undefined
+  const factorPrecio = ventaAparte?.factor ?? 1
+  const ingresoPorVender = precio ? lbVenta * precio * factorPrecio : undefined
+  const ingresoProyectado = ingresoPorVender != null ? m.ingresos + ingresoPorVender : undefined
   const gananciaProyectada = ingresoProyectado != null ? ingresoProyectado - costoProyectado : undefined
   const margenProyectadoPct =
     ingresoProyectado && ingresoProyectado > 0
@@ -201,10 +217,10 @@ export function proyectarVenta(
   let diaVentaRango: [number, number] | undefined
   if (m.estimador) {
     if (listo || fijo != null) {
-      const [bajo, alto] = m.estimador.rangoEn(listo ? m.dias : diaVenta)
+      const [bajo, alto] = m.estimador.rangoVentaEn(listo ? m.dias : diaVenta)
       pesoVentaRango = [Math.min(bajo, pesoVentaLb), Math.max(alto, pesoVentaLb)]
       if (gananciaProyectada != null && precio) {
-        const porLibra = avesAlVender * modo.rinde * precio
+        const porLibra = avesAlVender * modo.rinde * precio * factorPrecio
         gananciaRango = [
           gananciaProyectada - (pesoVentaLb - pesoVentaRango[0]) * porLibra,
           gananciaProyectada + (pesoVentaRango[1] - pesoVentaLb) * porLibra,
@@ -216,8 +232,8 @@ export function proyectarVenta(
         return 84
       }
       diaVentaRango = [
-        primero((d) => m.estimador!.rangoEn(d)[1]),
-        primero((d) => m.estimador!.rangoEn(d)[0]),
+        primero((d) => m.estimador!.rangoVentaEn(d)[1]),
+        primero((d) => m.estimador!.rangoVentaEn(d)[0]),
       ]
     }
   }
@@ -236,6 +252,10 @@ export function proyectarVenta(
     sobranteLb,
     sobranteValor: sobranteLb > 0 ? futuro.sobranteValor : undefined,
     avesAlVender,
+    bajasEsperadas,
+    ...(ventaAparte ? { aparte: ventaAparte } : {}),
+    factorPrecio,
+    ...(ingresoPorVender != null ? { ingresoPorVender } : {}),
     pesoVentaLb,
     lbEnPie,
     lbVenta,

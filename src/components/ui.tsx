@@ -125,7 +125,7 @@ export function Field({
 }
 
 const inputBase =
-  'w-full rounded-xl border border-borde bg-paper-raised px-4 py-3 text-ink outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100'
+  'w-full rounded-xl border border-borde bg-paper-raised px-4 py-3 text-ink outline-none transition focus:border-forest-600 focus:ring-2 focus:ring-forest-200'
 
 // ComponentProps y no InputHTMLAttributes: en React 19 el ref viaja como prop y
 // así llega al <input> de verdad, que es lo que hace falta para devolverle el foco.

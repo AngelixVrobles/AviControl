@@ -3,11 +3,12 @@
 // forma de enterarse. En Ajustes se puede volver a ver.
 
 export const NOVEDADES = {
-  version: '1.17',
+  version: '1.18',
   cosas: [
-    'Un ciclo cerrado se corrige completo, sin reabrirlo: en «Corregir el ciclo» también va la fecha de cierre —el que decía que duró 64 días queda con lo que duró—, y en Dinero se anotan el día, la venta o el gasto que faltaron.',
-    'Si en un ciclo cerrado las aves no dan —las que entraron contra las que murieron y se vendieron—, la app lo dice, y con «Cuadrar» las que faltan se reparten en las ventas según sus libras.',
-    'En Dinero, «A cada precio»: cuántos pollos se vendieron a cada precio —al camión por libra, a la gente por unidad o arreglado— y lo que dejó cada uno.',
+    'El peso al vender es el que paga el pollero: si en tus polladas cerradas pesaste en los 10 días antes de vender, la app aprende cuánto da de más tu báscula —las que se dejan agarrar, el ayuno antes de cargar— y lo descuenta. Las aves que salen del peso de una venta también cuadran mejor.',
+    'Las bajas que faltan hasta la venta van al ritmo de tu lote esta semana y de tus polladas cerradas con el pollo grande, no al 0.09 % por día de cualquier granja. En Estimado dice cuántas aves llegan a la venta.',
+    'La ganancia estimada cuenta lo que sueles vender aparte —por unidad o arreglado, a mejor precio—, como en tus polladas cerradas, y el precio mínimo del pollero baja con eso.',
+    'Los campos en que escribes, el precio elegido y la barra del pesaje se ven mejor al sol.',
   ],
 }
 

@@ -253,9 +253,11 @@ export function IngresoSheet({
   // de la granja.
   const rinde =
     editar?.arreglado?.rindePct ?? (rindeValido(settings.rindePct) ? settings.rindePct : RINDE_ARREGLADO_PCT)
-  // Lo que pesa cada pollo el día de la venta, por el último pesaje y la curva
-  // del lote: con eso salen las aves por el peso. Sin pesajes no se estima.
-  const pesoVivoAve = metrics.estimador?.pesoEn(diasEntre(lote.fechaInicio, fecha))
+  // Lo que pesa cada pollo el día de la venta en la báscula del pollero, por el
+  // último pesaje, la curva del lote y lo que se aparta la báscula de la granja:
+  // con eso salen las aves por el peso. Con el de la granja, que da de más,
+  // salían menos aves de las que se iban. Sin pesajes no se estima.
+  const pesoVivoAve = metrics.estimador?.ventaEn(diasEntre(lote.fechaInicio, fecha))
   const pesoAveVenta = pesoVivoAve != null && arreglado ? pesoVivoAve * (rinde / 100) : pesoVivoAve
   const resumenP = pesadaLeida ? resumenPesada(pesadaLeida) : undefined
   const porCajasP = resumenP?.aves

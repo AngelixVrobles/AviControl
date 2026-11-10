@@ -242,7 +242,7 @@ export function PesajeSheet({
                         raro
                           ? 'border-clay-line bg-clay-tint text-clay-text'
                           : i === pesos.length - 1
-                            ? 'border-forest-400 bg-forest-50'
+                            ? 'border-forest-600 bg-forest-50'
                             : 'border-line bg-paper-raised',
                       )}
                     >
@@ -292,7 +292,7 @@ export function PesajeSheet({
               <div
                 className={clsx(
                   'h-full rounded-full transition-all',
-                  faltan === 0 ? 'bg-forest-500' : 'bg-amber-400',
+                  faltan === 0 ? 'bg-forest-500' : 'bg-amber-500',
                 )}
                 style={{ width: `${Math.min(100, (muestra.n / Math.max(1, muestra.n + faltan)) * 100)}%` }}
               />

@@ -276,9 +276,99 @@ test('el estimado aprende de las polladas cerradas y dice su margen y cuántas a
   await page.goto(`/lotes/${id}?t=dinero`)
   const main = page.getByRole('main')
   await expect(main).toContainText('Peso al vender')
-  await expect(main).toContainText('6.0 lb')
+  await expect(main).toContainText('5.9 lb')
   await expect(main).toContainText('de tu pollada cerrada, que vendió al 76% del peso Cobb')
   await expect(main).toContainText(/Entre 5\.\d y 6\.\d lb, 8 de cada 10 veces/)
   await expect(main).toContainText(/Para afinarlo, pesa \d+ aves .*3 días antes de vender/)
   await expect(main).toContainText('Puede quedar entre')
+  // La pollada cerrada no se pesó cerca de la venta: no sabe de la báscula, y dice cómo aprenderlo.
+  await expect(main).toContainText('Si pesas en los 10 días antes de vender, al cerrar la app aprende')
+  // Las bajas que faltan van al ritmo de este lote, 1 por día, y no al de cualquier granja.
+  await expect(main).toContainText('Aves al vender')
+  await expect(main).toContainText(/Contando unas \d+ bajas más hasta la venta: .* por día, por lo que se le murió a este lote esta semana/)
+})
+
+// La pollada anterior le vendió 850 al pollero a 62 y 70 aparte, por unidad, a
+// 400 cada una. La que sigue cuenta que va a vender así, no todo a 62.
+test('la ganancia estimada cuenta lo que se vende aparte', async ({ page }) => {
+  const id = await sembrar(page, async ({ db, hoy, sumarDias }) => {
+    const i0 = sumarDias(hoy, -100)
+    const c0 = sumarDias(i0, 42)
+    const cerrada = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada de agosto',
+      fechaInicio: i0,
+      fechaCierre: c0,
+      cantidadInicial: 1000,
+      costoInicial: 42000,
+      estado: 'cerrado',
+      pesoObjetivoLb: 5.5,
+      creado: Date.now(),
+    })) as number
+    await db.ingresos.bulkAdd([
+      { loteId: cerrada, tipo: 'aves', cantidad: 850, pesoLb: 4675, precioLb: 62, monto: 289850, fecha: c0, creado: Date.now() },
+      { loteId: cerrada, tipo: 'aves', cantidad: 70, monto: 28000, fecha: sumarDias(c0, -2), creado: Date.now() },
+    ])
+    const inicio = sumarDias(hoy, -30)
+    const id = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada de octubre',
+      fechaInicio: inicio,
+      cantidadInicial: 1000,
+      costoInicial: 42000,
+      estado: 'activo',
+      pesoObjetivoLb: 5.5,
+      precioVentaLb: 62,
+      diaVenta: 42,
+      creado: Date.now(),
+    })) as number
+    await db.registros.add({ loteId: id, fecha: sumarDias(inicio, 28), mortalidad: 0, descarte: 0, alimentoLb: 300, pesoPromedio: 4.22, creado: Date.now() })
+    return id
+  })
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText(/unas \d+ aparte, como sueles venderlas/)
+  await expect(main).toContainText(/Cuenta que unas \d+ aves se venden aparte, como en tus polladas cerradas, y dejan \d+% más que en la venta grande/)
+})
+
+// La pollada anterior se pesó tres días antes de vender, y la báscula de la
+// granja dio un 8 % más de lo que pagó el pollero. La que sigue lo descuenta.
+test('aprende cuánto se aparta la báscula de la granja de la del pollero', async ({ page }) => {
+  const id = await sembrar(page, async ({ db, hoy, sumarDias }) => {
+    const i0 = sumarDias(hoy, -100)
+    const c0 = sumarDias(i0, 42)
+    const cerrada = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada de agosto',
+      fechaInicio: i0,
+      fechaCierre: c0,
+      cantidadInicial: 1000,
+      costoInicial: 42000,
+      estado: 'cerrado',
+      pesoObjetivoLb: 5.5,
+      creado: Date.now(),
+    })) as number
+    await db.ingresos.add({ loteId: cerrada, tipo: 'aves', cantidad: 902, pesoLb: 4949, monto: 194900, fecha: c0, creado: Date.now() })
+    // Al día 39 la báscula de la granja dio 5.34 lb: el 76 % del Cobb de ese día, más 8 %.
+    await db.registros.add({ loteId: cerrada, fecha: sumarDias(i0, 39), mortalidad: 0, descarte: 0, alimentoLb: 0, pesoPromedio: 5.34, creado: Date.now() })
+    const inicio = sumarDias(hoy, -30)
+    const id = (await db.lotes.add({
+      tipo: 'engorde',
+      nombre: 'Pollada de octubre',
+      fechaInicio: inicio,
+      cantidadInicial: 1000,
+      costoInicial: 42000,
+      estado: 'activo',
+      pesoObjetivoLb: 5.5,
+      precioVentaLb: 38,
+      diaVenta: 42,
+      creado: Date.now(),
+    })) as number
+    await db.registros.add({ loteId: id, fecha: sumarDias(inicio, 28), mortalidad: 0, descarte: 0, alimentoLb: 300, pesoPromedio: 4.22, creado: Date.now() })
+    return id
+  })
+  await page.goto(`/lotes/${id}?t=dinero`)
+  const main = page.getByRole('main')
+  await expect(main).toContainText(/Tu báscula da \d+% más que la del pollero, por tu pollada pesada antes de vender/)
+  await expect(main).toContainText('el peso al vender ya lo cuenta')
 })

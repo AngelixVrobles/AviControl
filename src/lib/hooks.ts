@@ -18,13 +18,19 @@ import { avesPorGalpon } from './reparto'
 import { cicloAprendido, perfilDeGranja, type CicloAprendido, type PerfilGranja } from './estimador'
 
 // Lo que la granja logra al vender, de sus polladas cerradas: el estimado del
-// peso de la que sigue se acerca a eso. Los ciclos que mandó un socio no son
-// de esta granja y no enseñan.
+// peso de la que sigue se acerca a eso. Y sus pesajes de poco antes de vender
+// contra lo que pagó el pollero dicen cuánto se aparta su báscula. Los ciclos
+// que mandó un socio no son de esta granja y no enseñan.
 async function leerPerfilGranja(): Promise<PerfilGranja | undefined> {
   const cerrados = (await db.lotes.where('estado').equals('cerrado').toArray()).filter((l) => !l.compartido)
   const ciclos: CicloAprendido[] = []
   for (const l of cerrados) {
-    const c = cicloAprendido(l, await db.ingresos.where('loteId').equals(l.id).toArray())
+    const [ingresos, registros, pesajes] = await Promise.all([
+      db.ingresos.where('loteId').equals(l.id).toArray(),
+      db.registros.where('loteId').equals(l.id).toArray(),
+      db.pesajes.where('loteId').equals(l.id).toArray(),
+    ])
+    const c = cicloAprendido(l, ingresos, registros, pesajes)
     if (c) ciclos.push(c)
   }
   return perfilDeGranja(ciclos)

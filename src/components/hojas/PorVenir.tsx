@@ -124,7 +124,7 @@ export function PorVenirSheet({
                   className={clsx(
                     'h-11 rounded-full border px-4 text-sm font-semibold transition',
                     concepto === c.concepto
-                      ? 'border-forest-400 bg-forest-50 text-forest-700'
+                      ? 'border-forest-600 bg-forest-50 text-forest-700'
                       : 'border-line bg-paper-raised text-ink-soft',
                   )}
                 >

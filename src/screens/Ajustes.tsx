@@ -746,7 +746,7 @@ function FilaNumero({
           // venta o el precio de mercado por debajo de cero.
           onBlur={(e) => onSave(Math.max(0, Number(e.target.value) || 0))}
           placeholder="—"
-          className="h-11 w-20 rounded-xl border border-borde bg-paper-raised px-2 text-right font-display text-base font-semibold text-ink tnum outline-none transition focus:border-forest-400 focus:ring-2 focus:ring-forest-100"
+          className="h-11 w-20 rounded-xl border border-borde bg-paper-raised px-2 text-right font-display text-base font-semibold text-ink tnum outline-none transition focus:border-forest-600 focus:ring-2 focus:ring-forest-200"
         />
         {unidad && <span className="text-sm text-ink-soft">{unidad}</span>}
       </div>

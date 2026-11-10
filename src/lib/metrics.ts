@@ -5,6 +5,8 @@ import { diasDesde, diasEntre, hoyISO, sumarDias } from './format'
 import { pendienteDe } from './cobros'
 import { diaVentaDe, pesoObjetivoDe } from './lote'
 import { KG_POR_LB, diaParaPeso, fcaEstandar } from './standards'
+import { ritmoDeBajas } from './ritmoBajas'
+import { vendidasAparte } from './mezcla'
 import { lbEnPieDe } from './venta'
 
 export interface LoteMetrics {
@@ -35,6 +37,11 @@ export interface LoteMetrics {
   fechaPeso?: string
   diasDesdePeso?: number
   pesoEstimadoLb?: number
+  /**
+   * Lo que pesaría hoy cada pollo en la báscula del pollero: el estimado menos
+   * lo que la báscula de la granja da de más. Es el que se cobra.
+   */
+  pesoAlVenderLb?: number
   /** Lo que pesó en pie cada ave vendida: libras de la báscula entre aves, de las ventas con peso. */
   pesoVentaLb?: number
   /** El peso con que se juzga el ciclo: el de venta si ya cerró, el estimado de hoy si sigue. */
@@ -60,6 +67,13 @@ export interface LoteMetrics {
   estimador?: EstimadorPeso
   /** Lo que la granja logra al vender, de sus polladas cerradas. */
   perfil?: PerfilGranja
+  /**
+   * Lo que se muere por día de cada ave viva, de aquí a la venta: lo de este
+   * lote estos días, lo de las polladas cerradas y el estándar.
+   */
+  ritmoBajas: number
+  /** Las aves vendidas en este ciclo que no fueron a su precio: por unidad, o a otro precio. */
+  vendidasAparte: number
 
   /** El día de venta: el que se fijó, o el día en que llegan al peso de venta. */
   diaObjetivo: number
@@ -184,6 +198,8 @@ export function computeMetrics(
   const diasDesdePeso = ultimoPeso ? diasEntre(ultimoPeso.fecha, fechaCorte) : undefined
   const pesoEnDia = (d: number) => estimador?.pesoEn(d)
   const pesoEstimadoLb = pesoEnDia(dias)
+  const pesoAlVenderLb = estimador?.ventaEn(dias)
+  const ritmoBajas = ritmoDeBajas(lote, registros, ingresos, dias, perfil?.bajasTarde)
 
   // Lo vendido por cabeza, sin pesar, pesaba lo que el lote ese día. Antes
   // contaba como cero libras: las aves salían del galpón pero su peso no
@@ -251,13 +267,14 @@ export function computeMetrics(
   if (diaVentaFijo != null && avesVivas > 0) {
     diaVentaEstimado = Math.max(dias, diaVentaFijo)
     fechaVentaEstimada = diaVentaFijo <= dias ? hoyISO() : sumarDias(lote.fechaInicio, diaVentaFijo)
-  } else if (pesoEstimadoLb != null && avesVivas > 0) {
-    if (pesoEstimadoLb >= pesoObjetivo) {
+  } else if (pesoAlVenderLb != null && avesVivas > 0) {
+    // El peso de venta es el que paga el pollero, no el de la báscula de la granja.
+    if (pesoAlVenderLb >= pesoObjetivo) {
       diaVentaEstimado = dias
       fechaVentaEstimada = hoyISO()
     } else {
       const d = diaParaPesoDe({ estimador, factorCurva }, pesoObjetivo)
-      if ((pesoEnDia(d) ?? 0) >= pesoObjetivo) {
+      if ((estimador?.ventaEn(d) ?? 0) >= pesoObjetivo) {
         diaVentaEstimado = d
         fechaVentaEstimada = sumarDias(lote.fechaInicio, d)
       }
@@ -270,6 +287,7 @@ export function computeMetrics(
     fechaPeso: ultimoPeso?.fecha,
     diasDesdePeso,
     pesoEstimadoLb,
+    pesoAlVenderLb,
     pesoVentaLb,
     pesoFinalLb,
     lbVendidas: pesoVendidoLb,
@@ -282,6 +300,8 @@ export function computeMetrics(
     factorCurva,
     estimador,
     perfil,
+    ritmoBajas,
+    vendidasAparte: vendidasAparte(ingresos, lote.precioVentaLb),
     diaObjetivo,
     diaVentaFijo,
     diaVentaEstimado,

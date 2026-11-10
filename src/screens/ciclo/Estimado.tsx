@@ -9,7 +9,7 @@ import type { Lote } from "../../db/schema";
 import type { LoteMetrics } from "../../lib/metrics";
 import type { Proyeccion } from "../../lib/proyeccion";
 import { fecha, money, num, pct, plural, sumarDias } from "../../lib/format";
-import { margenRelativo } from "../../lib/estimador";
+import { margenRelativo, type PerfilGranja } from "../../lib/estimador";
 import { tamanoMuestra } from "../../lib/muestreo";
 import { deQueTipo } from "../../lib/alimentos";
 import { categoriaLabel } from "../../lib/labels";
@@ -131,10 +131,12 @@ export function GananciaEstimada({
           label="Por vender"
           sub={
             p
-              ? `${num(p.avesAlVender)} aves · ${num(p.lbVenta)} ${libra}${precio ? ` a ${precioCorto(precio)}` : ""}`
+              ? `${num(p.avesAlVender)} aves · ${num(p.lbVenta)} ${libra}${precio ? ` a ${precioCorto(precio)}` : ""}${
+                  p.aparte ? `; unas ${num(p.aparte.aves)} aparte, como sueles venderlas` : ""
+                }`
               : "Falta un pesaje"
           }
-          valor={p && precio ? money(p.lbVenta * precio) : "—"}
+          valor={p?.ingresoPorVender != null ? money(p.ingresoPorVender) : "—"}
           onClick={onComoVendes}
         />
 
@@ -248,6 +250,25 @@ function Fila({
   );
 }
 
+// Lo que la app sabe de la báscula de la granja contra la del pollero: de lo
+// que se aparta sale el peso que se cobra. Mientras no lo sabe, dice cómo
+// aprenderlo.
+function basculaDe(perfil: PerfilGranja): string {
+  if (perfil.ciclosSesgo === 0)
+    return "Si pesas en los 10 días antes de vender, al cerrar la app aprende cuánto se aparta tu báscula de la del pollero.";
+  const deMas = Math.exp(perfil.sesgo) - 1;
+  const de =
+    perfil.ciclosSesgo === 1 ? "tu pollada pesada" : `tus ${num(perfil.ciclosSesgo)} polladas pesadas`;
+  if (Math.abs(deMas) < 0.01) return `Tu báscula da lo mismo que la del pollero, por ${de} antes de vender.`;
+  return `Tu báscula da ${pct(Math.abs(deMas) * 100, 0)} ${deMas > 0 ? "más" : "menos"} que la del pollero, por ${de} antes de vender: el peso al vender ya lo cuenta.`;
+}
+
+// Cuántas se mueren por día, al ritmo que se espera: «1.4», o «menos de 1».
+function porDia(m: LoteMetrics): string {
+  const n = m.avesVivas * m.ritmoBajas;
+  return n < 1 ? "menos de 1" : num(n, n < 10 ? 1 : 0);
+}
+
 // Qué tan cerca de la realidad está el estimado, de dónde sale y qué lo afina:
 // cuántas aves pesar, cuándo y cómo. El rango es el de 8 de cada 10 veces.
 function QueTanCerca({
@@ -300,7 +321,20 @@ function QueTanCerca({
                 : ` y de tus ${num(e.perfil.ciclos)} polladas cerradas, que venden`
             } al ${pct(e.perfil.factor * 100, 0)} del peso Cobb. Un pesaje viejo no se estira con la curva: el lote se va pareciendo a lo que logra tu granja.`
           : ". Cuando cierres una pollada con sus ventas pesadas, la app aprende lo que logra tu granja y el estimado se acerca más."}
+        {e.perfil ? ` ${basculaDe(e.perfil)}` : ""}
       </p>
+      {p.bajasEsperadas > 0 && (
+        <>
+          <div className="mt-3 flex items-baseline justify-between gap-3">
+            <div className="text-sm">Aves al vender</div>
+            <div className="text-right font-display text-base font-semibold tnum">{num(p.avesAlVender)}</div>
+          </div>
+          <p className="mt-0.5 text-xs leading-relaxed text-ink-faint tnum">
+            {`Contando unas ${num(p.bajasEsperadas)} ${plural(p.bajasEsperadas, "baja", "bajas")} más hasta la venta: ${porDia(m)} por día, por lo que se le murió a este lote esta semana`}
+            {m.perfil?.bajasTarde ? " y a tus polladas cerradas con el pollo grande." : " y lo de cualquier granja."}
+          </p>
+        </>
+      )}
       {vale && (
         <div className="mt-2 flex items-center gap-3 rounded-xl bg-forest-50 px-3.5 py-2.5">
           <p className="min-w-0 flex-1 text-xs leading-relaxed text-forest-700">

@@ -12,12 +12,12 @@ import { lbEnPieDe } from './venta'
 export function snapshotCierre(m: LoteMetrics, p: Proyeccion | null, diaVenta: number): CierreCiclo {
   return {
     diaVenta,
-    pesoProyectadoLb: p?.pesoVentaLb ?? m.pesoEstimadoLb,
+    pesoProyectadoLb: p?.pesoVentaLb ?? m.pesoAlVenderLb ?? m.pesoEstimadoLb,
     diaProyectado: p?.diaVenta ?? m.diaVentaEstimado,
     avesProyectadas: (p?.avesAlVender ?? m.avesVivas) + m.vendidas,
     lbProyectadas: p ? p.lbEnPie + Math.round(m.lbVendidas) : undefined,
     precioEquilibrioLb:
-      p && p.lbVenta > 0 ? Math.max(0, p.costoProyectado - m.ingresos) / p.lbVenta : undefined,
+      p && p.lbVenta > 0 ? Math.max(0, p.costoProyectado - m.ingresos) / (p.lbVenta * p.factorPrecio) : undefined,
     gananciaProyectada: p?.gananciaProyectada,
     arreglado: p?.arreglado || undefined,
   }
@@ -114,7 +114,7 @@ export function resultadoCiclo(
   if (!ventas.length) return null
 
   const avesVendidas = ventas.reduce((a, i) => a + i.cantidad, 0)
-  const lb = librasVendidas(ventas, m.pesoEstimadoLb)
+  const lb = librasVendidas(ventas, m.pesoAlVenderLb ?? m.pesoEstimadoLb)
   const ingreso = ventas.reduce((a, i) => a + i.monto, 0)
 
   const real: RealCiclo = {

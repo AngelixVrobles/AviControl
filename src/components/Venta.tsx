@@ -132,7 +132,7 @@ export function PreciosUsados({
           className={clsx(
             'h-11 min-w-[64px] rounded-full border px-3.5 text-sm font-semibold tnum transition',
             p === actual
-              ? 'border-forest-400 bg-forest-50 text-forest-700'
+              ? 'border-forest-600 bg-forest-50 text-forest-700'
               : 'border-line bg-paper-raised text-ink-soft',
           )}
         >

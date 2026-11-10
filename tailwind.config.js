@@ -40,6 +40,9 @@ export default {
         },
         amber: {
           400: '#E9A93C',
+          // Para lo que se tiene que ver sin ser texto —una barra, un borde que
+          // dice algo—: el 400 da 2 de contraste sobre el papel y no se ve al sol.
+          500: '#AD7316',
           text: '#8A5510',
           tint: '#FDF0D6',
           line: '#EBC77F',
