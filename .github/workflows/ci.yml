@@ -41,7 +41,8 @@ jobs:
   # Las pruebas de pantalla: recorren la app en el tamaño de un iPhone, como el
   # productor. Si fallan, el informe con lo que se vio queda en el resumen.
   pantallas:
-    runs-on: ubuntu-latest
+    # Fijo en 24.04: Playwright 1.56 no instala Chromium en ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
